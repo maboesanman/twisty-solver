@@ -1,7 +1,7 @@
 #![feature(portable_simd)]
-// #![feature(const_for)]
-// #![feature(const_mut_refs)]
+#![feature(core_intrinsics)]
 
 mod puzzle;
 mod scramble;
-mod three_solver;
+// mod three_solver;
+mod kociemba;

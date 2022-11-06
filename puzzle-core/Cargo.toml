@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 smallvec = "1.10.0"
+num_enum = "0.5.7"
+memoffset = "0.7"
