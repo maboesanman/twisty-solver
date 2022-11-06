@@ -2,7 +2,7 @@ use std::ops::Mul;
 
 use smallvec::Array;
 
-use crate::scramble::{Scramble, Conjugate, Rotation};
+use crate::scramble::{Conjugate, Rotation, Scramble};
 
 pub trait Puzzle {
     type CoreMove;
@@ -10,9 +10,7 @@ pub trait Puzzle {
 
     type State: Eq;
 
-    type Rotation: Rotation
-        + Conjugate<Self::CoreMove>
-        + Conjugate<Self::ExtMove>;
+    type Rotation: Rotation + Conjugate<Self::CoreMove> + Conjugate<Self::ExtMove>;
 
     fn get_solved_state() -> Self::State;
 }
@@ -28,11 +26,11 @@ pub trait Solvable: Puzzle {
         threads: usize,
     ) -> Scramble<Self> {
         Self::solve_into(
-            state, 
+            state,
             Self::get_solved_state(),
             move_target,
             time_target,
-            threads
+            threads,
         )
     }
 
@@ -65,26 +63,17 @@ pub trait RandomStateScrambleable: Solvable {
     ) -> Scramble<Self> {
         Self::solve_into(
             Self::get_solved_state(),
-            Self::get_random_state(), 
+            Self::get_random_state(),
             move_target,
             time_target,
-            threads
+            threads,
         )
     }
 }
 
 pub trait OptimallySolvable: Solvable {
-    fn solve_optimal(
-        state: Self::State,
-        move_target: usize,
-        threads: usize,
-    ) -> Scramble<Self> {
-        Self::solve_optimal_into(
-            state, 
-            Self::get_solved_state(),
-            move_target,
-            threads
-        )
+    fn solve_optimal(state: Self::State, move_target: usize, threads: usize) -> Scramble<Self> {
+        Self::solve_optimal_into(state, Self::get_solved_state(), move_target, threads)
     }
 
     fn solve_optimal_into(
@@ -96,13 +85,8 @@ pub trait OptimallySolvable: Solvable {
 }
 
 pub trait QuicklySolvable: Solvable {
-    fn solve_quick(
-        state: Self::State,
-    ) -> Scramble<Self>;
-    fn solve_quick_into(
-        from: Self::State,
-        to: Self::State,
-    ) -> Scramble<Self>;
+    fn solve_quick(state: Self::State) -> Scramble<Self>;
+    fn solve_quick_into(from: Self::State, to: Self::State) -> Scramble<Self>;
 }
 
 pub trait WCAPuzzle: Puzzle {

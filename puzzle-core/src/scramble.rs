@@ -13,9 +13,7 @@ pub trait Conjugate<M>: Invertable {
     fn conjugate(&self, m: &M) -> M;
 }
 
-pub trait Rotation: Sized + Identity + Eq + Invertable + Conjugate<Self> {
-
-}
+pub trait Rotation: Sized + Identity + Eq + Invertable + Conjugate<Self> {}
 
 pub struct Scramble<P: Puzzle + ?Sized> {
     // applied left to right
