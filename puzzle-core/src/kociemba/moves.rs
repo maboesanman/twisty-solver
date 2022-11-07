@@ -5,7 +5,7 @@ use std::{
 
 use super::cubie_repr::{
     corner_orient_offset, corner_perm_offset, edge_orient_offset, edge_perm_offset,
-    CubieRepr,
+    CubieRepr, CornerOrient, EdgeOrient,
 };
 
 #[repr(u8)]
@@ -49,8 +49,8 @@ enum Phase2Move {
 }
 
 const fn combined_index(
-    corner_index: &[usize; 8],
-    edge_index: &[usize; 12],
+    corner_index: &[u8; 8],
+    edge_index: &[u8; 12],
 ) -> [usize; size_of::<CubieRepr>()] {
     let mut buf = [0usize; size_of::<CubieRepr>()];
 
@@ -61,22 +61,22 @@ const fn combined_index(
 
     let mut i = 0;
     while i < 8 {
-        buf[i + corner_perm_offset] = corner_index[i] + corner_perm_offset;
+        buf[i + corner_perm_offset] = (corner_index[i] as usize) + corner_perm_offset;
         i += 1;
     }
     let mut i = 0;
     while i < 8 {
-        buf[i + corner_orient_offset] = corner_index[i] + corner_orient_offset;
+        buf[i + corner_orient_offset] = (corner_index[i] as usize) + corner_orient_offset;
         i += 1;
     }
     let mut i = 0;
     while i < 12 {
-        buf[i + edge_perm_offset] = edge_index[i] + edge_perm_offset;
+        buf[i + edge_perm_offset] = (edge_index[i] as usize) + edge_perm_offset;
         i += 1;
     }
     let mut i = 0;
     while i < 12 {
-        buf[i + edge_orient_offset] = edge_index[i] + edge_orient_offset;
+        buf[i + edge_orient_offset] = (edge_index[i] as usize) + edge_orient_offset;
         i += 1;
     }
 
@@ -143,12 +143,12 @@ const fn pad<T: Copy>(mask: &[T; 40], default: T) -> [T; 64] {
 // THIS IS THE MANUAL PERMUTATION DATA FOR THE GENERATIVE ELEMENTS OF THE GROUP
 
 // corner permutations
-const U1_CORNER_INDEX: [usize; 8] = [2, 0, 3, 1, 4, 5, 6, 7];
-const D1_CORNER_INDEX: [usize; 8] = [0, 1, 2, 3, 5, 7, 4, 6];
-const F1_CORNER_INDEX: [usize; 8] = [1, 5, 2, 3, 0, 4, 6, 7];
-const B1_CORNER_INDEX: [usize; 8] = [0, 1, 6, 2, 4, 5, 7, 3];
-const R1_CORNER_INDEX: [usize; 8] = [4, 1, 0, 3, 6, 5, 2, 7];
-const L1_CORNER_INDEX: [usize; 8] = [0, 3, 2, 7, 4, 1, 6, 5];
+const U1_CORNER_INDEX: [u8; 8] = [2, 0, 3, 1, 4, 5, 6, 7];
+const D1_CORNER_INDEX: [u8; 8] = [0, 1, 2, 3, 5, 7, 4, 6];
+const F1_CORNER_INDEX: [u8; 8] = [1, 5, 2, 3, 0, 4, 6, 7];
+const B1_CORNER_INDEX: [u8; 8] = [0, 1, 6, 2, 4, 5, 7, 3];
+const R1_CORNER_INDEX: [u8; 8] = [4, 1, 0, 3, 6, 5, 2, 7];
+const L1_CORNER_INDEX: [u8; 8] = [0, 3, 2, 7, 4, 1, 6, 5];
 
 // corner orientation corrections (added after permuting)
 const F_CORNER_ROT: [u8; 8] = [1, 2, 0, 0, 2, 1, 0, 0];
@@ -157,17 +157,32 @@ const R_CORNER_ROT: [u8; 8] = [2, 0, 1, 0, 1, 0, 2, 0];
 const L_CORNER_ROT: [u8; 8] = [0, 1, 0, 2, 0, 2, 0, 1];
 
 // edge permutations
-const U1_EDGE_INDEX: [usize; 12] = [8, 9, 2, 3, 4, 5, 6, 7, 1, 0, 10, 11];
-const D1_EDGE_INDEX: [usize; 12] = [0, 1, 11, 10, 4, 5, 6, 7, 8, 9, 2, 3];
-const F1_EDGE_INDEX: [usize; 12] = [5, 1, 4, 3, 0, 2, 6, 7, 8, 9, 10, 11];
-const B1_EDGE_INDEX: [usize; 12] = [0, 6, 2, 7, 4, 5, 3, 1, 8, 9, 10, 11];
-const R1_EDGE_INDEX: [usize; 12] = [0, 1, 2, 3, 10, 5, 8, 7, 4, 9, 6, 11];
-const L1_EDGE_INDEX: [usize; 12] = [0, 1, 2, 3, 4, 9, 6, 11, 8, 7, 10, 5];
+const U1_EDGE_INDEX: [u8; 12] = [8, 9, 2, 3, 4, 5, 6, 7, 1, 0, 10, 11];
+const D1_EDGE_INDEX: [u8; 12] = [0, 1, 11, 10, 4, 5, 6, 7, 8, 9, 2, 3];
+const F1_EDGE_INDEX: [u8; 12] = [5, 1, 4, 3, 0, 2, 6, 7, 8, 9, 10, 11];
+const B1_EDGE_INDEX: [u8; 12] = [0, 6, 2, 7, 4, 5, 3, 1, 8, 9, 10, 11];
+const R1_EDGE_INDEX: [u8; 12] = [0, 1, 2, 3, 10, 5, 8, 7, 4, 9, 6, 11];
+const L1_EDGE_INDEX: [u8; 12] = [0, 1, 2, 3, 4, 9, 6, 11, 8, 7, 10, 5];
 
 // edge orientation corrections (added after permuting)
 // note this is only 8. only the first 8 edges ever change orientation.
 const F_EDGE_FLIP: [u8; 8] = [1, 0, 1, 0, 1, 1, 0, 0];
 const B_EDGE_FLIP: [u8; 8] = [0, 1, 0, 1, 0, 0, 1, 1];
+
+const S_YZ_CORNER_INDEX: [u8; 8] = [0, 4, 1, 5, 2, 6, 3, 7];
+const S_Z2_CORNER_INDEX: [u8; 8] = [5, 4, 7, 6, 1, 0, 3, 2];
+const S_Y_CORNER_INDEX: [u8; 8]  = [2, 0, 3, 1, 6, 4, 7, 5];
+const S_W_CORNER_INDEX: [u8; 8] = [1, 0, 3, 2, 5, 4, 7, 6];
+
+const S_YZ_EDGE_INDEX: [u8; 12] = [4, 5, 6, 7, 8, 10, 9, 11, 0, 9, 1, 3];
+const S_Z2_EDGE_INDEX: [u8; 12] = [2, 3, 0, 1, 5, 4, 7, 6, 11, 10, 9, 8];
+const S_Y_EDGE_INDEX: [u8; 12]  = [8, 9, 10, 11, 6, 4, 7, 5, 1, 0, 3, 2];
+const S_W_EDGE_INDEX: [u8; 12] = [0, 1, 2, 3, 5, 4, 7, 6, 9, 8, 11, 10];
+
+const S_YZ_CORNER_ROT: [u8; 8] = [1, 2, 2, 1, 2, 1, 1, 2];
+
+const S_YZ_EDGE_FLIP: [u8; 12] = [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1];
+const S_Y_EDGE_FLIP: [u8; 12] = [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0];
 
 // THIS IS THE COMPUTED SIMD ARRAYS FOR THE GATHER INSTRUCTION FOR EACH MOVE
 
@@ -208,11 +223,78 @@ const R_ORIENT: [u8; 8] = R_CORNER_ROT;
 const L_ORIENT: [u8; 8] = L_CORNER_ROT;
 
 // THESE ARE ORIENTATION REMAINDER CORRECTIONS. ONLY NEEDED IF ORIENTATION CORRECTION APPLIED
+const FULL_REM: [u8; 20] = [3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
 const FB_REM: [u8; 16] = [3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2];
 const RL_REM: [u8; 8] = [3; 8];
 
 #[allow(dead_code)]
 impl CubieRepr {
+    fn get_index(&self) -> [usize; size_of::<CubieRepr>()] {
+        let corner_index = self.corner_perm.map(|x| x as u8);
+        let edge_index = self.edge_perm.map(|x| x as u8);
+
+        combined_index(&corner_index, &edge_index)
+    }
+
+    fn get_orient(&self) -> &[u8; 20] {
+        let o = corner_orient_offset();
+        let buf = self.into_ref();
+        (&buf[o..o + 20]).try_into().unwrap()
+    }
+
+    fn apply(&mut self, index: [usize; size_of::<CubieRepr>()], orient: &[u8]) {
+        let mut buf = core::mem::take(self).into_array();
+
+        let mut padded_buf: [u8; 64] = [0; 64];
+        padded_buf[..40].copy_from_slice(&buf);
+
+        let mut padded_idx: [usize; 64] = [0; 64];
+        padded_idx[..40].copy_from_slice(&index);
+
+        const PADDED_MASK: [bool; 64] = {
+            let mut mask = [false; 64];
+            let mut i = 0;
+            while i < 40 {
+                mask[i] = true;
+                i += 1;
+            }
+            mask
+        };
+
+        // this instruction does basically everything.
+        //
+        // first, the slice into the previous state of the cube
+        // is where things are being gathered from.
+        // the mask is a per-move mask which is false for everything that doesn't change
+        // under that move.
+        // the or argument is the previous buffer, because if you don't move you need to use that.
+        buf.copy_from_slice(&Simd::gather_select(
+            &padded_buf,
+            Mask::from_array(PADDED_MASK),
+            Simd::from_array(padded_idx),
+            Simd::from_array(padded_buf),
+        )[..40]);
+
+        const ORIENT_OFFSET: usize = corner_orient_offset();
+
+        let mut orient_buf = [0u8; 32];
+        orient_buf[..20].copy_from_slice(&buf[ORIENT_OFFSET..ORIENT_OFFSET + 20]);
+        let orient_buf = Simd::from_array(orient_buf);
+
+        let mut correction = [0u8; 32];
+        correction[..20].copy_from_slice(orient);
+        let correction = Simd::from_array(correction);
+
+        let mut modulo = [1u8; 32];
+        modulo[..20].copy_from_slice(&FULL_REM);
+        let modulo = Simd::from_array(modulo);
+
+        let orient_buf = (orient_buf + correction) % modulo;
+        buf[ORIENT_OFFSET..ORIENT_OFFSET + 20].copy_from_slice(&orient_buf[..20]);
+
+        *self = unsafe { Self::from_array_unchecked(buf) }
+    }
+
     fn phase_1_move(&mut self, m: Phase1Move) {
         enum Orient {
             Big([u8; 16]),
@@ -507,10 +589,10 @@ fn sexy_move() {
 }
 
 #[test]
-fn test_long_identity_stress() {
+fn hundred_thousand_moves() {
     let mut c = CubieRepr::default();
 
-    for i in 0..100000 {
+    for _ in 0..100 {
         c.phase_1_move(Phase1Move::F1);
         c.phase_1_move(Phase1Move::R1);
         c.phase_1_move(Phase1Move::F3);
@@ -543,8 +625,142 @@ fn test_long_identity_stress() {
         c.phase_1_move(Phase1Move::D2);
         c.phase_1_move(Phase1Move::F2);
         c.phase_1_move(Phase1Move::D1);
+        c.phase_1_move(Phase1Move::F1);
+        c.phase_1_move(Phase1Move::R1);
+        c.phase_1_move(Phase1Move::F3);
+        c.phase_1_move(Phase1Move::U1);
+        c.phase_1_move(Phase1Move::B2);
+        c.phase_1_move(Phase1Move::L3);
+        c.phase_1_move(Phase1Move::D3);
+        c.phase_1_move(Phase1Move::R2);
+        c.phase_1_move(Phase1Move::L2);
+        c.phase_1_move(Phase1Move::L3);
+        c.phase_1_move(Phase1Move::B2);
+        c.phase_1_move(Phase1Move::F3);
+        c.phase_1_move(Phase1Move::D1);
+        c.phase_1_move(Phase1Move::U2);
+        c.phase_1_move(Phase1Move::R1);
+        c.phase_1_move(Phase1Move::B1);
+        c.phase_1_move(Phase1Move::U3);
+        c.phase_1_move(Phase1Move::B3);
+        c.phase_1_move(Phase1Move::D1);
+        c.phase_1_move(Phase1Move::F3);
+        c.phase_1_move(Phase1Move::U1);
+        c.phase_1_move(Phase1Move::U1);
+        c.phase_1_move(Phase1Move::F3);
+        c.phase_1_move(Phase1Move::R1);
+        c.phase_1_move(Phase1Move::U1);
+        c.phase_1_move(Phase1Move::R3);
+        c.phase_1_move(Phase1Move::L2);
+        c.phase_1_move(Phase1Move::U1);
+        c.phase_1_move(Phase1Move::L2);
+        c.phase_1_move(Phase1Move::D3);
+        c.phase_1_move(Phase1Move::L2);
+        c.phase_1_move(Phase1Move::D2);
+        c.phase_1_move(Phase1Move::F2);
+        c.phase_1_move(Phase1Move::D1);
+        c.phase_1_move(Phase1Move::F1);
+        c.phase_1_move(Phase1Move::R1);
+        c.phase_1_move(Phase1Move::F3);
+        c.phase_1_move(Phase1Move::U1);
+        c.phase_1_move(Phase1Move::B2);
+        c.phase_1_move(Phase1Move::L3);
+        c.phase_1_move(Phase1Move::D3);
+        c.phase_1_move(Phase1Move::R2);
+        c.phase_1_move(Phase1Move::L1);
+        c.phase_1_move(Phase1Move::B2);
+        c.phase_1_move(Phase1Move::F2);
+        c.phase_1_move(Phase1Move::F1);
+        c.phase_1_move(Phase1Move::D1);
+        c.phase_1_move(Phase1Move::U2);
+        c.phase_1_move(Phase1Move::R1);
+        c.phase_1_move(Phase1Move::B1);
+        c.phase_1_move(Phase1Move::U3);
+        c.phase_1_move(Phase1Move::B3);
+        c.phase_1_move(Phase1Move::D1);
+        c.phase_1_move(Phase1Move::F3);
+        c.phase_1_move(Phase1Move::U2);
+        c.phase_1_move(Phase1Move::F3);
+        c.phase_1_move(Phase1Move::R1);
+        c.phase_1_move(Phase1Move::U1);
+        c.phase_1_move(Phase1Move::R3);
+        c.phase_1_move(Phase1Move::L2);
+        c.phase_1_move(Phase1Move::U1);
+        c.phase_1_move(Phase1Move::L2);
+        c.phase_1_move(Phase1Move::D3);
+        c.phase_1_move(Phase1Move::L1);
+        c.phase_1_move(Phase1Move::L1);
+        c.phase_1_move(Phase1Move::D2);
+        c.phase_1_move(Phase1Move::F2);
+        c.phase_1_move(Phase1Move::D1);
     }
 
     assert!(c.is_valid());
     assert!(c.is_solved());
+}
+
+
+#[test]
+fn test_apply() {
+    let mut c = CubieRepr::new();
+
+    c.phase_1_move(Phase1Move::R1);
+    c.phase_1_move(Phase1Move::U1);
+    c.phase_1_move(Phase1Move::R3);
+    c.phase_1_move(Phase1Move::U3);
+
+    let i = c.get_index();
+    let o = c.get_orient();
+
+    let mut c2 = CubieRepr::new();
+
+    for _ in 0..6 {
+        c2.apply(i, o);
+    }
+
+    assert!(c2.is_solved());
+}
+
+#[test]
+fn test_2_move_apply() {
+    let mut c = CubieRepr::new();
+
+    c.phase_1_move(Phase1Move::R1);
+    c.phase_1_move(Phase1Move::U1);
+
+    let i = c.get_index();
+    let o = c.get_orient();
+
+    let mut c2 = CubieRepr::new();
+    c2.apply(i, o);
+    let mut count = 1;
+    while !c2.is_solved() {
+        count += 1;
+        c2.apply(i, o);
+    }
+
+    assert_eq!(count, 105);
+}
+
+#[test]
+fn test_long_apply() {
+    let mut c = CubieRepr::new();
+
+    c.phase_1_move(Phase1Move::R1);
+    c.phase_1_move(Phase1Move::U2);
+    c.phase_1_move(Phase1Move::D3);
+    c.phase_1_move(Phase1Move::B1);
+    c.phase_1_move(Phase1Move::D3);
+
+    let i = c.get_index();
+    let o = c.get_orient();
+
+    let mut c2 = CubieRepr::new();
+    c2.apply(i, o);
+    let mut count = 1;
+    while !c2.is_solved() {
+        count += 1;
+        c2.apply(i, o);
+    }
+    assert_eq!(count, 1260);
 }

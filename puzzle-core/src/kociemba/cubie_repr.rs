@@ -3,7 +3,7 @@ use std::{intrinsics::ptr_offset_from};
 use memoffset::offset_of;
 use num_enum::{IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct CubieRepr {
     // THE ORIENTATION HERE IS IMPORTANT
@@ -83,7 +83,7 @@ pub(crate) enum CornerResident {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive)]
 pub(crate) enum CornerOrient {
     Solved = 0,
     Clockwise = 1,
@@ -118,7 +118,7 @@ pub(crate) enum EdgeResident {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive)]
 pub(crate) enum EdgeOrient {
     Solved = 0,
     Unsolved = 1,
@@ -189,6 +189,13 @@ impl CubieRepr {
     pub(crate) const unsafe fn from_array_unchecked(array: [u8; 40]) -> Self {
         unsafe { core::mem::transmute(array) }
     }
+    pub(crate) fn into_ref(&self) -> &[u8; 40] {
+        unsafe { core::mem::transmute(self) }
+    }
+    pub(crate) fn into_mut_ref(&mut self) -> &mut [u8; 40] {
+        unsafe { core::mem::transmute(self) }
+    }
+
     pub(crate) fn is_valid(&self) -> bool {
         let mut v = self
             .corner_perm
@@ -210,20 +217,6 @@ impl CubieRepr {
     }
 
     pub fn is_solved(&self) -> bool {
-        let mut v = self
-            .corner_perm
-            .iter()
-            .map(|x| *x as u8)
-            .collect::<Vec<_>>();
-        if v != (0..8u8).into_iter().collect::<Vec<_>>() {
-            return false;
-        }
-
-        let mut v = self.edge_perm.iter().map(|x| *x as u8).collect::<Vec<_>>();
-        if v != (0..12u8).into_iter().collect::<Vec<_>>() {
-            return false;
-        }
-
-        true
+        self == &CubieRepr::new()
     }
 }
