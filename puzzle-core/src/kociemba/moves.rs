@@ -1,11 +1,11 @@
 use std::{
-    intrinsics::{size_of},
+    intrinsics::size_of,
     simd::{Mask, Simd},
 };
 
 use super::cubie_repr::{
-    corner_orient_offset, corner_perm_offset, edge_orient_offset, edge_perm_offset,
-    CubieRepr, CornerOrient, EdgeOrient,
+    corner_orient_offset, corner_perm_offset, edge_orient_offset, edge_perm_offset, CornerOrient,
+    CubieRepr, EdgeOrient,
 };
 
 #[repr(u8)]
@@ -83,9 +83,7 @@ const fn combined_index(
     buf
 }
 
-const fn combined_mask(
-    index: &[usize; 40]
-) -> [bool; 40] {
+const fn combined_mask(index: &[usize; 40]) -> [bool; 40] {
     let mut mask = [true; 40];
 
     let mut i = 0usize;
@@ -171,12 +169,12 @@ const B_EDGE_FLIP: [u8; 8] = [0, 1, 0, 1, 0, 0, 1, 1];
 
 const S_YZ_CORNER_INDEX: [u8; 8] = [0, 4, 1, 5, 2, 6, 3, 7];
 const S_Z2_CORNER_INDEX: [u8; 8] = [5, 4, 7, 6, 1, 0, 3, 2];
-const S_Y_CORNER_INDEX: [u8; 8]  = [2, 0, 3, 1, 6, 4, 7, 5];
+const S_Y_CORNER_INDEX: [u8; 8] = [2, 0, 3, 1, 6, 4, 7, 5];
 const S_W_CORNER_INDEX: [u8; 8] = [1, 0, 3, 2, 5, 4, 7, 6];
 
 const S_YZ_EDGE_INDEX: [u8; 12] = [4, 5, 6, 7, 8, 10, 9, 11, 0, 9, 1, 3];
 const S_Z2_EDGE_INDEX: [u8; 12] = [2, 3, 0, 1, 5, 4, 7, 6, 11, 10, 9, 8];
-const S_Y_EDGE_INDEX: [u8; 12]  = [8, 9, 10, 11, 6, 4, 7, 5, 1, 0, 3, 2];
+const S_Y_EDGE_INDEX: [u8; 12] = [8, 9, 10, 11, 6, 4, 7, 5, 1, 0, 3, 2];
 const S_W_EDGE_INDEX: [u8; 12] = [0, 1, 2, 3, 5, 4, 7, 6, 9, 8, 11, 10];
 
 const S_YZ_CORNER_ROT: [u8; 8] = [1, 2, 2, 1, 2, 1, 1, 2];
@@ -268,12 +266,14 @@ impl CubieRepr {
         // the mask is a per-move mask which is false for everything that doesn't change
         // under that move.
         // the or argument is the previous buffer, because if you don't move you need to use that.
-        buf.copy_from_slice(&Simd::gather_select(
-            &padded_buf,
-            Mask::from_array(PADDED_MASK),
-            Simd::from_array(padded_idx),
-            Simd::from_array(padded_buf),
-        )[..40]);
+        buf.copy_from_slice(
+            &Simd::gather_select(
+                &padded_buf,
+                Mask::from_array(PADDED_MASK),
+                Simd::from_array(padded_idx),
+                Simd::from_array(padded_buf),
+            )[..40],
+        );
 
         const ORIENT_OFFSET: usize = corner_orient_offset();
 
@@ -341,12 +341,14 @@ impl CubieRepr {
         // the mask is a per-move mask which is false for everything that doesn't change
         // under that move.
         // the or argument is the previous buffer, because if you don't move you need to use that.
-        buf.copy_from_slice(&Simd::gather_select(
-            &padded_buf,
-            Mask::from_array(padded_mask),
-            Simd::from_array(padded_idx),
-            Simd::from_array(padded_buf),
-        )[..40]);
+        buf.copy_from_slice(
+            &Simd::gather_select(
+                &padded_buf,
+                Mask::from_array(padded_mask),
+                Simd::from_array(padded_idx),
+                Simd::from_array(padded_buf),
+            )[..40],
+        );
 
         const ORIENT_OFFSET: usize = corner_orient_offset();
 
@@ -365,7 +367,7 @@ impl CubieRepr {
                 let s = (s + correction) % modulo;
                 buf[ORIENT_OFFSET..ORIENT_OFFSET + 8].copy_from_slice(&s[..]);
             }
-            Orient::None => { }
+            Orient::None => {}
         };
 
         *self = unsafe { Self::from_array_unchecked(buf) }
@@ -698,7 +700,6 @@ fn hundred_thousand_moves() {
     assert!(c.is_valid());
     assert!(c.is_solved());
 }
-
 
 #[test]
 fn test_apply() {

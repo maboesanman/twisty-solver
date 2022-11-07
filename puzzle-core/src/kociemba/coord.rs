@@ -1,6 +1,9 @@
 use super::{
-    cubie_repr::{CubieRepr, CornerResident},
-    permutation_coord::{permutation_coord_4, permutation_coord_8, permutation_coord_8_inverse, permutation_coord_4_inverse},
+    cubie_repr::{CornerResident, CubieRepr},
+    permutation_coord::{
+        permutation_coord_4, permutation_coord_4_inverse, permutation_coord_8,
+        permutation_coord_8_inverse,
+    },
 };
 
 // 2187 (11.09 bits)
@@ -68,7 +71,7 @@ const fn edge_grouping(items: &[bool; 12]) -> u16 {
         }
 
         if n == 0 {
-            break
+            break;
         }
         n -= 1;
     }
@@ -88,7 +91,7 @@ const fn edge_grouping_inverse(mut coord: u16) -> [bool; 12] {
         } else {
             buf[k] = true;
             if i == 0 {
-                break
+                break;
             }
             i -= 1;
             k -= 1;
@@ -175,12 +178,11 @@ impl CubieRepr {
         ud_edge_perm: UDEdgePermutationCoord,
         e_edge_perm: EEdgePermutationCoord,
     ) -> Self {
-
         let edge_group = edge_grouping_inverse(edge_group.0);
         let corner_perm = permutation_coord_8_inverse(corner_perm.0);
         let ud_edge_perm = permutation_coord_8_inverse(ud_edge_perm.0);
         let e_edge_perm = permutation_coord_4_inverse(e_edge_perm.0);
-        
+
         let mut edge_perm = [0u8; 12];
 
         let mut i = 0;
@@ -216,11 +218,10 @@ impl CubieRepr {
             corner_perm: corner_perm.map(|x| x.try_into().unwrap()),
             corner_orient: corner_orient_buf.map(|x| x.try_into().unwrap()),
             edge_orient: edge_orient_buf.map(|x| x.try_into().unwrap()),
-            edge_perm: edge_perm.map(|x| x.try_into().unwrap())
+            edge_perm: edge_perm.map(|x| x.try_into().unwrap()),
         }
     }
 }
-
 
 #[test]
 fn test_coords() {
@@ -232,9 +233,7 @@ fn test_coords() {
         let udep = UDEdgePermutationCoord((((i as u32) * 101) % 40320) as u16);
         let eep = EEdgePermutationCoord(i as u8 % 24);
 
-        let cube = CubieRepr::from_coords(
-            co, eo, eg, cp, udep, eep
-        );
+        let cube = CubieRepr::from_coords(co, eo, eg, cp, udep, eep);
 
         assert_eq!(cube.coord_corner_orient(), co);
         assert_eq!(cube.coord_edge_orient(), eo);

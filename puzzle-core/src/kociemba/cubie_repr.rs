@@ -1,4 +1,4 @@
-use std::{intrinsics::ptr_offset_from};
+use std::intrinsics::ptr_offset_from;
 
 use memoffset::offset_of;
 use num_enum::{IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive};
