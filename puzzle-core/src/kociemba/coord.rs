@@ -33,18 +33,34 @@ pub struct UDEdgePermutationCoord(u16);
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct EEdgePermutationCoord(u8);
 
-const fn edge_grouping(items: &[bool; 12]) -> u16 {
+const COMBINATIONS: [[u16; 4]; 12] = {
     const FACTORIALS: [u32; 12] = [
         1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800,
     ];
 
+    let mut buf = [[0u16; 4]; 12];
+
+    let mut i = 0;
+    while i < 12 {
+        let mut j = 0;
+        while j < 4 && j <= i {
+            buf[i][j] = (FACTORIALS[i] / FACTORIALS[j] / FACTORIALS[i - j]) as u16;
+            j += 1;
+        }
+        i += 1;
+    }
+
+    buf
+};
+
+const fn edge_grouping(items: &[bool; 12]) -> u16 {
     let mut sum = 0;
     let mut k = 3;
     let mut n = 11;
 
     loop {
         if !items[n] {
-            sum += (FACTORIALS[n] / FACTORIALS[k] / FACTORIALS[n - k]) as u16
+            sum += COMBINATIONS[n][k] as u16
         } else if k == 0 {
             break;
         } else {
@@ -61,16 +77,11 @@ const fn edge_grouping(items: &[bool; 12]) -> u16 {
 }
 
 const fn edge_grouping_inverse(mut coord: u16) -> [bool; 12] {
-    const FACTORIALS: [u32; 12] = [
-        1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800,
-    ];
-
     let mut buf = [false; 12];
-
     let mut k = 11;
     let mut i = 3;
     loop {
-        let c = (FACTORIALS[k] / FACTORIALS[i] / FACTORIALS[k - i]) as u16;
+        let c = COMBINATIONS[k][i] as u16;
         if coord >= c {
             coord -= c;
             k -= 1;
