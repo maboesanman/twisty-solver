@@ -9,32 +9,32 @@ use super::{
 // 2187 (11.09 bits)
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct CornerOrientCoord(u16);
+pub struct CornerOrientCoord(pub u16);
 
 // 2048 (11 bits)
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct EdgeOrientCoord(u16);
+pub struct EdgeOrientCoord(pub u16);
 
 // 495 (8.9 bits)
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct EdgeGroupingCoord(u16);
+pub struct EdgeGroupingCoord(pub u16);
 
 // 40320 (15.29 bits)
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct CornerPermutationCoord(u16);
+pub struct CornerPermutationCoord(pub u16);
 
 // 40320 (15.29 bits)
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct UDEdgePermutationCoord(u16);
+pub struct UDEdgePermutationCoord(pub u16);
 
 // 24 (4.58 bits)
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct EEdgePermutationCoord(u8);
+pub struct EEdgePermutationCoord(pub u8);
 
 const COMBINATIONS: [[u16; 4]; 12] = {
     const FACTORIALS: [u32; 12] = [
@@ -141,7 +141,7 @@ impl CubieRepr {
 
     // phase 2
     pub fn coord_corner_perm(&self) -> CornerPermutationCoord {
-        CornerPermutationCoord(permutation_coord_8(&self.corner_perm))
+        CornerPermutationCoord(permutation_coord_8(unsafe { core::mem::transmute(&self.corner_perm) } ))
     }
 
     // phase 2
@@ -186,39 +186,49 @@ impl CubieRepr {
         let mut edge_perm = [0u8; 12];
 
         let mut i = 0;
-        for (n, is_e) in edge_group.into_iter().enumerate() {
-            if is_e {
+
+        let mut n = 0;
+        while n < edge_group.len() {
+            if edge_group[n] {
                 edge_perm[n] = e_edge_perm[n - i] + 8;
             } else {
                 edge_perm[n] = ud_edge_perm[i];
                 i += 1;
             }
+
+            n += 1;
         }
 
         let mut corner_orient_buf = [0u8; 8];
 
-        for i in 0..7 {
+        let mut i = 0;
+        while i < 7 {
             let r = corner_orient.0 % 3;
             corner_orient_buf[i] = r as u8;
             corner_orient_buf[7] += 3 - corner_orient_buf[i];
             corner_orient.0 /= 3;
+
+            i += 1;
         }
         corner_orient_buf[7] %= 3;
 
         let mut edge_orient_buf = [0u8; 12];
-        for i in 0..11 {
+        let mut i = 0;
+        while i < 11 {
             let r = edge_orient.0 & 1;
             edge_orient_buf[i] = r as u8;
             edge_orient_buf[11] += 2 - edge_orient_buf[i];
             edge_orient.0 >>= 1;
+
+            i += 1;
         }
         edge_orient_buf[11] %= 2;
 
         Self {
-            corner_perm: corner_perm.map(|x| x.try_into().unwrap()),
-            corner_orient: corner_orient_buf.map(|x| x.try_into().unwrap()),
-            edge_orient: edge_orient_buf.map(|x| x.try_into().unwrap()),
-            edge_perm: edge_perm.map(|x| x.try_into().unwrap()),
+            corner_perm: unsafe { core::mem::transmute(corner_perm) },
+            corner_orient: unsafe { core::mem::transmute(corner_orient_buf) },
+            edge_orient: unsafe { core::mem::transmute(edge_orient_buf) },
+            edge_perm: unsafe { core::mem::transmute(edge_perm) },
         }
     }
 }

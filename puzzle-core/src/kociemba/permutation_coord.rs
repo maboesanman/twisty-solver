@@ -32,14 +32,20 @@ macro_rules! permutation_coord {
             f
         };
 
-        pub fn $id<T: Ord>(perm: &[T; $n]) -> $t {
+        pub const fn $id(perm: &[u8; $n]) -> $t {
             let mut sum = 0;
-            for i in 1..$n {
-                for j in 0..i {
+            let mut i = 1;
+            while i < $n {
+                let mut j = 0;
+                while j < i {
                     if perm[j] > perm[i] {
                         sum += $id_factorials[i]
                     }
+
+                    j += 1;
                 }
+
+                i += 1;
             }
             sum
         }
@@ -56,6 +62,7 @@ macro_rules! permutation_coord {
                     if c != 0 {
                         let swap = result[f - c];
                         result.copy_within((f - c + 1)..=f, f - c);
+                        // todo!();
                         result[f] = swap;
                         c = 0;
                     }

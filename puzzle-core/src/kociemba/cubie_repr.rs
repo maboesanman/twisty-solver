@@ -3,7 +3,7 @@ use std::intrinsics::ptr_offset_from;
 use memoffset::offset_of;
 use num_enum::{IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive};
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub struct CubieRepr {
     // THE ORIENTATION HERE IS IMPORTANT
@@ -189,7 +189,7 @@ impl CubieRepr {
     pub(crate) const unsafe fn from_array_unchecked(array: [u8; 40]) -> Self {
         unsafe { core::mem::transmute(array) }
     }
-    pub(crate) fn into_ref(&self) -> &[u8; 40] {
+    pub(crate) const fn into_ref(&self) -> &[u8; 40] {
         unsafe { core::mem::transmute(self) }
     }
     pub(crate) fn into_mut_ref(&mut self) -> &mut [u8; 40] {
