@@ -241,7 +241,7 @@ impl CubieRepr {
         const ORIENT_OFFSET: usize = corner_orient_offset();
 
         let mut i = 0;
-        while i < 16 {
+        while i < 20 {
             buf[i + ORIENT_OFFSET] = (buf[i + ORIENT_OFFSET] + orient[i]) % FULL_REM[i];
             i += 1;
         }

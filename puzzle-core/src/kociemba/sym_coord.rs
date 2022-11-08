@@ -12,7 +12,7 @@ const S_Z2_CORNER_INDEX: [u8; 8] = [5, 4, 7, 6, 1, 0, 3, 2];
 const S_Y_CORNER_INDEX: [u8; 8] = [2, 0, 3, 1, 6, 4, 7, 5];
 const S_W_CORNER_INDEX: [u8; 8] = [1, 0, 3, 2, 5, 4, 7, 6];
 
-const S_YZ_EDGE_INDEX: [u8; 12] = [4, 5, 6, 7, 8, 10, 9, 11, 0, 9, 1, 3];
+const S_YZ_EDGE_INDEX: [u8; 12] = [4, 5, 6, 7, 8, 10, 9, 11, 0, 2, 1, 3];
 const S_Z2_EDGE_INDEX: [u8; 12] = [2, 3, 0, 1, 5, 4, 7, 6, 11, 10, 9, 8];
 const S_Y_EDGE_INDEX: [u8; 12] = [8, 9, 10, 11, 6, 4, 7, 5, 1, 0, 3, 2];
 const S_W_EDGE_INDEX: [u8; 12] = [0, 1, 2, 3, 5, 4, 7, 6, 9, 8, 11, 10];
@@ -216,26 +216,7 @@ const Y_Z2_W_INDEX: (
 
 impl CubieRepr {
     const fn apply_w_const(self) -> Self {
-        let buf = self.into_array();
-        let mut buf_new = buf;
-
-        let mut i = 0;
-        while i < 40 {
-            buf_new[i] = buf[S_W_INDEX[i]];
-            i += 1;
-        }
-
-        let mut buf = buf_new;
-
-        const ORIENT_OFFSET: usize = corner_orient_offset();
-
-        let mut i = 0;
-        while i < 8 {
-            buf[i + ORIENT_OFFSET] = (3 - buf[i + ORIENT_OFFSET]) % 3;
-            i += 1;
-        }
-
-        unsafe { Self::from_array_unchecked(buf) }
+        self.apply_w_const_no_orient().apply_w_const_only_orient()
     }
 
     const fn apply_w_const_no_orient(self) -> Self {
@@ -374,9 +355,9 @@ fn build_sym_coord() {
 
         out.insert(cube.sym_rep_edge_group());
     }
-    assert_eq!(out.len(), 29);
+    assert_eq!(out.len(), 16);
 
-    let mut sym_array = [0; 29];
+    let mut sym_array = [0u8; 16];
     for (i, o) in out.into_iter().enumerate() {
         sym_array[i] = o;
     }
@@ -388,18 +369,118 @@ fn cube_rotations() {
     let c = CubieRepr::new();
 
     let b = c.const_phase_1_move(super::moves::Phase1Move::B1);
-    let f = c.const_phase_1_move(super::moves::Phase1Move::F1);
-    let d = c.const_phase_1_move(super::moves::Phase1Move::D1);
-    let u = c.const_phase_1_move(super::moves::Phase1Move::U1);
     let r = c.const_phase_1_move(super::moves::Phase1Move::R1);
+    let u = c.const_phase_1_move(super::moves::Phase1Move::U1);
+    let d = c.const_phase_1_move(super::moves::Phase1Move::D1);
+    let f = c.const_phase_1_move(super::moves::Phase1Move::F1);
     let l = c.const_phase_1_move(super::moves::Phase1Move::L1);
 
-    let transformed = b.apply_all_transforms();
+    let t = b.apply_all_transforms();
 
-    assert!(transformed.contains(&b));
-    assert!(transformed.contains(&f));
-    assert!(transformed.contains(&d));
-    assert!(transformed.contains(&u));
-    assert!(transformed.contains(&r));
-    assert!(transformed.contains(&l));
+    assert!(t.contains(&b));
+    assert!(t.contains(&r));
+    assert!(t.contains(&u));
+    assert!(t.contains(&d));
+    assert!(t.contains(&f));
+    assert!(t.contains(&l));
+}
+
+#[test]
+fn cube_rotations_limited() {
+    let c = CubieRepr::new();
+
+    let u = c.const_phase_1_move(super::moves::Phase1Move::U1);
+    let u3 = c.const_phase_1_move(super::moves::Phase1Move::U3);
+    let b = c.const_phase_1_move(super::moves::Phase1Move::B1);
+    let r = c.const_phase_1_move(super::moves::Phase1Move::R1);
+    let d = c.const_phase_1_move(super::moves::Phase1Move::D1);
+    let d3 = c.const_phase_1_move(super::moves::Phase1Move::D3);
+    let f = c.const_phase_1_move(super::moves::Phase1Move::F1);
+    let l = c.const_phase_1_move(super::moves::Phase1Move::L1);
+
+    let t = u.apply_non_yz_transforms();
+
+    assert!(t.contains(&u));
+    assert!(t.contains(&d));
+    assert!(t.contains(&u3));
+    assert!(t.contains(&d3));
+    assert!(!t.contains(&r));
+    assert!(!t.contains(&b));
+    assert!(!t.contains(&f));
+    assert!(!t.contains(&l));
+}
+
+#[test]
+fn solved_doesnt_change() {
+    let c = CubieRepr::new();
+
+    for c2 in c.apply_all_transforms() {
+        assert_eq!(c.into_array(), c2.into_array())
+    }
+}
+
+
+#[test]
+fn yz_repeat() {
+    let mut c = CubieRepr::new();
+    c = c.const_phase_1_move(super::moves::Phase1Move::B1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::R1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::U1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::D1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::F1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::L1);
+
+    let mut c2 = c;
+
+
+    c2 = c2.apply_const(S_YZ_INDEX, &S_YZ_ORIENT);
+    assert!(c.is_valid());
+    c2 = c2.apply_const(S_YZ_INDEX, &S_YZ_ORIENT);
+    assert!(c.is_valid());
+    c2 = c2.apply_const(S_YZ_INDEX, &S_YZ_ORIENT);
+    assert!(c.is_valid());
+    assert!(c == c2);
+}
+
+#[test]
+fn y_repeat() {
+    let mut c = CubieRepr::new();
+    c = c.const_phase_1_move(super::moves::Phase1Move::B1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::R1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::U1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::D1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::F1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::L1);
+
+    let mut c2;
+    c2 = c.apply_const(S_Y_INDEX, &S_Y_ORIENT);
+    assert!(c.is_valid());
+    c2 = c2.apply_const(S_Y_INDEX, &S_Y_ORIENT);
+    assert!(c.is_valid());
+    c2 = c2.apply_const(S_Y_INDEX, &S_Y_ORIENT);
+    assert!(c.is_valid());
+    c2 = c2.apply_const(S_Y_INDEX, &S_Y_ORIENT);
+    assert!(c.is_valid());
+    assert!(c == c2);
+}
+
+#[test]
+fn z2_repeat() {
+    let mut c = CubieRepr::new();
+    c = c.const_phase_1_move(super::moves::Phase1Move::B1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::R1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::U1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::D1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::F1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::L1);
+
+    let mut c2;
+    c2 = c.apply_const_no_orient(S_Z2_INDEX);
+    assert!(c.is_valid());
+    c2 = c2.apply_const_no_orient(S_Z2_INDEX);
+    assert!(c.is_valid());
+    println!("z2 repeat");
+    println!("{:?}", c.into_array());
+    println!("{:?}", c2.into_array());
+    assert!(c == c2);
 }
