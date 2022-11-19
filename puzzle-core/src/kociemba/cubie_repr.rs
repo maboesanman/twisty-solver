@@ -1,4 +1,5 @@
 use std::intrinsics::ptr_offset_from;
+use std::fmt::Debug;
 
 use memoffset::offset_of;
 use num_enum::{IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive};
@@ -16,6 +17,12 @@ pub struct CubieRepr {
     // only first 12 are used
     pub(crate) edge_orient: [EdgeOrient; 12],
     pub(crate) edge_perm: [EdgeResident; 12],
+}
+
+impl Debug for CubieRepr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.clone().into_array().fmt(f)
+    }
 }
 
 #[test]
@@ -69,6 +76,7 @@ pub(crate) const fn edge_orient_offset() -> usize {
     UnsafeFromPrimitive,
     TryFromPrimitive,
     IntoPrimitive,
+    Debug,
 )]
 #[repr(u8)]
 pub(crate) enum CornerResident {
@@ -83,7 +91,9 @@ pub(crate) enum CornerResident {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive, Debug,
+)]
 pub(crate) enum CornerOrient {
     Solved = 0,
     Clockwise = 1,
@@ -101,24 +111,27 @@ pub(crate) enum CornerOrient {
     UnsafeFromPrimitive,
     TryFromPrimitive,
     IntoPrimitive,
+    Debug,
 )]
 pub(crate) enum EdgeResident {
     UF = 0,
     UB = 1,
+    UR = 8,
+    UL = 9,
     DF = 2,
     DB = 3,
+    DR = 10,
+    DL = 11,
     FR = 4,
     FL = 5,
     BR = 6,
     BL = 7,
-    UR = 8,
-    UL = 9,
-    DR = 10,
-    DL = 11,
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive, Debug
+)]
 pub(crate) enum EdgeOrient {
     Solved = 0,
     Unsolved = 1,

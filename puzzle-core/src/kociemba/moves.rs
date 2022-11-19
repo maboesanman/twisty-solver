@@ -96,8 +96,8 @@ const fn combined_mask(index: &[usize; 40]) -> [bool; 40] {
     mask
 }
 
-pub(crate) const fn combined_orient(corner_rot: &[u8; 8], edge_flip: &[u8; 8]) -> [u8; 16] {
-    let mut buf = [0u8; 16];
+pub(crate) const fn combined_orient(corner_rot: &[u8; 8], edge_flip: &[u8; 12]) -> [u8; 20] {
+    let mut buf = [0u8; 20];
 
     if corner_orient_offset() + 8 != edge_orient_offset() {
         panic!();
@@ -108,7 +108,7 @@ pub(crate) const fn combined_orient(corner_rot: &[u8; 8], edge_flip: &[u8; 8]) -
         buf[i] = corner_rot[i];
         i += 1;
     }
-    while i < 16 {
+    while i < 20 {
         buf[i] = edge_flip[i - 8];
         i += 1;
     }
@@ -155,17 +155,17 @@ const R_CORNER_ROT: [u8; 8] = [2, 0, 1, 0, 1, 0, 2, 0];
 const L_CORNER_ROT: [u8; 8] = [0, 1, 0, 2, 0, 2, 0, 1];
 
 // edge permutations
-const U1_EDGE_INDEX: [u8; 12] = [8, 9, 2, 3, 4, 5, 6, 7, 1, 0, 10, 11];
-const D1_EDGE_INDEX: [u8; 12] = [0, 1, 11, 10, 4, 5, 6, 7, 8, 9, 2, 3];
-const F1_EDGE_INDEX: [u8; 12] = [5, 1, 4, 3, 0, 2, 6, 7, 8, 9, 10, 11];
-const B1_EDGE_INDEX: [u8; 12] = [0, 6, 2, 7, 4, 5, 3, 1, 8, 9, 10, 11];
-const R1_EDGE_INDEX: [u8; 12] = [0, 1, 2, 3, 10, 5, 8, 7, 4, 9, 6, 11];
-const L1_EDGE_INDEX: [u8; 12] = [0, 1, 2, 3, 4, 9, 6, 11, 8, 7, 10, 5];
+const U1_EDGE_INDEX: [u8; 12] = [2, 3, 1, 0, 4, 5, 6, 7, 8, 9, 10, 11];
+const D1_EDGE_INDEX: [u8; 12] = [0, 1, 2, 3, 7, 6, 4, 5, 8, 9, 10, 11];
+const F1_EDGE_INDEX: [u8; 12] = [9, 1, 2, 3, 8, 5, 6, 7, 0, 4, 10, 11];
+const B1_EDGE_INDEX: [u8; 12] = [0, 10, 2, 3, 4, 11, 6, 7, 8, 9, 5, 1];
+const R1_EDGE_INDEX: [u8; 12] = [0, 1, 8, 3, 4, 5, 10, 7, 6, 9, 2, 11];
+const L1_EDGE_INDEX: [u8; 12] = [0, 1, 2, 11, 4, 5, 6, 9, 8, 3, 10, 7];
 
 // edge orientation corrections (added after permuting)
 // note this is only 8. only the first 8 edges ever change orientation.
-const F_EDGE_FLIP: [u8; 8] = [1, 0, 1, 0, 1, 1, 0, 0];
-const B_EDGE_FLIP: [u8; 8] = [0, 1, 0, 1, 0, 0, 1, 1];
+const F_EDGE_FLIP: [u8; 12] = [1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0];
+const B_EDGE_FLIP: [u8; 12] = [0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1];
 
 // THIS IS THE COMPUTED SIMD ARRAYS FOR THE GATHER INSTRUCTION FOR EACH MOVE
 
@@ -200,15 +200,13 @@ const L3_INDEX: [usize; 40] = compose(&L2_INDEX, &L1_INDEX);
 const L_MASK: [bool; 40] = combined_mask(&L1_INDEX);
 
 // THESE ARE THE ORIENTATION CORRECTIONS TO ADD FOR THE CORRESPONSING FACE 90/270 TURNS
-const F_ORIENT: [u8; 16] = combined_orient(&F_CORNER_ROT, &F_EDGE_FLIP);
-const B_ORIENT: [u8; 16] = combined_orient(&B_CORNER_ROT, &B_EDGE_FLIP);
+const F_ORIENT: [u8; 20] = combined_orient(&F_CORNER_ROT, &F_EDGE_FLIP);
+const B_ORIENT: [u8; 20] = combined_orient(&B_CORNER_ROT, &B_EDGE_FLIP);
 const R_ORIENT: [u8; 8] = R_CORNER_ROT;
 const L_ORIENT: [u8; 8] = L_CORNER_ROT;
 
 // THESE ARE ORIENTATION REMAINDER CORRECTIONS. ONLY NEEDED IF ORIENTATION CORRECTION APPLIED
 const FULL_REM: [u8; 20] = [3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
-const FB_REM: [u8; 16] = [3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2];
-const RL_REM: [u8; 8] = [3; 8];
 
 #[allow(dead_code)]
 impl CubieRepr {
@@ -226,7 +224,11 @@ impl CubieRepr {
         unsafe { core::mem::transmute(x) }
     }
 
-    pub(crate) const fn apply_const(self, index: [usize; size_of::<CubieRepr>()], orient: &[u8; 20]) -> Self {
+    pub(crate) const fn apply_const(
+        self,
+        index: [usize; size_of::<CubieRepr>()],
+        orient: &[u8; 20],
+    ) -> Self {
         let buf = self.into_array();
         let mut buf_new = buf;
 
@@ -249,7 +251,10 @@ impl CubieRepr {
         unsafe { Self::from_array_unchecked(buf) }
     }
 
-    pub(crate) const fn apply_const_no_orient(self, index: [usize; size_of::<CubieRepr>()]) -> Self {
+    pub(crate) const fn apply_const_no_orient(
+        self,
+        index: [usize; size_of::<CubieRepr>()],
+    ) -> Self {
         let buf = self.into_array();
         let mut buf_new = buf;
 
@@ -318,86 +323,12 @@ impl CubieRepr {
     }
 
     fn phase_1_move(&mut self, m: Phase1Move) {
-        enum Orient {
-            Big([u8; 16]),
-            Small([u8; 8]),
-            None,
-        }
-
-        let mut buf = core::mem::take(self).into_array();
-
-        let (idx, mask, orient) = match m {
-            Phase1Move::U1 => (U1_INDEX, U_MASK, Orient::None),
-            Phase1Move::U2 => (U2_INDEX, U_MASK, Orient::None),
-            Phase1Move::U3 => (U3_INDEX, U_MASK, Orient::None),
-            Phase1Move::D1 => (D1_INDEX, D_MASK, Orient::None),
-            Phase1Move::D2 => (D2_INDEX, D_MASK, Orient::None),
-            Phase1Move::D3 => (D3_INDEX, D_MASK, Orient::None),
-            Phase1Move::F1 => (F1_INDEX, F_MASK, Orient::Big(F_ORIENT)),
-            Phase1Move::F2 => (F2_INDEX, F_MASK, Orient::None),
-            Phase1Move::F3 => (F3_INDEX, F_MASK, Orient::Big(F_ORIENT)),
-            Phase1Move::B1 => (B1_INDEX, B_MASK, Orient::Big(B_ORIENT)),
-            Phase1Move::B2 => (B2_INDEX, B_MASK, Orient::None),
-            Phase1Move::B3 => (B3_INDEX, B_MASK, Orient::Big(B_ORIENT)),
-            Phase1Move::R1 => (R1_INDEX, R_MASK, Orient::Small(R_ORIENT)),
-            Phase1Move::R2 => (R2_INDEX, R_MASK, Orient::None),
-            Phase1Move::R3 => (R3_INDEX, R_MASK, Orient::Small(R_ORIENT)),
-            Phase1Move::L1 => (L1_INDEX, L_MASK, Orient::Small(L_ORIENT)),
-            Phase1Move::L2 => (L2_INDEX, L_MASK, Orient::None),
-            Phase1Move::L3 => (L3_INDEX, L_MASK, Orient::Small(L_ORIENT)),
-        };
-
-        let mut padded_buf: [u8; 64] = [0; 64];
-        padded_buf[..40].copy_from_slice(&buf);
-
-        let mut padded_idx: [usize; 64] = [0; 64];
-        padded_idx[..40].copy_from_slice(&idx);
-
-        let mut padded_mask: [bool; 64] = [false; 64];
-        padded_mask[..40].copy_from_slice(&mask);
-
-        // this instruction does basically everything.
-        //
-        // first, the slice into the previous state of the cube
-        // is where things are being gathered from.
-        // the mask is a per-move mask which is false for everything that doesn't change
-        // under that move.
-        // the or argument is the previous buffer, because if you don't move you need to use that.
-        buf.copy_from_slice(
-            &Simd::gather_select(
-                &padded_buf,
-                Mask::from_array(padded_mask),
-                Simd::from_array(padded_idx),
-                Simd::from_array(padded_buf),
-            )[..40],
-        );
-
-        const ORIENT_OFFSET: usize = corner_orient_offset();
-
-        match orient {
-            Orient::Big(correction) => {
-                let s = Simd::<u8, 16>::from_slice(&buf[ORIENT_OFFSET..ORIENT_OFFSET + 16]);
-                let correction = Simd::from_array(correction);
-                let modulo = Simd::from_array(FB_REM);
-                let s = (s + correction) % modulo;
-                buf[ORIENT_OFFSET..ORIENT_OFFSET + 16].copy_from_slice(&s[..]);
-            }
-            Orient::Small(correction) => {
-                let s = Simd::<u8, 8>::from_slice(&buf[ORIENT_OFFSET..ORIENT_OFFSET + 8]);
-                let correction = Simd::from_array(correction);
-                let modulo = Simd::from_array(RL_REM);
-                let s = (s + correction) % modulo;
-                buf[ORIENT_OFFSET..ORIENT_OFFSET + 8].copy_from_slice(&s[..]);
-            }
-            Orient::None => {}
-        };
-
-        *self = unsafe { Self::from_array_unchecked(buf) }
+        *self = core::mem::take(self).const_phase_1_move(m);
     }
 
     pub(crate) const fn const_phase_1_move(self, m: Phase1Move) -> Self {
         enum Orient {
-            Big([u8; 16]),
+            Big([u8; 20]),
             Small([u8; 8]),
             None,
         }
@@ -441,7 +372,7 @@ impl CubieRepr {
         match orient {
             Orient::Big(correction) => {
                 let mut i = 0;
-                while i < 16 {
+                while i < 20 {
                     buf[i + ORIENT_OFFSET] = (buf[i + ORIENT_OFFSET] + correction[i]) % FULL_REM[i];
                     i += 1;
                 }

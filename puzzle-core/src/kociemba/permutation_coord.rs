@@ -50,7 +50,7 @@ macro_rules! permutation_coord {
             sum
         }
 
-        pub fn $id_inv(mut coord: $t) -> [u8; $n] {
+        pub const fn $id_inv(mut coord: $t) -> [u8; $n] {
             let mut f = $n - 1;
             let mut result = $id_first_perm;
             let mut c = 0;
@@ -61,7 +61,11 @@ macro_rules! permutation_coord {
                 } else {
                     if c != 0 {
                         let swap = result[f - c];
-                        result.copy_within((f - c + 1)..=f, f - c);
+                        let mut i = f - c;
+                        while i < f {
+                            result[i] = result[i + 1];
+                            i += 1;
+                        }
                         // todo!();
                         result[f] = swap;
                         c = 0;

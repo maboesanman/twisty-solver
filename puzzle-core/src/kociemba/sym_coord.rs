@@ -4,7 +4,7 @@ use crate::kociemba::cubie_repr::corner_orient_offset;
 
 use super::{
     cubie_repr::CubieRepr,
-    moves::{combined_index, compose}, coord::{CornerOrientCoord, EdgeOrientCoord, EdgeGroupingCoord, CornerPermutationCoord, UDEdgePermutationCoord, EEdgePermutationCoord},
+    moves::{combined_index, compose},
 };
 
 const S_YZ_CORNER_INDEX: [u8; 8] = [0, 4, 1, 5, 2, 6, 3, 7];
@@ -12,18 +12,18 @@ const S_Z2_CORNER_INDEX: [u8; 8] = [5, 4, 7, 6, 1, 0, 3, 2];
 const S_Y_CORNER_INDEX: [u8; 8] = [2, 0, 3, 1, 6, 4, 7, 5];
 const S_W_CORNER_INDEX: [u8; 8] = [1, 0, 3, 2, 5, 4, 7, 6];
 
-const S_YZ_EDGE_INDEX: [u8; 12] = [4, 5, 6, 7, 8, 10, 9, 11, 0, 2, 1, 3];
-const S_Z2_EDGE_INDEX: [u8; 12] = [2, 3, 0, 1, 5, 4, 7, 6, 11, 10, 9, 8];
-const S_Y_EDGE_INDEX: [u8; 12] = [8, 9, 10, 11, 6, 4, 7, 5, 1, 0, 3, 2];
-const S_W_EDGE_INDEX: [u8; 12] = [0, 1, 2, 3, 5, 4, 7, 6, 9, 8, 11, 10];
+const S_YZ_EDGE_INDEX: [u8; 12] = [8, 9, 0, 4, 10, 11, 1, 5, 2, 6, 3, 7];
+const S_Z2_EDGE_INDEX: [u8; 12] = [4, 5, 7, 6, 0, 1, 3, 2, 9, 8, 11, 10];
+const S_Y_EDGE_INDEX: [u8; 12] = [2, 3, 1, 0, 6, 7, 5, 4, 10, 8, 11, 9];
+const S_W_EDGE_INDEX: [u8; 12] = [0, 1, 3, 2, 4, 5, 7, 6, 9, 8, 11, 10];
 
 const S_YZ_CORNER_ROT: [u8; 8] = [1, 2, 2, 1, 2, 1, 1, 2];
 
 // the corner orientation gets subtracted FROM this on W flip
 const S_W_CORNER_INV: [u8; 8] = [3; 8];
 
-const S_YZ_EDGE_FLIP: [u8; 12] = [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1];
-const S_Y_EDGE_FLIP: [u8; 12] = [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0];
+const S_YZ_EDGE_FLIP: [u8; 12] = [0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1];
+const S_Y_EDGE_FLIP: [u8; 12] = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1];
 
 const S_YZ_INDEX: [usize; 40] = combined_index(&S_YZ_CORNER_INDEX, &S_YZ_EDGE_INDEX);
 const S_Z2_INDEX: [usize; 40] = combined_index(&S_Z2_CORNER_INDEX, &S_Z2_EDGE_INDEX);
@@ -63,12 +63,10 @@ const SOLVED: [usize; 40] = [
     4, 5, 6, 7, 8, 9, 10, 11,
 ];
 
-
-const fn get_transforms(enable_yz: bool) -> (
-    [CubieRepr; 48],
-    [[usize; 40]; 48],
-    [[u8; 20]; 48],
-) {
+const fn get_transforms(
+    enable_yz: bool,
+    enable_y: bool,
+) -> ([CubieRepr; 48], [[usize; 40]; 48], [[u8; 20]; 48]) {
     let mut forward_start = [0u8; 40 * 48];
     let mut inverse_index = [0usize; 40 * 48];
     let mut inverse_orient = [0u8; 20 * 48];
@@ -76,12 +74,10 @@ const fn get_transforms(enable_yz: bool) -> (
     let mut i = 0;
     let mut o = 0;
 
-    let yz_max = if enable_yz { 3 } else { 1 };
-
     let mut w = 0;
     while w < 2 {
         let mut yz = 0;
-        while yz < yz_max {
+        while yz < 3 {
             let mut y = 0;
             while y < 4 {
                 let mut z2 = 0;
@@ -141,7 +137,13 @@ const fn get_transforms(enable_yz: bool) -> (
                     }
                     z2 += 1;
                 }
+                if !enable_y {
+                    y += 1;
+                }
                 y += 1;
+            }
+            if !enable_yz {
+                yz += 2;
             }
             yz += 1;
         }
@@ -151,26 +153,37 @@ const fn get_transforms(enable_yz: bool) -> (
     unsafe { core::mem::transmute((forward_start, inverse_index, inverse_orient)) }
 }
 
-const YZ_Y_Z2_W_INDEX: (
-    [CubieRepr; 48],
-    [[usize; 40]; 48],
-    [[u8; 20]; 48],
-) = get_transforms(true);
+const YZ_Y_Z2_W_INDEX: ([CubieRepr; 48], [[usize; 40]; 48], [[u8; 20]; 48]) =
+    get_transforms(true, true);
 
-const Y_Z2_W_INDEX: (
-    [CubieRepr; 16],
-    [[usize; 40]; 16],
-    [[u8; 20]; 16],
-) = {
-    let (a, b, c) = get_transforms(false);
+const Y_Z2_W_INDEX: ([CubieRepr; 16], [[usize; 40]; 16], [[u8; 20]; 16]) = {
+    let (a, b, c) = get_transforms(false, true);
 
     let mut a2 = [CubieRepr::new(); 16];
     let mut b2 = [[0usize; 40]; 16];
     let mut c2 = [[0u8; 20]; 16];
-    
 
     let mut x = 0;
     while x < 16 {
+        a2[x] = a[x];
+        b2[x] = b[x];
+        c2[x] = c[x];
+
+        x += 1;
+    }
+
+    (a2, b2, c2)
+};
+
+const Y2_Z2_W_INDEX: ([CubieRepr; 8], [[usize; 40]; 8], [[u8; 20]; 8]) = {
+    let (a, b, c) = get_transforms(false, false);
+
+    let mut a2 = [CubieRepr::new(); 8];
+    let mut b2 = [[0usize; 40]; 8];
+    let mut c2 = [[0u8; 20]; 8];
+
+    let mut x = 0;
+    while x < 8 {
         a2[x] = a[x];
         b2[x] = b[x];
         c2[x] = c[x];
@@ -188,8 +201,7 @@ const Y_Z2_W_INDEX: (
 //     let mut i = 0;
 //     while i < 495 {
 //         let cube = CubieRepr::from_coords(
-//             CornerOrientCoord(0),
-//             EdgeOrientCoord(0),
+//             CornerOrientCoord(0/             EdgeOrientCoord(0),
 //             EdgeGroupingCoord(i),
 //             CornerPermutationCoord(0),
 //             UDEdgePermutationCoord(0),
@@ -202,7 +214,6 @@ const Y_Z2_W_INDEX: (
 //             Err(i) => i,
 //             Ok(_) => continue,
 //         };
-
 
 //     }
 //     assert_eq!(out.len(), 29);
@@ -270,7 +281,7 @@ impl CubieRepr {
         cubes
     }
 
-    const fn apply_non_yz_transforms(&self) -> [CubieRepr; 16] {
+    const fn apply_phase_2_ud_transforms(&self) -> [CubieRepr; 16] {
         let index = self.get_index();
         let orient = self.get_orient();
 
@@ -294,14 +305,46 @@ impl CubieRepr {
         cubes
     }
 
+    const fn apply_phase_2_e_edge_transforms(&self) -> [CubieRepr; 8] {
+        let index = self.get_index();
+        let orient = self.get_orient();
+
+        let mut cubes: [CubieRepr; 8] = Y2_Z2_W_INDEX.0;
+        let t_index: [[usize; 40]; 8] = Y2_Z2_W_INDEX.1;
+        let t_orient: [[u8; 20]; 8] = Y2_Z2_W_INDEX.2;
+
+        let mut i = 0;
+        while i < 4 {
+            cubes[i] = cubes[i].apply_const(index, orient);
+            cubes[i] = cubes[i].apply_const(t_index[i], &t_orient[i]);
+            i += 1;
+        }
+        while i < 8 {
+            cubes[i] = cubes[i].apply_const(index, orient);
+            cubes[i] = cubes[i].apply_const(t_index[i], &t_orient[i]);
+            cubes[i] = cubes[i].apply_w_const_only_orient();
+            i += 1;
+        }
+
+        cubes
+    }
+
     // all symmetries generated by Z2, Y, W (16)
-    fn sym_rep_corner_orient() -> u16 {
-        todo!()
+    fn sym_rep_corner_orient(&self) -> u16 {
+        self.apply_all_transforms()
+            .into_iter()
+            .map(|c| c.coord_corner_orient())
+            .min()
+            .unwrap()
     }
 
     // all symmetries generated by Z2, Y2, W (8)
-    fn sym_rep_edge_orient() -> u16 {
-        todo!()
+    fn sym_rep_edge_orient(&self) -> u16 {
+        self.apply_all_transforms()
+            .into_iter()
+            .map(|c| c.coord_edge_orient())
+            .min()
+            .unwrap()
     }
 
     // all symmetries generated by Z2, Y, W (16)
@@ -310,7 +353,7 @@ impl CubieRepr {
         let mut min = 255u8;
         let mut i = 0;
         while i < 48 {
-            let c = applied[i].coord_edge_grouping().0;
+            let c = applied[i].coord_edge_grouping();
             if c < min as u16 {
                 min = c as u8;
             }
@@ -321,47 +364,40 @@ impl CubieRepr {
     }
 
     // all symmetries generated by Z2, Y, W (16)
-    fn sym_rep_corner_perm() -> u16 {
-        todo!()
+    fn sym_rep_edge_group_and_orient(&self) -> u32 {
+        self.apply_phase_2_ud_transforms()
+            .into_iter()
+            .map(|c| c.coord_edge_grouping_and_orient())
+            .min()
+            .unwrap()
     }
 
     // all symmetries generated by Z2, Y, W (16)
-    fn sym_rep_ud_edge_perm() -> u16 {
-        todo!()
+    fn sym_rep_corner_perm(&self) -> u16 {
+        self.apply_phase_2_ud_transforms()
+            .into_iter()
+            .map(|c| c.coord_corner_perm())
+            .min()
+            .unwrap()
     }
 
     // all symmetries generated by Z2, Y, W (16)
-    fn sym_rep_e_edge_perm() -> u8 {
-        todo!()
+    fn sym_rep_ud_edge_perm(&self) -> u16 {
+        self.apply_phase_2_ud_transforms()
+            .into_iter()
+            .map(|c| c.coord_ud_edge_perm())
+            .min()
+            .unwrap()
     }
-}
 
-#[test]
-fn flips() {}
-
-#[test]
-fn build_sym_coord() {
-    let mut out = BTreeSet::new();
-
-    for i in 0..495 {
-        let cube = CubieRepr::from_coords(
-            CornerOrientCoord(0),
-            EdgeOrientCoord(0),
-            EdgeGroupingCoord(i),
-            CornerPermutationCoord(0),
-            UDEdgePermutationCoord(0),
-            EEdgePermutationCoord(0),
-        );
-
-        out.insert(cube.sym_rep_edge_group());
+    // all symmetries generated by Z2, Y, W (16)
+    fn sym_rep_e_edge_perm(&self) -> u8 {
+        self.apply_phase_2_e_edge_transforms()
+            .into_iter()
+            .map(|c| c.coord_e_edge_perm())
+            .min()
+            .unwrap()
     }
-    assert_eq!(out.len(), 16);
-
-    let mut sym_array = [0u8; 16];
-    for (i, o) in out.into_iter().enumerate() {
-        sym_array[i] = o;
-    }
-    println!("{:?}", sym_array);
 }
 
 #[test]
@@ -398,7 +434,7 @@ fn cube_rotations_limited() {
     let f = c.const_phase_1_move(super::moves::Phase1Move::F1);
     let l = c.const_phase_1_move(super::moves::Phase1Move::L1);
 
-    let t = u.apply_non_yz_transforms();
+    let t = u.apply_phase_2_ud_transforms();
 
     assert!(t.contains(&u));
     assert!(t.contains(&d));
@@ -419,7 +455,6 @@ fn solved_doesnt_change() {
     }
 }
 
-
 #[test]
 fn yz_repeat() {
     let mut c = CubieRepr::new();
@@ -431,7 +466,6 @@ fn yz_repeat() {
     c = c.const_phase_1_move(super::moves::Phase1Move::L1);
 
     let mut c2 = c;
-
 
     c2 = c2.apply_const(S_YZ_INDEX, &S_YZ_ORIENT);
     assert!(c.is_valid());
@@ -479,8 +513,142 @@ fn z2_repeat() {
     assert!(c.is_valid());
     c2 = c2.apply_const_no_orient(S_Z2_INDEX);
     assert!(c.is_valid());
+    assert!(c == c2);
+}
+
+
+#[test]
+fn w_repeat() {
+    let mut c = CubieRepr::new();
+    c = c.const_phase_1_move(super::moves::Phase1Move::B1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::R1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::U1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::D1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::F1);
+    c = c.const_phase_1_move(super::moves::Phase1Move::L1);
+
+    let mut c2;
+    c2 = c.apply_w_const();
+    assert!(c.is_valid());
+    c2 = c2.apply_w_const();
+    assert!(c.is_valid());
     println!("z2 repeat");
     println!("{:?}", c.into_array());
     println!("{:?}", c2.into_array());
     assert!(c == c2);
+}
+
+#[test]
+fn corner_orient() {
+    let mut out = BTreeSet::new();
+
+    for i in 0..2187 {
+        let cube = CubieRepr::from_coords(i, 0, 0, 0, 0, 0);
+        out.insert(cube.sym_rep_corner_orient());
+    }
+    assert_eq!(out.len(), 66);
+
+    let mut sym_array = [0; 66];
+    for (i, o) in out.into_iter().enumerate() {
+        sym_array[i] = o;
+    }
+    println!("{:?}", sym_array);
+}
+#[test]
+fn edge_orient() {
+    let mut out = BTreeSet::new();
+
+    for i in 0..2047 {
+        let cube = CubieRepr::from_coords(0, i, 0, 0, 0, 0);
+        out.insert(cube.sym_rep_edge_orient());
+    }
+    assert_eq!(out.len(), 75);
+
+    let mut sym_array = [0; 75];
+    for (i, o) in out.into_iter().enumerate() {
+        sym_array[i] = o;
+    }
+    println!("{:?}", sym_array);
+}
+#[test]
+fn edge_grouping() {
+    let mut out = BTreeSet::new();
+
+    for i in 0..495 {
+        let cube = CubieRepr::from_coords(0, 0, i, 0, 0, 0);
+        out.insert(cube.sym_rep_edge_group());
+    }
+    assert_eq!(out.len(), 34);
+
+    let mut sym_array = [0; 34];
+    for (i, o) in out.into_iter().enumerate() {
+        sym_array[i] = o;
+    }
+    println!("{:?}", sym_array);
+}
+#[test]
+fn edge_grouping_and_orient() {
+    let mut out = BTreeSet::new();
+
+    for i in 0..495 {
+        for j in 0..2048 {
+            let cube = CubieRepr::from_coords(0, j, i, 0, 0, 0);
+            out.insert(cube.sym_rep_edge_group_and_orient());
+        }
+    }
+    assert_eq!(out.len(), 64430);
+
+    let mut sym_array = [0; 64430];
+    for (i, o) in out.into_iter().enumerate() {
+        sym_array[i] = o;
+    }
+    println!("{:?}", sym_array);
+}
+#[test]
+fn corner_permutation() {
+    let mut out = BTreeSet::new();
+
+    for i in 0..40320 {
+        let cube = CubieRepr::from_coords(0, 0, 0, i, 0, 0);
+        out.insert(cube.sym_rep_corner_perm());
+    }
+    assert_eq!(out.len(), 2768);
+
+    let mut sym_array = [0; 2768];
+    for (i, o) in out.into_iter().enumerate() {
+        sym_array[i] = o;
+    }
+    println!("{:?}", sym_array);
+}
+#[test]
+fn ud_edge_permutation() {
+    let mut out = BTreeSet::new();
+
+    for i in 0..40320 {
+        let cube = CubieRepr::from_coords(0, 0, 0, 0, i, 0);
+        out.insert(cube.sym_rep_ud_edge_perm());
+    }
+    assert_eq!(out.len(), 2768);
+
+    let mut sym_array = [0; 2768];
+    for (i, o) in out.into_iter().enumerate() {
+        sym_array[i] = o;
+    }
+    println!("{:?}", sym_array);
+}
+#[test]
+fn e_edge_permutation() {
+    let mut out = BTreeSet::new();
+
+    for i in 0..24 {
+        let cube = CubieRepr::from_coords(0, 0, 0, 0, 0, i);
+        out.insert(cube.sym_rep_e_edge_perm());
+    }
+    assert_eq!(out.len(), 12);
+
+    let mut sym_array = [0; 12];
+    for (i, o) in out.into_iter().enumerate() {
+        sym_array[i] = o;
+    }
+    println!("{:?}", sym_array);
 }

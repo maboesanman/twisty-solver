@@ -5,6 +5,14 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# [lib]
+# bench = false
+
+# [bin]
+# name = "table-gen"
+# test = false
+# bench = false
+
 [dependencies]
 smallvec = "1.10.0"
 num_enum = "0.5.7"
