@@ -11,7 +11,7 @@ use super::repr_cubie::{
 #[repr(u8)]
 #[derive(Clone, Copy)]
 #[allow(unused)]
-pub(crate) enum Phase1Move {
+pub enum Phase1Move {
     U1,
     U2,
     U3,
@@ -35,7 +35,7 @@ pub(crate) enum Phase1Move {
 #[repr(u8)]
 #[derive(Clone, Copy)]
 #[allow(unused)]
-pub(crate) enum Phase2Move {
+pub enum Phase2Move {
     U1,
     U2,
     U3,
@@ -48,7 +48,7 @@ pub(crate) enum Phase2Move {
     L2,
 }
 
-pub(crate) const fn combined_index(
+pub const fn combined_index(
     corner_index: &[u8; 8],
     edge_index: &[u8; 12],
 ) -> [usize; size_of::<ReprCubie>()] {
@@ -96,7 +96,7 @@ const fn combined_mask(index: &[usize; 40]) -> [bool; 40] {
     mask
 }
 
-pub(crate) const fn combined_orient(corner_rot: &[u8; 8], edge_flip: &[u8; 12]) -> [u8; 20] {
+pub const fn combined_orient(corner_rot: &[u8; 8], edge_flip: &[u8; 12]) -> [u8; 20] {
     let mut buf = [0u8; 20];
 
     if corner_orient_offset() + 8 != edge_orient_offset() {
@@ -117,7 +117,7 @@ pub(crate) const fn combined_orient(corner_rot: &[u8; 8], edge_flip: &[u8; 12]) 
 }
 
 // consts for performing moves on CubieRepr
-pub(crate) const fn compose(base: &[usize; 40], next: &[usize; 40]) -> [usize; 40] {
+pub const fn compose(base: &[usize; 40], next: &[usize; 40]) -> [usize; 40] {
     let mut x = [0; 40];
     let mut i = 0;
     while i < 40 {
@@ -210,21 +210,21 @@ const FULL_REM: [u8; 20] = [3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 
 #[allow(dead_code)]
 impl ReprCubie {
-    pub(crate) const fn get_index(&self) -> [usize; size_of::<ReprCubie>()] {
+    pub const fn get_index(&self) -> [usize; size_of::<ReprCubie>()] {
         let corner_index: [u8; 8] = unsafe { core::mem::transmute(self.corner_perm) };
         let edge_index: [u8; 12] = unsafe { core::mem::transmute(self.edge_perm) };
 
         combined_index(&corner_index, &edge_index)
     }
 
-    pub(crate) const fn get_orient(&self) -> &[u8; 20] {
+    pub const fn get_orient(&self) -> &[u8; 20] {
         let o = corner_orient_offset();
         let buf = self.into_ref();
         let x = &buf[o];
         unsafe { core::mem::transmute(x) }
     }
 
-    pub(crate) const fn apply_const(
+    pub const fn apply_const(
         self,
         index: [usize; size_of::<ReprCubie>()],
         orient: &[u8; 20],
@@ -251,7 +251,7 @@ impl ReprCubie {
         unsafe { Self::from_array_unchecked(buf) }
     }
 
-    pub(crate) const fn apply_const_no_orient(
+    pub const fn apply_const_no_orient(
         self,
         index: [usize; size_of::<ReprCubie>()],
     ) -> Self {
@@ -326,7 +326,7 @@ impl ReprCubie {
         *self = core::mem::take(self).const_phase_1_move(m);
     }
 
-    pub(crate) const fn const_phase_1_move(self, m: Phase1Move) -> Self {
+    pub const fn const_phase_1_move(self, m: Phase1Move) -> Self {
         enum Orient {
             Big([u8; 20]),
             Small([u8; 8]),
@@ -390,7 +390,7 @@ impl ReprCubie {
         unsafe { Self::from_array_unchecked(buf) }
     }
 
-    pub(crate) fn phase_2_move(&mut self, m: Phase2Move) {
+    pub fn phase_2_move(&mut self, m: Phase2Move) {
         let p1_move = match m {
             Phase2Move::U1 => Phase1Move::U1,
             Phase2Move::U2 => Phase1Move::U2,

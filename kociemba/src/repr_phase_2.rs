@@ -12,7 +12,7 @@ impl From<ReprPhase1> for ReprPhase2 {
         debug_assert_eq!(value.corner_orient, 0u16.into());
 
         todo!()
-        // this first does the lookup for corner_permto find which coord and transform
+        // this first does the lookup for corner_perm to find which coord and transform
         // then applies the transform to all other coords from value.
     }
 }
@@ -31,12 +31,15 @@ impl ReprPhase2 {
         // 1: look up the lower bound in the pruning table with the offset.
     }
 
-    pub fn perform_all_moves(&self) -> [ReprPhase1; 18] {
+    pub fn perform_all_moves(&self) -> [ReprPhase2; 10] {
         todo!()
+
+        // 23 seeks or less
+        // 18.75 seeks on average
 
         // 1: perform the lookup on the sym coord for each move (1 seek),
         // 2: perform the loopup on the raw coords for each move (2 seeks),
-        // 3: apply the transforms from 1 to the new raw coords from 2 (0 seeks)
+        // 3: apply the transforms from 1 to the new raw coords from 2 (2 * 10 seeks or less)
     }
 
     fn get_pruning_table_offset(&self) -> usize {

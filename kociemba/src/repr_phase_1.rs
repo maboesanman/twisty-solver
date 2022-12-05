@@ -35,9 +35,12 @@ impl ReprPhase1 {
     pub fn perform_all_moves(&self) -> [ReprPhase1; 18] {
         todo!()
 
-        // 1: perform the lookup on the sym coord for each move (1 seek),
-        // 2: perform the loopup on the raw coords for each move (4 seeks),
-        // 3: apply the transforms from 1 to the new raw coords from 2 (0 seeks)
+        // 77 seeks or less
+        // 67.5 seeks on average
+
+        // 1: lookup all moves/transforms for sym coord (1 seek),
+        // 2: loopup all moves for each raw coord (4 seeks),
+        // 3: apply the transforms from 1 to the new raw coords from 2 (4 * 18 seeks or less)
     }
 
     fn get_pruning_table_offset(&self) -> usize {
@@ -49,7 +52,7 @@ impl ReprPhase1 {
     }
 }
 
-const PHASE_1_MOVES: [Phase1Move; 18] = {
+pub const PHASE_1_MOVES: [Phase1Move; 18] = {
     [
         Phase1Move::U1,
         Phase1Move::U2,

@@ -24,10 +24,17 @@ macro_rules! define_coord {
     }
 }
 
-macro_rules! define_raw_coord_no_table {
+macro_rules! define_raw_coord_no_move {
     ($name:ident, $inner:ty, $range:expr, $bits:expr) => {
         paste! {
             define_coord!([<$name Coord>], $inner, $range, $bits);
+
+            pub type [<$name MoveTable>] = [[<$name MoveEntry>]; $range];
+
+            #[derive(Clone, Copy)]
+            pub struct [<$name MoveEntry>] {
+                pub transforms: [[<$name Coord>]; 15],
+            }
         }
     }
 }
@@ -35,12 +42,15 @@ macro_rules! define_raw_coord_no_table {
 macro_rules! define_raw_coord {
     ($name:ident, $inner:ty, $range:expr, $bits:expr) => {
         paste! {
-            define_raw_coord_no_table!($name, $inner, $range, $bits);
+            define_coord!([<$name Coord>], $inner, $range, $bits);
 
-            // struct [<$name MoveTable>] {
-            //     transforms: [[<$name Coord>]; 15],
-            //     moves: [[<$name Coord>]; 18],
-            // }
+            pub type [<$name MoveTable>] = [[<$name MoveEntry>]; $range];
+
+            #[derive(Clone, Copy)]
+            pub struct [<$name MoveEntry>] {
+                pub transforms: [[<$name Coord>]; 15],
+                pub moves: [[<$name Coord>]; 18],
+            }
         }
     }
 }
@@ -50,9 +60,11 @@ macro_rules! define_sym_coord {
         paste! {
             define_coord!([<$name SymCoord>], $inner, $range, $bits);
 
-            // struct [<$name SymMoveTable>] {
-            //     moves: [([<$name SymCoord>], Transform); $moves],
-            // }
+            pub type [<$name SymMoveTable>] = [[<$name SymMoveEntry>]; $range];
+
+            pub struct [<$name SymMoveEntry>] {
+                pub moves: [([<$name SymCoord>], Transform); $moves],
+            }
         }
     }
 }
@@ -73,13 +85,13 @@ define_raw_coord!(CornerOrient, u16, 2187, 12);
 // tables: (743,424 bits, 93kb)
 // - all moves
 // - all transforms
-define_raw_coord_no_table!(EdgeOrient, u16, 2048, 11);
+define_raw_coord_no_move!(EdgeOrient, u16, 2048, 11);
 
 // 495 (8.9 bits) u16
 // tables: (147,015 bits, 18kb)
 // - all moves
 // - all transforms
-define_raw_coord_no_table!(EdgeGroup, u16, 495, 9);
+define_raw_coord_no_move!(EdgeGroup, u16, 495, 9);
 
 // 40320 (15.29 bits) u16
 // tables: (21,288,960 bits, 2,661kb)

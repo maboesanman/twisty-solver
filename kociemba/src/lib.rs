@@ -5,11 +5,11 @@
 #![feature(const_convert)]
 #![const_eval_limit = "0"]
 
-mod repr_coord;
-mod repr_cubie;
-mod moves;
-mod permutation_coord;
+pub mod repr_coord;
+pub mod repr_cubie;
+pub mod moves;
+pub mod permutation_coord;
 // mod sym_coord;
-mod repr_phase_1;
-mod repr_phase_2;
-mod coords;
+pub mod repr_phase_1;
+pub mod repr_phase_2;
+pub mod coords;
