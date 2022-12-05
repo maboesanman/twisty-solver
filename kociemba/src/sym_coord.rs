@@ -1,9 +1,9 @@
 use std::{collections::BTreeSet, mem::size_of};
 
-use crate::kociemba::cubie_repr::corner_orient_offset;
+use crate::kociemba::repr_cubie::corner_orient_offset;
 
 use super::{
-    cubie_repr::CubieRepr,
+    repr_cubie::ReprCubie,
     moves::{combined_index, compose},
 };
 
@@ -66,7 +66,7 @@ const SOLVED: [usize; 40] = [
 const fn get_transforms(
     enable_yz: bool,
     enable_y: bool,
-) -> ([CubieRepr; 48], [[usize; 40]; 48], [[u8; 20]; 48]) {
+) -> ([ReprCubie; 48], [[usize; 40]; 48], [[u8; 20]; 48]) {
     let mut forward_start = [0u8; 40 * 48];
     let mut inverse_index = [0usize; 40 * 48];
     let mut inverse_orient = [0u8; 20 * 48];
@@ -82,7 +82,7 @@ const fn get_transforms(
             while y < 4 {
                 let mut z2 = 0;
                 while z2 < 2 {
-                    let mut forward = CubieRepr::new();
+                    let mut forward = ReprCubie::new();
                     if w == 1 {
                         forward = forward.apply_w_const_no_orient();
                     }
@@ -100,7 +100,7 @@ const fn get_transforms(
                         yz_temp += 1;
                     }
 
-                    let mut inverse = CubieRepr::new();
+                    let mut inverse = ReprCubie::new();
                     let mut yz_temp = 0;
                     while yz_temp < 3 - yz {
                         inverse = inverse.apply_const(S_YZ_INDEX, &S_YZ_ORIENT);
@@ -153,13 +153,13 @@ const fn get_transforms(
     unsafe { core::mem::transmute((forward_start, inverse_index, inverse_orient)) }
 }
 
-const YZ_Y_Z2_W_INDEX: ([CubieRepr; 48], [[usize; 40]; 48], [[u8; 20]; 48]) =
+const YZ_Y_Z2_W_INDEX: ([ReprCubie; 48], [[usize; 40]; 48], [[u8; 20]; 48]) =
     get_transforms(true, true);
 
-const Y_Z2_W_INDEX: ([CubieRepr; 16], [[usize; 40]; 16], [[u8; 20]; 16]) = {
+const Y_Z2_W_INDEX: ([ReprCubie; 16], [[usize; 40]; 16], [[u8; 20]; 16]) = {
     let (a, b, c) = get_transforms(false, true);
 
-    let mut a2 = [CubieRepr::new(); 16];
+    let mut a2 = [ReprCubie::new(); 16];
     let mut b2 = [[0usize; 40]; 16];
     let mut c2 = [[0u8; 20]; 16];
 
@@ -175,10 +175,10 @@ const Y_Z2_W_INDEX: ([CubieRepr; 16], [[usize; 40]; 16], [[u8; 20]; 16]) = {
     (a2, b2, c2)
 };
 
-const Y2_Z2_W_INDEX: ([CubieRepr; 8], [[usize; 40]; 8], [[u8; 20]; 8]) = {
+const Y2_Z2_W_INDEX: ([ReprCubie; 8], [[usize; 40]; 8], [[u8; 20]; 8]) = {
     let (a, b, c) = get_transforms(false, false);
 
-    let mut a2 = [CubieRepr::new(); 8];
+    let mut a2 = [ReprCubie::new(); 8];
     let mut b2 = [[0usize; 40]; 8];
     let mut c2 = [[0u8; 20]; 8];
 
@@ -225,7 +225,7 @@ const Y2_Z2_W_INDEX: ([CubieRepr; 8], [[usize; 40]; 8], [[u8; 20]; 8]) = {
 //     out
 // };
 
-impl CubieRepr {
+impl ReprCubie {
     const fn apply_w_const(self) -> Self {
         self.apply_w_const_no_orient().apply_w_const_only_orient()
     }
@@ -257,11 +257,11 @@ impl CubieRepr {
         unsafe { Self::from_array_unchecked(buf) }
     }
 
-    const fn apply_all_transforms(&self) -> [CubieRepr; 48] {
+    const fn apply_all_transforms(&self) -> [ReprCubie; 48] {
         let index = self.get_index();
         let orient = self.get_orient();
 
-        let mut cubes: [CubieRepr; 48] = YZ_Y_Z2_W_INDEX.0;
+        let mut cubes: [ReprCubie; 48] = YZ_Y_Z2_W_INDEX.0;
         let t_index: [[usize; 40]; 48] = YZ_Y_Z2_W_INDEX.1;
         let t_orient: [[u8; 20]; 48] = YZ_Y_Z2_W_INDEX.2;
 
@@ -281,11 +281,11 @@ impl CubieRepr {
         cubes
     }
 
-    const fn apply_phase_2_ud_transforms(&self) -> [CubieRepr; 16] {
+    const fn apply_phase_2_ud_transforms(&self) -> [ReprCubie; 16] {
         let index = self.get_index();
         let orient = self.get_orient();
 
-        let mut cubes: [CubieRepr; 16] = Y_Z2_W_INDEX.0;
+        let mut cubes: [ReprCubie; 16] = Y_Z2_W_INDEX.0;
         let t_index: [[usize; 40]; 16] = Y_Z2_W_INDEX.1;
         let t_orient: [[u8; 20]; 16] = Y_Z2_W_INDEX.2;
 
@@ -305,11 +305,11 @@ impl CubieRepr {
         cubes
     }
 
-    const fn apply_phase_2_e_edge_transforms(&self) -> [CubieRepr; 8] {
+    const fn apply_phase_2_e_edge_transforms(&self) -> [ReprCubie; 8] {
         let index = self.get_index();
         let orient = self.get_orient();
 
-        let mut cubes: [CubieRepr; 8] = Y2_Z2_W_INDEX.0;
+        let mut cubes: [ReprCubie; 8] = Y2_Z2_W_INDEX.0;
         let t_index: [[usize; 40]; 8] = Y2_Z2_W_INDEX.1;
         let t_orient: [[u8; 20]; 8] = Y2_Z2_W_INDEX.2;
 
@@ -402,7 +402,7 @@ impl CubieRepr {
 
 #[test]
 fn cube_rotations() {
-    let c = CubieRepr::new();
+    let c = ReprCubie::new();
 
     let b = c.const_phase_1_move(super::moves::Phase1Move::B1);
     let r = c.const_phase_1_move(super::moves::Phase1Move::R1);
@@ -423,7 +423,7 @@ fn cube_rotations() {
 
 #[test]
 fn cube_rotations_limited() {
-    let c = CubieRepr::new();
+    let c = ReprCubie::new();
 
     let u = c.const_phase_1_move(super::moves::Phase1Move::U1);
     let u3 = c.const_phase_1_move(super::moves::Phase1Move::U3);
@@ -448,7 +448,7 @@ fn cube_rotations_limited() {
 
 #[test]
 fn solved_doesnt_change() {
-    let c = CubieRepr::new();
+    let c = ReprCubie::new();
 
     for c2 in c.apply_all_transforms() {
         assert_eq!(c.into_array(), c2.into_array())
@@ -457,7 +457,7 @@ fn solved_doesnt_change() {
 
 #[test]
 fn yz_repeat() {
-    let mut c = CubieRepr::new();
+    let mut c = ReprCubie::new();
     c = c.const_phase_1_move(super::moves::Phase1Move::B1);
     c = c.const_phase_1_move(super::moves::Phase1Move::R1);
     c = c.const_phase_1_move(super::moves::Phase1Move::U1);
@@ -478,7 +478,7 @@ fn yz_repeat() {
 
 #[test]
 fn y_repeat() {
-    let mut c = CubieRepr::new();
+    let mut c = ReprCubie::new();
     c = c.const_phase_1_move(super::moves::Phase1Move::B1);
     c = c.const_phase_1_move(super::moves::Phase1Move::R1);
     c = c.const_phase_1_move(super::moves::Phase1Move::U1);
@@ -500,7 +500,7 @@ fn y_repeat() {
 
 #[test]
 fn z2_repeat() {
-    let mut c = CubieRepr::new();
+    let mut c = ReprCubie::new();
     c = c.const_phase_1_move(super::moves::Phase1Move::B1);
     c = c.const_phase_1_move(super::moves::Phase1Move::R1);
     c = c.const_phase_1_move(super::moves::Phase1Move::U1);
@@ -519,7 +519,7 @@ fn z2_repeat() {
 
 #[test]
 fn w_repeat() {
-    let mut c = CubieRepr::new();
+    let mut c = ReprCubie::new();
     c = c.const_phase_1_move(super::moves::Phase1Move::B1);
     c = c.const_phase_1_move(super::moves::Phase1Move::R1);
     c = c.const_phase_1_move(super::moves::Phase1Move::U1);
@@ -543,7 +543,7 @@ fn corner_orient() {
     let mut out = BTreeSet::new();
 
     for i in 0..2187 {
-        let cube = CubieRepr::from_coords(i, 0, 0, 0, 0, 0);
+        let cube = ReprCubie::from_coords(i, 0, 0, 0, 0, 0);
         out.insert(cube.sym_rep_corner_orient());
     }
     assert_eq!(out.len(), 66);
@@ -559,7 +559,7 @@ fn edge_orient() {
     let mut out = BTreeSet::new();
 
     for i in 0..2047 {
-        let cube = CubieRepr::from_coords(0, i, 0, 0, 0, 0);
+        let cube = ReprCubie::from_coords(0, i, 0, 0, 0, 0);
         out.insert(cube.sym_rep_edge_orient());
     }
     assert_eq!(out.len(), 75);
@@ -575,7 +575,7 @@ fn edge_grouping() {
     let mut out = BTreeSet::new();
 
     for i in 0..495 {
-        let cube = CubieRepr::from_coords(0, 0, i, 0, 0, 0);
+        let cube = ReprCubie::from_coords(0, 0, i, 0, 0, 0);
         out.insert(cube.sym_rep_edge_group());
     }
     assert_eq!(out.len(), 34);
@@ -592,7 +592,7 @@ fn edge_grouping_and_orient() {
 
     for i in 0..495 {
         for j in 0..2048 {
-            let cube = CubieRepr::from_coords(0, j, i, 0, 0, 0);
+            let cube = ReprCubie::from_coords(0, j, i, 0, 0, 0);
             out.insert(cube.sym_rep_edge_group_and_orient());
         }
     }
@@ -609,7 +609,7 @@ fn corner_permutation() {
     let mut out = BTreeSet::new();
 
     for i in 0..40320 {
-        let cube = CubieRepr::from_coords(0, 0, 0, i, 0, 0);
+        let cube = ReprCubie::from_coords(0, 0, 0, i, 0, 0);
         out.insert(cube.sym_rep_corner_perm());
     }
     assert_eq!(out.len(), 2768);
@@ -625,7 +625,7 @@ fn ud_edge_permutation() {
     let mut out = BTreeSet::new();
 
     for i in 0..40320 {
-        let cube = CubieRepr::from_coords(0, 0, 0, 0, i, 0);
+        let cube = ReprCubie::from_coords(0, 0, 0, 0, i, 0);
         out.insert(cube.sym_rep_ud_edge_perm());
     }
     assert_eq!(out.len(), 2768);
@@ -641,7 +641,7 @@ fn e_edge_permutation() {
     let mut out = BTreeSet::new();
 
     for i in 0..24 {
-        let cube = CubieRepr::from_coords(0, 0, 0, 0, 0, i);
+        let cube = ReprCubie::from_coords(0, 0, 0, 0, 0, i);
         out.insert(cube.sym_rep_e_edge_perm());
     }
     assert_eq!(out.len(), 12);

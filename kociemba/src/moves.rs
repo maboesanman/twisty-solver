@@ -3,9 +3,9 @@ use std::{
     simd::{Mask, Simd},
 };
 
-use super::cubie_repr::{
+use super::repr_cubie::{
     corner_orient_offset, corner_perm_offset, edge_orient_offset, edge_perm_offset, CornerOrient,
-    CubieRepr, EdgeOrient,
+    ReprCubie, EdgeOrient,
 };
 
 #[repr(u8)]
@@ -51,8 +51,8 @@ pub(crate) enum Phase2Move {
 pub(crate) const fn combined_index(
     corner_index: &[u8; 8],
     edge_index: &[u8; 12],
-) -> [usize; size_of::<CubieRepr>()] {
-    let mut buf = [0usize; size_of::<CubieRepr>()];
+) -> [usize; size_of::<ReprCubie>()] {
+    let mut buf = [0usize; size_of::<ReprCubie>()];
 
     let corner_perm_offset = corner_perm_offset();
     let corner_orient_offset = corner_orient_offset();
@@ -209,8 +209,8 @@ const L_ORIENT: [u8; 8] = L_CORNER_ROT;
 const FULL_REM: [u8; 20] = [3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
 
 #[allow(dead_code)]
-impl CubieRepr {
-    pub(crate) const fn get_index(&self) -> [usize; size_of::<CubieRepr>()] {
+impl ReprCubie {
+    pub(crate) const fn get_index(&self) -> [usize; size_of::<ReprCubie>()] {
         let corner_index: [u8; 8] = unsafe { core::mem::transmute(self.corner_perm) };
         let edge_index: [u8; 12] = unsafe { core::mem::transmute(self.edge_perm) };
 
@@ -226,7 +226,7 @@ impl CubieRepr {
 
     pub(crate) const fn apply_const(
         self,
-        index: [usize; size_of::<CubieRepr>()],
+        index: [usize; size_of::<ReprCubie>()],
         orient: &[u8; 20],
     ) -> Self {
         let buf = self.into_array();
@@ -253,7 +253,7 @@ impl CubieRepr {
 
     pub(crate) const fn apply_const_no_orient(
         self,
-        index: [usize; size_of::<CubieRepr>()],
+        index: [usize; size_of::<ReprCubie>()],
     ) -> Self {
         let buf = self.into_array();
         let mut buf_new = buf;
@@ -267,7 +267,7 @@ impl CubieRepr {
         unsafe { Self::from_array_unchecked(buf_new) }
     }
 
-    fn apply(&mut self, index: [usize; size_of::<CubieRepr>()], orient: &[u8]) {
+    fn apply(&mut self, index: [usize; size_of::<ReprCubie>()], orient: &[u8]) {
         let mut buf = core::mem::take(self).into_array();
 
         let mut padded_buf: [u8; 64] = [0; 64];
@@ -409,7 +409,7 @@ impl CubieRepr {
 
 #[test]
 fn test_all_moves() {
-    let mut c = CubieRepr::default();
+    let mut c = ReprCubie::default();
     c.phase_1_move(Phase1Move::U1);
     c.phase_1_move(Phase1Move::U2);
     c.phase_1_move(Phase1Move::U3);
@@ -461,7 +461,7 @@ fn test_all_moves() {
 
 #[test]
 fn test_long_identity() {
-    let mut c = CubieRepr::default();
+    let mut c = ReprCubie::default();
     c.phase_1_move(Phase1Move::F1);
 
     assert!(c.is_valid());
@@ -594,7 +594,7 @@ fn test_long_identity() {
 
 #[test]
 fn sexy_move() {
-    let mut c = CubieRepr::default();
+    let mut c = ReprCubie::default();
 
     for _ in 0..6 {
         c.phase_1_move(Phase1Move::U1);
@@ -609,7 +609,7 @@ fn sexy_move() {
 
 #[test]
 fn hundred_thousand_moves_simd() {
-    let mut c = CubieRepr::default();
+    let mut c = ReprCubie::default();
 
     for _ in 0..1000 {
         c.phase_1_move(Phase1Move::F1);
@@ -720,7 +720,7 @@ fn hundred_thousand_moves_simd() {
 
 #[test]
 fn hundred_thousand_moves_const() {
-    let mut c = CubieRepr::default();
+    let mut c = ReprCubie::default();
 
     for _ in 0..1000 {
         c = c.const_phase_1_move(Phase1Move::F1);
@@ -831,7 +831,7 @@ fn hundred_thousand_moves_const() {
 
 #[test]
 fn test_apply() {
-    let mut c = CubieRepr::new();
+    let mut c = ReprCubie::new();
 
     c.phase_1_move(Phase1Move::R1);
     c.phase_1_move(Phase1Move::U1);
@@ -841,7 +841,7 @@ fn test_apply() {
     let i = c.get_index();
     let o = c.get_orient();
 
-    let mut c2 = CubieRepr::new();
+    let mut c2 = ReprCubie::new();
 
     for _ in 0..6 {
         c2.apply(i, o);
@@ -852,7 +852,7 @@ fn test_apply() {
 
 #[test]
 fn test_2_move_apply() {
-    let mut c = CubieRepr::new();
+    let mut c = ReprCubie::new();
 
     c.phase_1_move(Phase1Move::R1);
     c.phase_1_move(Phase1Move::U1);
@@ -860,7 +860,7 @@ fn test_2_move_apply() {
     let i = c.get_index();
     let o = c.get_orient();
 
-    let mut c2 = CubieRepr::new();
+    let mut c2 = ReprCubie::new();
     c2.apply(i, o);
     let mut count = 1;
     while !c2.is_solved() {
@@ -873,7 +873,7 @@ fn test_2_move_apply() {
 
 #[test]
 fn test_long_apply() {
-    let mut c = CubieRepr::new();
+    let mut c = ReprCubie::new();
 
     c.phase_1_move(Phase1Move::R1);
     c.phase_1_move(Phase1Move::U2);
@@ -884,7 +884,7 @@ fn test_long_apply() {
     let i = c.get_index();
     let o = c.get_orient();
 
-    let mut c2 = CubieRepr::new();
+    let mut c2 = ReprCubie::new();
     c2.apply(i, o);
     let mut count = 1;
     while !c2.is_solved() {

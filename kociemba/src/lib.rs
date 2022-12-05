@@ -5,5 +5,11 @@
 #![feature(const_convert)]
 #![const_eval_limit = "0"]
 
-mod puzzle;
-mod scramble;
+mod repr_coord;
+mod repr_cubie;
+mod moves;
+mod permutation_coord;
+// mod sym_coord;
+mod repr_phase_1;
+mod repr_phase_2;
+mod coords;

@@ -1,14 +1,18 @@
 [package]
-name = "puzzle-core"
+name = "kociemba"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "core"
+name = "kociemba"
+
+[[bin]]
+name = "tablegen"
 
 [dependencies]
 smallvec = "1.10.0"
 num_enum = "0.5.7"
-
+memoffset = "0.7"
+deku = "0.15.0"

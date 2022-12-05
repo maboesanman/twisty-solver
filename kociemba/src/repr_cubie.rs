@@ -6,7 +6,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
-pub struct CubieRepr {
+pub struct ReprCubie {
     // THE ORIENTATION HERE IS IMPORTANT
     // EDGE_ORIENT AND CORNER ORIENT ARE SUPPOSED TO BE ADJACENT
     // see corner resident enum for ordering
@@ -19,7 +19,7 @@ pub struct CubieRepr {
     pub(crate) edge_perm: [EdgeResident; 12],
 }
 
-impl Debug for CubieRepr {
+impl Debug for ReprCubie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.clone().into_array().fmt(f)
     }
@@ -27,15 +27,15 @@ impl Debug for CubieRepr {
 
 #[test]
 fn layout_correct() {
-    assert_eq!(std::mem::size_of::<CubieRepr>(), 40);
-    assert_eq!(offset_of!(CubieRepr, corner_perm), 0);
-    assert_eq!(offset_of!(CubieRepr, corner_orient), 8);
-    assert_eq!(offset_of!(CubieRepr, edge_orient), 16);
-    assert_eq!(offset_of!(CubieRepr, edge_perm), 28);
+    assert_eq!(std::mem::size_of::<ReprCubie>(), 40);
+    assert_eq!(offset_of!(ReprCubie, corner_perm), 0);
+    assert_eq!(offset_of!(ReprCubie, corner_orient), 8);
+    assert_eq!(offset_of!(ReprCubie, edge_orient), 16);
+    assert_eq!(offset_of!(ReprCubie, edge_perm), 28);
 }
 
 pub(crate) const fn corner_perm_offset() -> usize {
-    let c = CubieRepr::new();
+    let c = ReprCubie::new();
     let c_ptr: *const _ = &c;
     let c_c_p_ptr: *const _ = &c.corner_perm;
 
@@ -43,7 +43,7 @@ pub(crate) const fn corner_perm_offset() -> usize {
 }
 
 pub(crate) const fn corner_orient_offset() -> usize {
-    let c = CubieRepr::new();
+    let c = ReprCubie::new();
     let c_ptr: *const _ = &c;
     let c_c_o_ptr: *const _ = &c.corner_orient;
 
@@ -51,7 +51,7 @@ pub(crate) const fn corner_orient_offset() -> usize {
 }
 
 pub(crate) const fn edge_perm_offset() -> usize {
-    let c = CubieRepr::new();
+    let c = ReprCubie::new();
     let c_ptr: *const _ = &c;
     let c_e_p_ptr: *const _ = &c.edge_perm;
 
@@ -59,7 +59,7 @@ pub(crate) const fn edge_perm_offset() -> usize {
 }
 
 pub(crate) const fn edge_orient_offset() -> usize {
-    let c = CubieRepr::new();
+    let c = ReprCubie::new();
     let c_ptr: *const _ = &c;
     let c_e_o_ptr: *const _ = &c.edge_orient;
 
@@ -137,13 +137,13 @@ pub(crate) enum EdgeOrient {
     Unsolved = 1,
 }
 
-impl Default for CubieRepr {
+impl Default for ReprCubie {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl CubieRepr {
+impl ReprCubie {
     pub const fn new() -> Self {
         Self {
             corner_perm: [
@@ -230,6 +230,6 @@ impl CubieRepr {
     }
 
     pub fn is_solved(&self) -> bool {
-        self == &CubieRepr::new()
+        self == &ReprCubie::new()
     }
 }
