@@ -1,10 +1,11 @@
 use std::intrinsics::ptr_offset_from;
 use std::fmt::Debug;
 
-use memoffset::offset_of;
 use num_enum::{IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+use crate::moves::{Move, Phase2Move};
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[repr(C)]
 pub struct ReprCubie {
     // THE ORIENTATION HERE IS IMPORTANT
@@ -19,19 +20,13 @@ pub struct ReprCubie {
     pub(crate) edge_perm: [EdgeResident; 12],
 }
 
-impl Debug for ReprCubie {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.clone().into_array().fmt(f)
-    }
-}
-
 #[test]
 fn layout_correct() {
     assert_eq!(std::mem::size_of::<ReprCubie>(), 40);
-    assert_eq!(offset_of!(ReprCubie, corner_perm), 0);
-    assert_eq!(offset_of!(ReprCubie, corner_orient), 8);
-    assert_eq!(offset_of!(ReprCubie, edge_orient), 16);
-    assert_eq!(offset_of!(ReprCubie, edge_perm), 28);
+    assert_eq!(memoffset::offset_of!(ReprCubie, corner_perm), 0);
+    assert_eq!(memoffset::offset_of!(ReprCubie, corner_orient), 8);
+    assert_eq!(memoffset::offset_of!(ReprCubie, edge_orient), 16);
+    assert_eq!(memoffset::offset_of!(ReprCubie, edge_perm), 28);
 }
 
 pub(crate) const fn corner_perm_offset() -> usize {
@@ -77,6 +72,7 @@ pub(crate) const fn edge_orient_offset() -> usize {
     TryFromPrimitive,
     IntoPrimitive,
     Debug,
+    Hash,
 )]
 #[repr(u8)]
 pub(crate) enum CornerResident {
@@ -92,7 +88,7 @@ pub(crate) enum CornerResident {
 
 #[repr(u8)]
 #[derive(
-    Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive, Debug,
+    Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive, Debug, Hash,
 )]
 pub(crate) enum CornerOrient {
     Solved = 0,
@@ -112,25 +108,27 @@ pub(crate) enum CornerOrient {
     TryFromPrimitive,
     IntoPrimitive,
     Debug,
+    Hash,
 )]
 pub(crate) enum EdgeResident {
     UF = 0,
     UB = 1,
-    UR = 8,
-    UL = 9,
-    DF = 2,
-    DB = 3,
-    DR = 10,
-    DL = 11,
-    FR = 4,
-    FL = 5,
-    BR = 6,
-    BL = 7,
+    UR = 2,
+    UL = 3,
+    DF = 4,
+    DB = 5,
+    DR = 6,
+    DL = 7,
+    FR = 8,
+    FL = 9,
+    BR = 10,
+    BL = 11,
 }
 
 #[repr(u8)]
 #[derive(
-    Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive, Debug
+    Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive, Debug,
+    Hash,
 )]
 pub(crate) enum EdgeOrient {
     Solved = 0,
@@ -169,16 +167,16 @@ impl ReprCubie {
             edge_perm: [
                 EdgeResident::UF,
                 EdgeResident::UB,
+                EdgeResident::UR,
+                EdgeResident::UL,
                 EdgeResident::DF,
                 EdgeResident::DB,
+                EdgeResident::DR,
+                EdgeResident::DL,
                 EdgeResident::FR,
                 EdgeResident::FL,
                 EdgeResident::BR,
                 EdgeResident::BL,
-                EdgeResident::UR,
-                EdgeResident::UL,
-                EdgeResident::DR,
-                EdgeResident::DL,
             ],
             edge_orient: [
                 EdgeOrient::Solved,
@@ -226,10 +224,54 @@ impl ReprCubie {
             return false;
         }
 
+        let mut corner_perm_odd = false;
+        for i in 0..7 {
+            for j in i..8 {
+                if self.corner_perm[i] > self.corner_perm[j] {
+                    corner_perm_odd = !corner_perm_odd;
+                }
+            }
+        }
+
+        let mut edge_perm_odd = false;
+        for i in 0..11 {
+            for j in i..12 {
+                if self.edge_perm[i] > self.edge_perm[j] {
+                    edge_perm_odd = !edge_perm_odd;
+                }
+            }
+        }
+
+        if corner_perm_odd != edge_perm_odd {
+            return false;
+        }
+
+        let edge_orientation_sum: u8 = self.edge_orient.iter().map(|x| *x as u8).sum();
+        if edge_orientation_sum % 2 != 0 {
+            return false;
+        }
+
+        let corner_orientation_sum: u8 = self.corner_orient.iter().map(|x| *x as u8).sum();
+        if corner_orientation_sum % 3 != 0 {
+            return false;
+        }
+
         true
     }
 
     pub fn is_solved(&self) -> bool {
         self == &ReprCubie::new()
+    }
+
+    // pub fn equivalent_(&self) ->  {
+
+    // }
+
+    pub fn adjacent(&self) -> impl '_ + Iterator<Item = Self> {
+        Move::all_iter().map(|mv| self.const_move(mv))
+    }
+
+    pub fn adjacent_phase_2(&self) -> impl '_ + Iterator<Item = Self> {
+        Phase2Move::all_iter().map(|mv| self.const_move(mv.into()))
     }
 }

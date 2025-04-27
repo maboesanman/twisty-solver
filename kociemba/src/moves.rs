@@ -11,7 +11,7 @@ use super::repr_cubie::{
 #[repr(u8)]
 #[derive(Clone, Copy)]
 #[allow(unused)]
-pub enum Phase1Move {
+pub enum Move {
     U1,
     U2,
     U3,
@@ -32,6 +32,55 @@ pub enum Phase1Move {
     L3,
 }
 
+impl std::fmt::Display for Move {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match self {
+            Move::U1 => "U",
+            Move::U2 => "U2",
+            Move::U3 => "U'",
+            Move::D1 => "D",
+            Move::D2 => "D2",
+            Move::D3 => "D'",
+            Move::F1 => "F",
+            Move::F2 => "F2",
+            Move::F3 => "F'",
+            Move::B1 => "B",
+            Move::B2 => "B2",
+            Move::B3 => "B'",
+            Move::R1 => "R",
+            Move::R2 => "R2",
+            Move::R3 => "R'",
+            Move::L1 => "L",
+            Move::L2 => "L2",
+            Move::L3 => "L'",
+        };
+        f.write_str(string)
+    }
+}
+
+impl Move {
+    pub fn all_iter() -> impl Iterator<Item = Self> {
+        (0u8..18u8).into_iter().map(|x| unsafe { core::mem::transmute(x) })
+    }
+}
+
+impl From<Phase2Move> for Move {
+    fn from(value: Phase2Move) -> Self {
+        match value {
+            Phase2Move::U1 => Move::U1,
+            Phase2Move::U2 => Move::U2,
+            Phase2Move::U3 => Move::U3,
+            Phase2Move::D1 => Move::D1,
+            Phase2Move::D2 => Move::D2,
+            Phase2Move::D3 => Move::D3,
+            Phase2Move::F2 => Move::F2,
+            Phase2Move::B2 => Move::B2,
+            Phase2Move::R2 => Move::R2,
+            Phase2Move::L2 => Move::L2,
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Clone, Copy)]
 #[allow(unused)]
@@ -46,6 +95,12 @@ pub enum Phase2Move {
     B2,
     R2,
     L2,
+}
+
+impl Phase2Move {
+    pub fn all_iter() -> impl Iterator<Item = Self> {
+        (0u8..10u8).into_iter().map(|x| unsafe { core::mem::transmute(x) })
+    }
 }
 
 pub const fn combined_index(
@@ -322,11 +377,11 @@ impl ReprCubie {
         *self = unsafe { Self::from_array_unchecked(buf) }
     }
 
-    fn phase_1_move(&mut self, m: Phase1Move) {
-        *self = core::mem::take(self).const_phase_1_move(m);
+    fn phase_1_move(&mut self, m: Move) {
+        *self = core::mem::take(self).const_move(m);
     }
 
-    pub const fn const_phase_1_move(self, m: Phase1Move) -> Self {
+    pub const fn const_move(self, m: Move) -> Self {
         enum Orient {
             Big([u8; 20]),
             Small([u8; 8]),
@@ -336,24 +391,24 @@ impl ReprCubie {
         let buf = self.into_array();
 
         let (idx, mask, orient) = match m {
-            Phase1Move::U1 => (U1_INDEX, U_MASK, Orient::None),
-            Phase1Move::U2 => (U2_INDEX, U_MASK, Orient::None),
-            Phase1Move::U3 => (U3_INDEX, U_MASK, Orient::None),
-            Phase1Move::D1 => (D1_INDEX, D_MASK, Orient::None),
-            Phase1Move::D2 => (D2_INDEX, D_MASK, Orient::None),
-            Phase1Move::D3 => (D3_INDEX, D_MASK, Orient::None),
-            Phase1Move::F1 => (F1_INDEX, F_MASK, Orient::Big(F_ORIENT)),
-            Phase1Move::F2 => (F2_INDEX, F_MASK, Orient::None),
-            Phase1Move::F3 => (F3_INDEX, F_MASK, Orient::Big(F_ORIENT)),
-            Phase1Move::B1 => (B1_INDEX, B_MASK, Orient::Big(B_ORIENT)),
-            Phase1Move::B2 => (B2_INDEX, B_MASK, Orient::None),
-            Phase1Move::B3 => (B3_INDEX, B_MASK, Orient::Big(B_ORIENT)),
-            Phase1Move::R1 => (R1_INDEX, R_MASK, Orient::Small(R_ORIENT)),
-            Phase1Move::R2 => (R2_INDEX, R_MASK, Orient::None),
-            Phase1Move::R3 => (R3_INDEX, R_MASK, Orient::Small(R_ORIENT)),
-            Phase1Move::L1 => (L1_INDEX, L_MASK, Orient::Small(L_ORIENT)),
-            Phase1Move::L2 => (L2_INDEX, L_MASK, Orient::None),
-            Phase1Move::L3 => (L3_INDEX, L_MASK, Orient::Small(L_ORIENT)),
+            Move::U1 => (U1_INDEX, U_MASK, Orient::None),
+            Move::U2 => (U2_INDEX, U_MASK, Orient::None),
+            Move::U3 => (U3_INDEX, U_MASK, Orient::None),
+            Move::D1 => (D1_INDEX, D_MASK, Orient::None),
+            Move::D2 => (D2_INDEX, D_MASK, Orient::None),
+            Move::D3 => (D3_INDEX, D_MASK, Orient::None),
+            Move::F1 => (F1_INDEX, F_MASK, Orient::Big(F_ORIENT)),
+            Move::F2 => (F2_INDEX, F_MASK, Orient::None),
+            Move::F3 => (F3_INDEX, F_MASK, Orient::Big(F_ORIENT)),
+            Move::B1 => (B1_INDEX, B_MASK, Orient::Big(B_ORIENT)),
+            Move::B2 => (B2_INDEX, B_MASK, Orient::None),
+            Move::B3 => (B3_INDEX, B_MASK, Orient::Big(B_ORIENT)),
+            Move::R1 => (R1_INDEX, R_MASK, Orient::Small(R_ORIENT)),
+            Move::R2 => (R2_INDEX, R_MASK, Orient::None),
+            Move::R3 => (R3_INDEX, R_MASK, Orient::Small(R_ORIENT)),
+            Move::L1 => (L1_INDEX, L_MASK, Orient::Small(L_ORIENT)),
+            Move::L2 => (L2_INDEX, L_MASK, Orient::None),
+            Move::L3 => (L3_INDEX, L_MASK, Orient::Small(L_ORIENT)),
         };
         let mut buf_new = buf;
 
@@ -389,71 +444,55 @@ impl ReprCubie {
 
         unsafe { Self::from_array_unchecked(buf) }
     }
-
-    pub fn phase_2_move(&mut self, m: Phase2Move) {
-        let p1_move = match m {
-            Phase2Move::U1 => Phase1Move::U1,
-            Phase2Move::U2 => Phase1Move::U2,
-            Phase2Move::U3 => Phase1Move::U3,
-            Phase2Move::D1 => Phase1Move::D1,
-            Phase2Move::D2 => Phase1Move::D2,
-            Phase2Move::D3 => Phase1Move::D3,
-            Phase2Move::F2 => Phase1Move::F2,
-            Phase2Move::B2 => Phase1Move::B2,
-            Phase2Move::R2 => Phase1Move::R2,
-            Phase2Move::L2 => Phase1Move::L2,
-        };
-        self.phase_1_move(p1_move)
-    }
 }
 
 #[test]
 fn test_all_moves() {
     let mut c = ReprCubie::default();
-    c.phase_1_move(Phase1Move::U1);
-    c.phase_1_move(Phase1Move::U2);
-    c.phase_1_move(Phase1Move::U3);
-    c.phase_1_move(Phase1Move::U2);
+    c.phase_1_move(Move::U1);
+    c.phase_1_move(Move::U2);
+    c.phase_1_move(Move::U3);
+    c.phase_1_move(Move::U2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
 
-    c.phase_1_move(Phase1Move::D1);
-    c.phase_1_move(Phase1Move::D2);
-    c.phase_1_move(Phase1Move::D3);
-    c.phase_1_move(Phase1Move::D2);
+    c.phase_1_move(Move::D1);
+    c.phase_1_move(Move::D2);
+    c.phase_1_move(Move::D3);
+    c.phase_1_move(Move::D2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
 
-    c.phase_1_move(Phase1Move::F1);
-    c.phase_1_move(Phase1Move::F2);
-    c.phase_1_move(Phase1Move::F3);
-    c.phase_1_move(Phase1Move::F2);
+    c.phase_1_move(Move::F1);
+    c.phase_1_move(Move::F2);
+    c.phase_1_move(Move::F3);
+    c.phase_1_move(Move::F2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
 
-    c.phase_1_move(Phase1Move::B1);
-    c.phase_1_move(Phase1Move::B2);
-    c.phase_1_move(Phase1Move::B3);
-    c.phase_1_move(Phase1Move::B2);
+    c.phase_1_move(Move::B1);
+    c.phase_1_move(Move::B2);
+    c.phase_1_move(Move::B3);
+    c.phase_1_move(Move::B2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
 
-    c.phase_1_move(Phase1Move::R1);
-    c.phase_1_move(Phase1Move::R2);
-    c.phase_1_move(Phase1Move::R3);
-    c.phase_1_move(Phase1Move::R2);
+    c.phase_1_move(Move::R1);
+    c.phase_1_move(Move::R2);
+    c.phase_1_move(Move::R3);
+    c.phase_1_move(Move::R2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
 
-    c.phase_1_move(Phase1Move::L1);
-    c.phase_1_move(Phase1Move::L2);
-    c.phase_1_move(Phase1Move::L3);
-    c.phase_1_move(Phase1Move::L2);
+    c.phase_1_move(Move::L1);
+    c.phase_1_move(Move::L2);
+    c.phase_1_move(Move::L3);
+    c.phase_1_move(Move::L2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
@@ -462,131 +501,131 @@ fn test_all_moves() {
 #[test]
 fn test_long_identity() {
     let mut c = ReprCubie::default();
-    c.phase_1_move(Phase1Move::F1);
+    c.phase_1_move(Move::F1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::R1);
+    c.phase_1_move(Move::R1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::F3);
+    c.phase_1_move(Move::F3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::U1);
+    c.phase_1_move(Move::U1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::B2);
+    c.phase_1_move(Move::B2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::L3);
+    c.phase_1_move(Move::L3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::D3);
+    c.phase_1_move(Move::D3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::R2);
+    c.phase_1_move(Move::R2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::L1);
+    c.phase_1_move(Move::L1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::B2);
+    c.phase_1_move(Move::B2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::F3);
+    c.phase_1_move(Move::F3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::D1);
+    c.phase_1_move(Move::D1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::U2);
+    c.phase_1_move(Move::U2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::R1);
+    c.phase_1_move(Move::R1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::B1);
+    c.phase_1_move(Move::B1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::U3);
+    c.phase_1_move(Move::U3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::B3);
+    c.phase_1_move(Move::B3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::D1);
+    c.phase_1_move(Move::D1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::F3);
+    c.phase_1_move(Move::F3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::U2);
+    c.phase_1_move(Move::U2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::F3);
+    c.phase_1_move(Move::F3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::R1);
+    c.phase_1_move(Move::R1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::U1);
+    c.phase_1_move(Move::U1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::R3);
+    c.phase_1_move(Move::R3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::L2);
+    c.phase_1_move(Move::L2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::U1);
+    c.phase_1_move(Move::U1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::L2);
+    c.phase_1_move(Move::L2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::D3);
+    c.phase_1_move(Move::D3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::L2);
+    c.phase_1_move(Move::L2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::D2);
+    c.phase_1_move(Move::D2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::F2);
+    c.phase_1_move(Move::F2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.phase_1_move(Phase1Move::D1);
+    c.phase_1_move(Move::D1);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
@@ -597,10 +636,10 @@ fn sexy_move() {
     let mut c = ReprCubie::default();
 
     for _ in 0..6 {
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::F1);
-        c.phase_1_move(Phase1Move::U3);
-        c.phase_1_move(Phase1Move::F3);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::F1);
+        c.phase_1_move(Move::U3);
+        c.phase_1_move(Move::F3);
     }
 
     assert!(c.is_valid());
@@ -612,106 +651,106 @@ fn hundred_thousand_moves_simd() {
     let mut c = ReprCubie::default();
 
     for _ in 0..1000 {
-        c.phase_1_move(Phase1Move::F1);
-        c.phase_1_move(Phase1Move::R1);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::B2);
-        c.phase_1_move(Phase1Move::L3);
-        c.phase_1_move(Phase1Move::D3);
-        c.phase_1_move(Phase1Move::R2);
-        c.phase_1_move(Phase1Move::L1);
-        c.phase_1_move(Phase1Move::B2);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::D1);
-        c.phase_1_move(Phase1Move::U2);
-        c.phase_1_move(Phase1Move::R1);
-        c.phase_1_move(Phase1Move::B1);
-        c.phase_1_move(Phase1Move::U3);
-        c.phase_1_move(Phase1Move::B3);
-        c.phase_1_move(Phase1Move::D1);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::U2);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::R1);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::R3);
-        c.phase_1_move(Phase1Move::L2);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::L2);
-        c.phase_1_move(Phase1Move::D3);
-        c.phase_1_move(Phase1Move::L2);
-        c.phase_1_move(Phase1Move::D2);
-        c.phase_1_move(Phase1Move::F2);
-        c.phase_1_move(Phase1Move::D1);
-        c.phase_1_move(Phase1Move::F1);
-        c.phase_1_move(Phase1Move::R1);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::B2);
-        c.phase_1_move(Phase1Move::L3);
-        c.phase_1_move(Phase1Move::D3);
-        c.phase_1_move(Phase1Move::R2);
-        c.phase_1_move(Phase1Move::L2);
-        c.phase_1_move(Phase1Move::L3);
-        c.phase_1_move(Phase1Move::B2);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::D1);
-        c.phase_1_move(Phase1Move::U2);
-        c.phase_1_move(Phase1Move::R1);
-        c.phase_1_move(Phase1Move::B1);
-        c.phase_1_move(Phase1Move::U3);
-        c.phase_1_move(Phase1Move::B3);
-        c.phase_1_move(Phase1Move::D1);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::R1);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::R3);
-        c.phase_1_move(Phase1Move::L2);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::L2);
-        c.phase_1_move(Phase1Move::D3);
-        c.phase_1_move(Phase1Move::L2);
-        c.phase_1_move(Phase1Move::D2);
-        c.phase_1_move(Phase1Move::F2);
-        c.phase_1_move(Phase1Move::D1);
-        c.phase_1_move(Phase1Move::F1);
-        c.phase_1_move(Phase1Move::R1);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::B2);
-        c.phase_1_move(Phase1Move::L3);
-        c.phase_1_move(Phase1Move::D3);
-        c.phase_1_move(Phase1Move::R2);
-        c.phase_1_move(Phase1Move::L1);
-        c.phase_1_move(Phase1Move::B2);
-        c.phase_1_move(Phase1Move::F2);
-        c.phase_1_move(Phase1Move::F1);
-        c.phase_1_move(Phase1Move::D1);
-        c.phase_1_move(Phase1Move::U2);
-        c.phase_1_move(Phase1Move::R1);
-        c.phase_1_move(Phase1Move::B1);
-        c.phase_1_move(Phase1Move::U3);
-        c.phase_1_move(Phase1Move::B3);
-        c.phase_1_move(Phase1Move::D1);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::U2);
-        c.phase_1_move(Phase1Move::F3);
-        c.phase_1_move(Phase1Move::R1);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::R3);
-        c.phase_1_move(Phase1Move::L2);
-        c.phase_1_move(Phase1Move::U1);
-        c.phase_1_move(Phase1Move::L2);
-        c.phase_1_move(Phase1Move::D3);
-        c.phase_1_move(Phase1Move::L1);
-        c.phase_1_move(Phase1Move::L1);
-        c.phase_1_move(Phase1Move::D2);
-        c.phase_1_move(Phase1Move::F2);
-        c.phase_1_move(Phase1Move::D1);
+        c.phase_1_move(Move::F1);
+        c.phase_1_move(Move::R1);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::B2);
+        c.phase_1_move(Move::L3);
+        c.phase_1_move(Move::D3);
+        c.phase_1_move(Move::R2);
+        c.phase_1_move(Move::L1);
+        c.phase_1_move(Move::B2);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::D1);
+        c.phase_1_move(Move::U2);
+        c.phase_1_move(Move::R1);
+        c.phase_1_move(Move::B1);
+        c.phase_1_move(Move::U3);
+        c.phase_1_move(Move::B3);
+        c.phase_1_move(Move::D1);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::U2);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::R1);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::R3);
+        c.phase_1_move(Move::L2);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::L2);
+        c.phase_1_move(Move::D3);
+        c.phase_1_move(Move::L2);
+        c.phase_1_move(Move::D2);
+        c.phase_1_move(Move::F2);
+        c.phase_1_move(Move::D1);
+        c.phase_1_move(Move::F1);
+        c.phase_1_move(Move::R1);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::B2);
+        c.phase_1_move(Move::L3);
+        c.phase_1_move(Move::D3);
+        c.phase_1_move(Move::R2);
+        c.phase_1_move(Move::L2);
+        c.phase_1_move(Move::L3);
+        c.phase_1_move(Move::B2);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::D1);
+        c.phase_1_move(Move::U2);
+        c.phase_1_move(Move::R1);
+        c.phase_1_move(Move::B1);
+        c.phase_1_move(Move::U3);
+        c.phase_1_move(Move::B3);
+        c.phase_1_move(Move::D1);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::R1);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::R3);
+        c.phase_1_move(Move::L2);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::L2);
+        c.phase_1_move(Move::D3);
+        c.phase_1_move(Move::L2);
+        c.phase_1_move(Move::D2);
+        c.phase_1_move(Move::F2);
+        c.phase_1_move(Move::D1);
+        c.phase_1_move(Move::F1);
+        c.phase_1_move(Move::R1);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::B2);
+        c.phase_1_move(Move::L3);
+        c.phase_1_move(Move::D3);
+        c.phase_1_move(Move::R2);
+        c.phase_1_move(Move::L1);
+        c.phase_1_move(Move::B2);
+        c.phase_1_move(Move::F2);
+        c.phase_1_move(Move::F1);
+        c.phase_1_move(Move::D1);
+        c.phase_1_move(Move::U2);
+        c.phase_1_move(Move::R1);
+        c.phase_1_move(Move::B1);
+        c.phase_1_move(Move::U3);
+        c.phase_1_move(Move::B3);
+        c.phase_1_move(Move::D1);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::U2);
+        c.phase_1_move(Move::F3);
+        c.phase_1_move(Move::R1);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::R3);
+        c.phase_1_move(Move::L2);
+        c.phase_1_move(Move::U1);
+        c.phase_1_move(Move::L2);
+        c.phase_1_move(Move::D3);
+        c.phase_1_move(Move::L1);
+        c.phase_1_move(Move::L1);
+        c.phase_1_move(Move::D2);
+        c.phase_1_move(Move::F2);
+        c.phase_1_move(Move::D1);
     }
 
     assert!(c.is_valid());
@@ -723,106 +762,106 @@ fn hundred_thousand_moves_const() {
     let mut c = ReprCubie::default();
 
     for _ in 0..1000 {
-        c = c.const_phase_1_move(Phase1Move::F1);
-        c = c.const_phase_1_move(Phase1Move::R1);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::B2);
-        c = c.const_phase_1_move(Phase1Move::L3);
-        c = c.const_phase_1_move(Phase1Move::D3);
-        c = c.const_phase_1_move(Phase1Move::R2);
-        c = c.const_phase_1_move(Phase1Move::L1);
-        c = c.const_phase_1_move(Phase1Move::B2);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::D1);
-        c = c.const_phase_1_move(Phase1Move::U2);
-        c = c.const_phase_1_move(Phase1Move::R1);
-        c = c.const_phase_1_move(Phase1Move::B1);
-        c = c.const_phase_1_move(Phase1Move::U3);
-        c = c.const_phase_1_move(Phase1Move::B3);
-        c = c.const_phase_1_move(Phase1Move::D1);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::U2);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::R1);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::R3);
-        c = c.const_phase_1_move(Phase1Move::L2);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::L2);
-        c = c.const_phase_1_move(Phase1Move::D3);
-        c = c.const_phase_1_move(Phase1Move::L2);
-        c = c.const_phase_1_move(Phase1Move::D2);
-        c = c.const_phase_1_move(Phase1Move::F2);
-        c = c.const_phase_1_move(Phase1Move::D1);
-        c = c.const_phase_1_move(Phase1Move::F1);
-        c = c.const_phase_1_move(Phase1Move::R1);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::B2);
-        c = c.const_phase_1_move(Phase1Move::L3);
-        c = c.const_phase_1_move(Phase1Move::D3);
-        c = c.const_phase_1_move(Phase1Move::R2);
-        c = c.const_phase_1_move(Phase1Move::L2);
-        c = c.const_phase_1_move(Phase1Move::L3);
-        c = c.const_phase_1_move(Phase1Move::B2);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::D1);
-        c = c.const_phase_1_move(Phase1Move::U2);
-        c = c.const_phase_1_move(Phase1Move::R1);
-        c = c.const_phase_1_move(Phase1Move::B1);
-        c = c.const_phase_1_move(Phase1Move::U3);
-        c = c.const_phase_1_move(Phase1Move::B3);
-        c = c.const_phase_1_move(Phase1Move::D1);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::R1);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::R3);
-        c = c.const_phase_1_move(Phase1Move::L2);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::L2);
-        c = c.const_phase_1_move(Phase1Move::D3);
-        c = c.const_phase_1_move(Phase1Move::L2);
-        c = c.const_phase_1_move(Phase1Move::D2);
-        c = c.const_phase_1_move(Phase1Move::F2);
-        c = c.const_phase_1_move(Phase1Move::D1);
-        c = c.const_phase_1_move(Phase1Move::F1);
-        c = c.const_phase_1_move(Phase1Move::R1);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::B2);
-        c = c.const_phase_1_move(Phase1Move::L3);
-        c = c.const_phase_1_move(Phase1Move::D3);
-        c = c.const_phase_1_move(Phase1Move::R2);
-        c = c.const_phase_1_move(Phase1Move::L1);
-        c = c.const_phase_1_move(Phase1Move::B2);
-        c = c.const_phase_1_move(Phase1Move::F2);
-        c = c.const_phase_1_move(Phase1Move::F1);
-        c = c.const_phase_1_move(Phase1Move::D1);
-        c = c.const_phase_1_move(Phase1Move::U2);
-        c = c.const_phase_1_move(Phase1Move::R1);
-        c = c.const_phase_1_move(Phase1Move::B1);
-        c = c.const_phase_1_move(Phase1Move::U3);
-        c = c.const_phase_1_move(Phase1Move::B3);
-        c = c.const_phase_1_move(Phase1Move::D1);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::U2);
-        c = c.const_phase_1_move(Phase1Move::F3);
-        c = c.const_phase_1_move(Phase1Move::R1);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::R3);
-        c = c.const_phase_1_move(Phase1Move::L2);
-        c = c.const_phase_1_move(Phase1Move::U1);
-        c = c.const_phase_1_move(Phase1Move::L2);
-        c = c.const_phase_1_move(Phase1Move::D3);
-        c = c.const_phase_1_move(Phase1Move::L1);
-        c = c.const_phase_1_move(Phase1Move::L1);
-        c = c.const_phase_1_move(Phase1Move::D2);
-        c = c.const_phase_1_move(Phase1Move::F2);
-        c = c.const_phase_1_move(Phase1Move::D1);
+        c = c.const_move(Move::F1);
+        c = c.const_move(Move::R1);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::B2);
+        c = c.const_move(Move::L3);
+        c = c.const_move(Move::D3);
+        c = c.const_move(Move::R2);
+        c = c.const_move(Move::L1);
+        c = c.const_move(Move::B2);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::D1);
+        c = c.const_move(Move::U2);
+        c = c.const_move(Move::R1);
+        c = c.const_move(Move::B1);
+        c = c.const_move(Move::U3);
+        c = c.const_move(Move::B3);
+        c = c.const_move(Move::D1);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::U2);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::R1);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::R3);
+        c = c.const_move(Move::L2);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::L2);
+        c = c.const_move(Move::D3);
+        c = c.const_move(Move::L2);
+        c = c.const_move(Move::D2);
+        c = c.const_move(Move::F2);
+        c = c.const_move(Move::D1);
+        c = c.const_move(Move::F1);
+        c = c.const_move(Move::R1);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::B2);
+        c = c.const_move(Move::L3);
+        c = c.const_move(Move::D3);
+        c = c.const_move(Move::R2);
+        c = c.const_move(Move::L2);
+        c = c.const_move(Move::L3);
+        c = c.const_move(Move::B2);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::D1);
+        c = c.const_move(Move::U2);
+        c = c.const_move(Move::R1);
+        c = c.const_move(Move::B1);
+        c = c.const_move(Move::U3);
+        c = c.const_move(Move::B3);
+        c = c.const_move(Move::D1);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::R1);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::R3);
+        c = c.const_move(Move::L2);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::L2);
+        c = c.const_move(Move::D3);
+        c = c.const_move(Move::L2);
+        c = c.const_move(Move::D2);
+        c = c.const_move(Move::F2);
+        c = c.const_move(Move::D1);
+        c = c.const_move(Move::F1);
+        c = c.const_move(Move::R1);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::B2);
+        c = c.const_move(Move::L3);
+        c = c.const_move(Move::D3);
+        c = c.const_move(Move::R2);
+        c = c.const_move(Move::L1);
+        c = c.const_move(Move::B2);
+        c = c.const_move(Move::F2);
+        c = c.const_move(Move::F1);
+        c = c.const_move(Move::D1);
+        c = c.const_move(Move::U2);
+        c = c.const_move(Move::R1);
+        c = c.const_move(Move::B1);
+        c = c.const_move(Move::U3);
+        c = c.const_move(Move::B3);
+        c = c.const_move(Move::D1);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::U2);
+        c = c.const_move(Move::F3);
+        c = c.const_move(Move::R1);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::R3);
+        c = c.const_move(Move::L2);
+        c = c.const_move(Move::U1);
+        c = c.const_move(Move::L2);
+        c = c.const_move(Move::D3);
+        c = c.const_move(Move::L1);
+        c = c.const_move(Move::L1);
+        c = c.const_move(Move::D2);
+        c = c.const_move(Move::F2);
+        c = c.const_move(Move::D1);
     }
 
     assert!(c.is_valid());
@@ -833,10 +872,10 @@ fn hundred_thousand_moves_const() {
 fn test_apply() {
     let mut c = ReprCubie::new();
 
-    c.phase_1_move(Phase1Move::R1);
-    c.phase_1_move(Phase1Move::U1);
-    c.phase_1_move(Phase1Move::R3);
-    c.phase_1_move(Phase1Move::U3);
+    c.phase_1_move(Move::R1);
+    c.phase_1_move(Move::U1);
+    c.phase_1_move(Move::R3);
+    c.phase_1_move(Move::U3);
 
     let i = c.get_index();
     let o = c.get_orient();
@@ -854,8 +893,8 @@ fn test_apply() {
 fn test_2_move_apply() {
     let mut c = ReprCubie::new();
 
-    c.phase_1_move(Phase1Move::R1);
-    c.phase_1_move(Phase1Move::U1);
+    c.phase_1_move(Move::R1);
+    c.phase_1_move(Move::U1);
 
     let i = c.get_index();
     let o = c.get_orient();
@@ -875,11 +914,11 @@ fn test_2_move_apply() {
 fn test_long_apply() {
     let mut c = ReprCubie::new();
 
-    c.phase_1_move(Phase1Move::R1);
-    c.phase_1_move(Phase1Move::U2);
-    c.phase_1_move(Phase1Move::D3);
-    c.phase_1_move(Phase1Move::B1);
-    c.phase_1_move(Phase1Move::D3);
+    c.phase_1_move(Move::R1);
+    c.phase_1_move(Move::U2);
+    c.phase_1_move(Move::D3);
+    c.phase_1_move(Move::B1);
+    c.phase_1_move(Move::D3);
 
     let i = c.get_index();
     let o = c.get_orient();

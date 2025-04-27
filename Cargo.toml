@@ -2,5 +2,5 @@
 
 members = [
   "kociemba",
-  "puzzle-core"
+  # "puzzle-core"
 ]
