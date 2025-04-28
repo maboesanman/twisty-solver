@@ -1,5 +1,5 @@
-use std::intrinsics::ptr_offset_from;
 use std::fmt::Debug;
+use std::intrinsics::ptr_offset_from;
 
 use num_enum::{IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive};
 
@@ -127,8 +127,7 @@ pub(crate) enum EdgeResident {
 
 #[repr(u8)]
 #[derive(
-    Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive, Debug,
-    Hash,
+    Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive, Debug, Hash,
 )]
 pub(crate) enum EdgeOrient {
     Solved = 0,
@@ -214,13 +213,13 @@ impl ReprCubie {
             .map(|x| *x as u8)
             .collect::<Vec<_>>();
         v.sort();
-        if v != (0..8u8).into_iter().collect::<Vec<_>>() {
+        if v != (0..8u8).collect::<Vec<_>>() {
             return false;
         }
 
         let mut v = self.edge_perm.iter().map(|x| *x as u8).collect::<Vec<_>>();
         v.sort();
-        if v != (0..12u8).into_iter().collect::<Vec<_>>() {
+        if v != (0..12u8).collect::<Vec<_>>() {
             return false;
         }
 

@@ -15,7 +15,7 @@ macro_rules! permutation_coord {
                 }
                 f
             };
-    
+
             const [<FIRST_PERM_ $n>]: [u8; $n] = {
                 let mut f: [u8; $n] = [0; $n];
                 let mut i = 0;
@@ -28,7 +28,7 @@ macro_rules! permutation_coord {
                 }
                 f
             };
-    
+
             pub const fn [<permutation_coord_ $n>](perm: &[u8; $n]) -> $t {
                 let mut sum = 0;
                 let mut i = 1;
@@ -38,15 +38,15 @@ macro_rules! permutation_coord {
                         if perm[j] > perm[i] {
                             sum += [<FACTORIALS_ $n>][i]
                         }
-    
+
                         j += 1;
                     }
-    
+
                     i += 1;
                 }
                 sum
             }
-    
+
             pub const fn [<permutation_coord_ $n _inverse>](mut coord: $t) -> [u8; $n] {
                 let mut f = $n - 1;
                 let mut result = [<FIRST_PERM_ $n>];
@@ -73,10 +73,10 @@ macro_rules! permutation_coord {
                         f -= 1;
                     }
                 }
-    
+
                 result
             }
-    
+
             #[test]
             fn [<permutation_coord_ $n _test>]() {
                 // the domain is small enough so we just check the whole thing.
@@ -92,7 +92,6 @@ macro_rules! permutation_coord {
 permutation_coord!(8, u16);
 
 permutation_coord!(4, u8);
-
 
 const COMBINATIONS: [[u16; 4]; 12] = {
     const FACTORIALS: [u32; 12] = [
@@ -121,7 +120,7 @@ pub const fn edge_grouping(items: &[bool; 12]) -> u16 {
 
     loop {
         if !items[n] {
-            sum += COMBINATIONS[n][k] as u16
+            sum += COMBINATIONS[n][k]
         } else if k == 0 {
             break;
         } else {
@@ -142,7 +141,7 @@ pub const fn edge_grouping_inverse(mut coord: u16) -> [bool; 12] {
     let mut k = 11;
     let mut i = 3;
     loop {
-        let c = COMBINATIONS[k][i] as u16;
+        let c = COMBINATIONS[k][i];
         if coord >= c {
             coord -= c;
             k -= 1;

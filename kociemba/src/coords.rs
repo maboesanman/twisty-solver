@@ -1,16 +1,13 @@
-use std::mem::transmute;
-
-use deku::prelude::*;
-use paste::paste;
-
-use crate::{moves::Move, permutation_coord::{self, permutation_coord_4_inverse, permutation_coord_8_inverse}, repr_cubie::{self, CornerOrient, CornerResident, EdgeResident, ReprCubie}};
+use crate::{
+    permutation_coord::{self, permutation_coord_4_inverse, permutation_coord_8_inverse},
+    repr_cubie::ReprCubie,
+};
 
 macro_rules! define_coord {
     ($name:ident, $inner:ty, $range:expr, $bits:expr) => {
-        #[derive(Debug, PartialEq, Eq, DekuRead, DekuWrite, Copy, Clone, Hash, Default)]
-        #[deku(endian = "big")]
+        #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash, Default)]
         #[repr(transparent)]
-        pub struct $name(#[deku(bits = $bits)] $inner);
+        pub struct $name(pub $inner);
 
         impl Into<$inner> for $name {
             fn into(self) -> $inner {
@@ -23,20 +20,8 @@ macro_rules! define_coord {
                 Self(value)
             }
         }
-
-        impl From<ReprCubie> for $name {
-            fn from(value: ReprCubie) -> Self {
-                Self::from_cubie(value)
-            }
-        }
-
-        impl RawCoord for $name {}
     };
 }
-
-pub trait RawCoord:
-    From<ReprCubie> + Clone + Copy + PartialEq + Eq + core::hash::Hash + Default
-{}
 
 // Phase 1 Raw Coordinates
 
@@ -88,12 +73,16 @@ impl EdgeGroupCoord {
     }
 }
 
-pub const fn phase_1_cubies(corners: CornerOrientCoord, edges: EdgeOrientCoord, edge_group: EdgeGroupCoord) -> ReprCubie {
+pub const fn phase_1_cubies(
+    corners: CornerOrientCoord,
+    edges: EdgeOrientCoord,
+    edge_group: EdgeGroupCoord,
+) -> ReprCubie {
     let mut corners = corners.0;
     let mut edges = edges.0;
 
     let mut cube = ReprCubie::new();
-    
+
     let mut sum = 0;
     let mut i = 7;
     while i > 0 {
@@ -208,7 +197,11 @@ impl EEdgePermCoord {
     }
 }
 
-pub const fn phase_2_cubies(corners: CornerPermCoord, ud_edges: UDEdgePermCoord, e_edges: EEdgePermCoord) -> ReprCubie {
+pub const fn phase_2_cubies(
+    corners: CornerPermCoord,
+    ud_edges: UDEdgePermCoord,
+    e_edges: EEdgePermCoord,
+) -> ReprCubie {
     let corner_perm_raw = permutation_coord_8_inverse(corners.0);
     let ud_edge_perm_raw = permutation_coord_8_inverse(ud_edges.0);
     let e_edge_perm_raw = permutation_coord_4_inverse(e_edges.0);
@@ -218,30 +211,26 @@ pub const fn phase_2_cubies(corners: CornerPermCoord, ud_edges: UDEdgePermCoord,
     let mut i = 0;
 
     while i < 8 {
-        cube.corner_perm[i] = unsafe { core::mem::transmute(corner_perm_raw[i])};
-        cube.edge_perm[i] = unsafe { core::mem::transmute(ud_edge_perm_raw[i])};
+        cube.corner_perm[i] = unsafe { core::mem::transmute(corner_perm_raw[i]) };
+        cube.edge_perm[i] = unsafe { core::mem::transmute(ud_edge_perm_raw[i]) };
         i += 1;
     }
 
     while i < 12 {
-        cube.edge_perm[i] = unsafe { core::mem::transmute(e_edge_perm_raw[i - 8] + 8)};
+        cube.edge_perm[i] = unsafe { core::mem::transmute(e_edge_perm_raw[i - 8] + 8) };
         i += 1;
     }
 
     cube
 }
 
-// // sym coordinates
+// sym coordinates
 
-// // 64430 (15.97 bits) u16
-// // tables: (23,194,800 bits, 2,899kb)
-// // - all moves + transform index
-// define_coord!(EdgeOrientGroup, u16, 64430, 16);
+// 64430 (15.97 bits) u16
+define_coord!(Phase1EdgeSymCoord, u16, 64430, 16);
 
-// // 2768 (11.43 bits) u16
-// // tables: (442,880 bits, 55kb)
-// // - all moves + transform index
-// define_coord!(CornerPerm, u16, 2768, 12);
+// 2768 (11.43 bits) u16
+define_coord!(Phase2CornerSymCoord, u16, 2768, 12);
 
 #[test]
 fn test_corner_orient() {

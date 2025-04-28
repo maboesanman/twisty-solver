@@ -4,8 +4,7 @@ use std::{
 };
 
 use super::repr_cubie::{
-    corner_orient_offset, corner_perm_offset, edge_orient_offset, edge_perm_offset, CornerOrient,
-    ReprCubie, EdgeOrient,
+    corner_orient_offset, corner_perm_offset, edge_orient_offset, edge_perm_offset, ReprCubie,
 };
 
 #[repr(u8)]
@@ -60,7 +59,7 @@ impl std::fmt::Display for Move {
 
 impl Move {
     pub fn all_iter() -> impl Iterator<Item = Self> {
-        (0u8..18u8).into_iter().map(|x| unsafe { core::mem::transmute(x) })
+        (0u8..18u8).map(|x| unsafe { core::mem::transmute(x) })
     }
 }
 
@@ -99,7 +98,7 @@ pub enum Phase2Move {
 
 impl Phase2Move {
     pub fn all_iter() -> impl Iterator<Item = Self> {
-        (0u8..10u8).into_iter().map(|x| unsafe { core::mem::transmute(x) })
+        (0u8..10u8).map(|x| unsafe { core::mem::transmute(x) })
     }
 }
 
@@ -306,10 +305,7 @@ impl ReprCubie {
         unsafe { Self::from_array_unchecked(buf) }
     }
 
-    pub const fn apply_const_no_orient(
-        self,
-        index: [usize; size_of::<ReprCubie>()],
-    ) -> Self {
+    pub const fn apply_const_no_orient(self, index: [usize; size_of::<ReprCubie>()]) -> Self {
         let buf = self.into_array();
         let mut buf_new = buf;
 

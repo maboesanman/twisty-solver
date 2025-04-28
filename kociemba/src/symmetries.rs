@@ -1,13 +1,21 @@
-
-
 // 0b_xx00_0_00_0
 
-use std::collections::HashMap;
-
-use crate::{moves::{combined_index, combined_orient, Move}, repr_cubie::{CornerOrient, ReprCubie}};
+use crate::{
+    moves::{combined_index, combined_orient},
+    repr_cubie::{CornerOrient, ReprCubie},
+};
 
 #[repr(transparent)]
-struct Transform(u8);
+pub struct Transform(pub u8);
+
+impl From<SubGroupTransform> for Transform {
+    fn from(value: SubGroupTransform) -> Self {
+        Self(value.0)
+    }
+}
+
+#[repr(transparent)]
+pub struct SubGroupTransform(pub u8);
 
 // THIS IS THE MANUAL PERMUTATION DATA FOR THE GENERATIVE ELEMENTS OF THE GROUP
 
@@ -45,7 +53,7 @@ impl ReprCubie {
         let mut i = 0;
         while i < 8 {
             match self.corner_orient[i] {
-                CornerOrient::Solved => {},
+                CornerOrient::Solved => {}
                 CornerOrient::Clockwise => self.corner_orient[i] = CornerOrient::CounterClockwise,
                 CornerOrient::CounterClockwise => self.corner_orient[i] = CornerOrient::Clockwise,
             }
@@ -55,7 +63,50 @@ impl ReprCubie {
         self
     }
 
-    pub const fn conjugate_by_transform(mut self, transform: Transform) -> Self {
+    pub const fn conjugate_by_subgroup_transform(self, transform: SubGroupTransform) -> Self {
+        let mut base = ReprCubie::new();
+
+        let s_lr2 = transform.0 & 0b0000_0001;
+        let s_u4 = (transform.0 & 0b0000_0110) >> 1;
+        let s_f2 = (transform.0 & 0b0000_1000) >> 3;
+
+        if s_lr2 == 1 {
+            base = base.apply_const_no_orient(S_LR2_INDEX);
+        }
+
+        let mut i = 0;
+        while i < s_u4 {
+            base = base.apply_const(S_U4_INDEX, &S_U4_ORIENT);
+            i += 1;
+        }
+
+        if s_f2 == 1 {
+            base = base.apply_const_no_orient(S_F2_INDEX);
+        }
+
+        let self_index = self.get_index();
+        let self_orient = self.get_orient();
+
+        base = base.apply_const(self_index, self_orient);
+
+        if s_f2 == 1 {
+            base = base.apply_const_no_orient(S_F2_INDEX);
+        }
+
+        while i < 4 && s_u4 != 0 {
+            base = base.apply_const(S_U4_INDEX, &S_U4_ORIENT);
+            i += 1;
+        }
+
+        if s_lr2 == 1 {
+            base = base.apply_const_no_orient(S_LR2_INDEX);
+            base = base.mirror_corner_orientations();
+        }
+
+        base
+    }
+
+    pub const fn conjugate_by_transform(self, transform: Transform) -> Self {
         let mut base = ReprCubie::new();
 
         let s_lr2 = transform.0 & 0b0000_0001;
@@ -119,7 +170,7 @@ impl ReprCubie {
             working[i] = working[i].conjugate_by_transform(Transform(i as u8));
             i += 1;
         }
-        
+
         working
     }
 
@@ -139,6 +190,9 @@ impl ReprCubie {
 
 #[test]
 fn check_symmetries() {
+    use crate::moves::Move;
+    use std::collections::HashMap;
+
     let mut move_lookup = HashMap::new();
     for m in Move::all_iter() {
         let val = format!("{m}");
@@ -146,7 +200,6 @@ fn check_symmetries() {
         move_lookup.insert(key, val);
     }
 
-    
     let c = ReprCubie::default().const_move(Move::U1);
 
     for i in 0..48 {
@@ -154,7 +207,6 @@ fn check_symmetries() {
 
         println!("{:?}", move_lookup.get(&key));
     }
-
 
     // c.conjugate_by_transform(transform)
 }
