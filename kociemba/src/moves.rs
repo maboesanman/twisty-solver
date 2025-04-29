@@ -1,7 +1,4 @@
-use std::{
-    intrinsics::size_of,
-    simd::{Mask, Simd},
-};
+use std::simd::{Mask, Simd};
 
 use super::repr_cubie::{
     corner_orient_offset, corner_perm_offset, edge_orient_offset, edge_perm_offset, ReprCubie,
@@ -102,11 +99,8 @@ impl Phase2Move {
     }
 }
 
-pub const fn combined_index(
-    corner_index: &[u8; 8],
-    edge_index: &[u8; 12],
-) -> [usize; size_of::<ReprCubie>()] {
-    let mut buf = [0usize; size_of::<ReprCubie>()];
+pub const fn combined_index(corner_index: &[u8; 8], edge_index: &[u8; 12]) -> [usize; 40] {
+    let mut buf = [0usize; 40];
 
     let corner_perm_offset = corner_perm_offset();
     let corner_orient_offset = corner_orient_offset();
@@ -179,17 +173,6 @@ pub const fn compose(base: &[usize; 40], next: &[usize; 40]) -> [usize; 40] {
         i += 1;
     }
     x
-}
-
-const fn pad<T: Copy>(mask: &[T; 40], default: T) -> [T; 64] {
-    let mut buf = [default; 64];
-
-    let mut i = 0;
-    while i < 40 {
-        buf[i] = mask[i];
-        i += 1;
-    }
-    buf
 }
 
 // THIS IS THE MANUAL PERMUTATION DATA FOR THE GENERATIVE ELEMENTS OF THE GROUP

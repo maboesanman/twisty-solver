@@ -4,7 +4,7 @@ use anyhow::Result;
 use memmap2::Mmap;
 
 use crate::{
-    coords::{phase_1_cubies, CornerOrientCoord, EdgeGroupCoord, EdgeOrientCoord},
+    coords::{phase_1_cubies, CornerOrientCoord},
     moves::Move,
     symmetries::SubGroupTransform,
     tables::table_loader::generate_full_move_table,
@@ -18,13 +18,7 @@ const CORNER_ORIENT_MOVE_TABLE_CHECKSUM: u32 = 402471466;
 fn generate_corner_orient_move_table(buffer: &mut [u8]) {
     generate_full_move_table::<CORNER_ORIENT_MOVE_TABLE_SIZE_BYTES, _, _>(
         buffer,
-        |i| {
-            phase_1_cubies(
-                CornerOrientCoord(i as u16),
-                EdgeOrientCoord(0),
-                EdgeGroupCoord(0),
-            )
-        },
+        |i| phase_1_cubies((i as u16).into(), 0.into(), 0.into()),
         |c| CornerOrientCoord::from_cubie(c).into(),
     );
 }
@@ -43,7 +37,7 @@ pub struct CornerOrientMoveTable(Mmap);
 
 impl CornerOrientMoveTable {
     pub fn apply_move(&self, coord: CornerOrientCoord, mv: Move) -> CornerOrientCoord {
-        let i = (coord.0 as usize) * 34 + (mv as u8 as usize);
+        let i = (coord.inner() as usize) * 34 + (mv as u8 as usize);
         as_u16_slice(&self.0)[i].into()
     }
 
@@ -52,7 +46,65 @@ impl CornerOrientMoveTable {
         coord: CornerOrientCoord,
         transform: SubGroupTransform,
     ) -> CornerOrientCoord {
-        let i = (coord.0 as usize) * 34 + (transform.0 as usize + 18);
+        let i = (coord.inner() as usize) * 34 + (transform.0 as usize + 18);
         as_u16_slice(&self.0)[i].into()
     }
+}
+
+#[test]
+fn test() -> Result<()> {
+    let table = load_corner_orient_move_table("corner_orient_move_table.dat")?;
+    for i in 0..2187 {
+        let coord = CornerOrientCoord::from(i);
+        let cube = phase_1_cubies(coord, 0.into(), 0.into());
+
+        for i in 0..18 {
+            let mv: Move = unsafe { core::mem::transmute(i as u8) };
+            let cubie_moved = CornerOrientCoord::from_cubie(cube.const_move(mv));
+            let table_moved = table.apply_move(coord, mv);
+            assert_eq!(cubie_moved, table_moved);
+        }
+
+        for i in 0..16 {
+            let transform = SubGroupTransform(i as u8);
+            let cubie_conjugated =
+                CornerOrientCoord::from_cubie(cube.conjugate_by_subgroup_transform(transform));
+            let table_conjugated = table.conjugate_by_transform(coord, transform);
+            assert_eq!(cubie_conjugated, table_conjugated);
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_random() -> Result<()> {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    let table = load_corner_orient_move_table("corner_orient_move_table.dat")?;
+    for i in 0..2187 {
+        let coord = CornerOrientCoord::from(i);
+        let cube = phase_1_cubies(
+            coord,
+            rng.random_range(0..2048u16).into(),
+            rng.random_range(0..495u16).into(),
+        );
+
+        for i in 0..18 {
+            let mv: Move = unsafe { core::mem::transmute(i as u8) };
+            let cubie_moved = CornerOrientCoord::from_cubie(cube.const_move(mv));
+            let table_moved = table.apply_move(coord, mv);
+            assert_eq!(cubie_moved, table_moved);
+        }
+
+        for i in 0..16 {
+            let transform = SubGroupTransform(i as u8);
+            let cubie_conjugated =
+                CornerOrientCoord::from_cubie(cube.conjugate_by_subgroup_transform(transform));
+            let table_conjugated = table.conjugate_by_transform(coord, transform);
+            assert_eq!(cubie_conjugated, table_conjugated);
+        }
+    }
+
+    Ok(())
 }

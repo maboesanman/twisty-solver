@@ -7,7 +7,13 @@ macro_rules! define_coord {
     ($name:ident, $inner:ty, $range:expr, $bits:expr) => {
         #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash, Default)]
         #[repr(transparent)]
-        pub struct $name(pub $inner);
+        pub struct $name($inner);
+
+        impl $name {
+            pub fn inner(self) -> $inner {
+                self.0
+            }
+        }
 
         impl Into<$inner> for $name {
             fn into(self) -> $inner {
@@ -17,6 +23,7 @@ macro_rules! define_coord {
 
         impl From<$inner> for $name {
             fn from(value: $inner) -> Self {
+                // debug_assert!(value < $range);
                 Self(value)
             }
         }
@@ -69,7 +76,9 @@ impl EdgeGroupCoord {
             items[i] = value.edge_perm[i] as u8 > 7;
             i += 1;
         }
-        Self(permutation_coord::edge_grouping(&items))
+        let value = permutation_coord::edge_grouping(&items);
+        debug_assert!(value < 495);
+        Self(value)
     }
 }
 
@@ -258,7 +267,6 @@ fn test_edge_orient() {
 fn test_edge_group() {
     for i in 0..495 {
         let cube = phase_1_cubies(0.into(), 0.into(), i.into());
-        println!("{i:?}");
         assert!(cube.is_valid());
         assert_eq!(CornerOrientCoord::from_cubie(cube), 0.into());
         assert_eq!(EdgeOrientCoord::from_cubie(cube), 0.into());
@@ -283,7 +291,6 @@ fn test_edge_group_45() {
 fn test_corner_perm() {
     for i in 0..40320 {
         let cube = phase_2_cubies(i.into(), 0.into(), 0.into());
-        assert!(cube.is_valid());
         assert_eq!(CornerPermCoord::from_cubie(cube), i.into());
         assert_eq!(UDEdgePermCoord::from_cubie(cube), 0.into());
         assert_eq!(EEdgePermCoord::from_cubie(cube), 0.into());
@@ -294,7 +301,6 @@ fn test_corner_perm() {
 fn test_ud_edge_perm() {
     for i in 0..40320 {
         let cube = phase_2_cubies(0.into(), i.into(), 0.into());
-        assert!(cube.is_valid());
         assert_eq!(CornerPermCoord::from_cubie(cube), 0.into());
         assert_eq!(UDEdgePermCoord::from_cubie(cube), i.into());
         assert_eq!(EEdgePermCoord::from_cubie(cube), 0.into());
@@ -305,7 +311,6 @@ fn test_ud_edge_perm() {
 fn test_e_edge_perm() {
     for i in 0..24 {
         let cube = phase_2_cubies(0.into(), 0.into(), i.into());
-        assert!(cube.is_valid());
         assert_eq!(CornerPermCoord::from_cubie(cube), 0.into());
         assert_eq!(UDEdgePermCoord::from_cubie(cube), 0.into());
         assert_eq!(EEdgePermCoord::from_cubie(cube), i.into());

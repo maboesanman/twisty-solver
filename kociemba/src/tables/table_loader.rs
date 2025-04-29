@@ -4,7 +4,7 @@ use std::{fs::OpenOptions, path::Path};
 use anyhow::Result;
 use memmap2::{Mmap, MmapOptions};
 
-use crate::{repr_cubie::ReprCubie, symmetries::Transform};
+use crate::{moves::Move, repr_cubie::ReprCubie, symmetries::SubGroupTransform};
 
 pub fn load_table<P, G>(path: P, size_bytes: usize, checksum: u32, generator: G) -> Result<Mmap>
 where
@@ -124,13 +124,13 @@ where
         let cube = to_fn(i);
         let mut j = 0usize;
         while j < 18 {
-            let m = unsafe { core::mem::transmute(j as u8) };
+            let m: Move = unsafe { core::mem::transmute(j as u8) };
             row[j] = from_fn(cube.const_move(m));
             j += 1;
         }
         while j < 34 {
-            let t = Transform((j - 18) as u8);
-            row[j] = from_fn(cube.conjugate_by_transform(t));
+            let t = SubGroupTransform((j - 18) as u8);
+            row[j] = from_fn(cube.conjugate_by_subgroup_transform(t));
             j += 1;
         }
     });

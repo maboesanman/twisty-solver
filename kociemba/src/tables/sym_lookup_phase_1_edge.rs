@@ -2,13 +2,10 @@ use std::path::Path;
 
 use anyhow::Result;
 use memmap2::Mmap;
-use rayon::{
-    iter::{IntoParallelIterator, ParallelIterator},
-    slice::ParallelSliceMut,
-};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
-    coords::{phase_1_cubies, EdgeGroupCoord, EdgeOrientCoord, Phase1EdgeSymCoord},
+    coords::{EdgeGroupCoord, EdgeOrientCoord, Phase1EdgeSymCoord},
     symmetries::SubGroupTransform,
 };
 
@@ -21,19 +18,22 @@ use super::{
 const PHASE_1_EDGE_SYM_LOOKUP_TABLE_SIZE_BYTES: usize = 64430 * 2 * 2;
 const PHASE_1_EDGE_SYM_LOOKUP_TABLE_CHECKSUM: u32 = 416901822;
 
-fn generate_phase_1_edge_sym_lookup_table(buffer: &mut [u8]) {
+fn generate_phase_1_edge_sym_lookup_table(
+    buffer: &mut [u8],
+    edge_orient_move_table: &EdgeOrientMoveTable,
+    edge_group_move_table: &EdgeGroupingMoveTable,
+) {
     let mut reps: Vec<[u16; 2]> = (0..2048u16)
         .into_par_iter()
         .flat_map(|i| {
             (0..495u16).into_par_iter().map(move |j| {
-                let cube = phase_1_cubies(0.into(), i.into(), j.into());
-                cube.get_subgroup_equivalence_class()
-                    .into_iter()
-                    .map(|c| {
-                        let edge_orient = EdgeOrientCoord::from_cubie(c);
-                        let edge_group = EdgeGroupCoord::from_cubie(c);
-                        [edge_orient.into(), edge_group.into()]
-                    })
+                let edge_orient_syms = edge_orient_move_table.get_sym_array_ref(i.into());
+                let edge_group_syms = edge_group_move_table.get_sym_array_ref(j.into());
+
+                edge_orient_syms
+                    .iter()
+                    .zip(edge_group_syms)
+                    .map(|(a, b)| [*a, *b])
                     .min()
                     .unwrap()
             })
@@ -41,8 +41,13 @@ fn generate_phase_1_edge_sym_lookup_table(buffer: &mut [u8]) {
         .collect();
 
     // 2) sort + dedup to get the same ordering as BTreeSet
-    reps.par_sort_unstable();
+    reps.sort();
+    println!("reps len {}", reps.len());
+
     reps.dedup();
+
+    println!("reps len {}", reps.len());
+    assert!(reps.len() == 64430);
 
     // 3) write into the u16‐view of the buffer
     let buf16 = as_u16_slice_mut(buffer);
@@ -50,16 +55,28 @@ fn generate_phase_1_edge_sym_lookup_table(buffer: &mut [u8]) {
         buf16[2 * i] = orient;
         buf16[2 * i + 1] = group;
     }
+
+    let buf = as_u16_2_slice(buffer);
+    assert!(buf.is_sorted())
 }
 
 pub fn load_phase_1_edge_sym_lookup_table<P: AsRef<Path>>(
     path: P,
+
+    edge_orient_move_table: &EdgeOrientMoveTable,
+    edge_group_move_table: &EdgeGroupingMoveTable,
 ) -> Result<Phase1EdgeSymLookupTable> {
     load_table(
         path,
         PHASE_1_EDGE_SYM_LOOKUP_TABLE_SIZE_BYTES,
         PHASE_1_EDGE_SYM_LOOKUP_TABLE_CHECKSUM,
-        generate_phase_1_edge_sym_lookup_table,
+        |buf| {
+            generate_phase_1_edge_sym_lookup_table(
+                buf,
+                edge_orient_move_table,
+                edge_group_move_table,
+            )
+        },
     )
     .map(Phase1EdgeSymLookupTable)
 }
@@ -72,7 +89,8 @@ impl Phase1EdgeSymLookupTable {
         sym_coord: Phase1EdgeSymCoord,
     ) -> (EdgeOrientCoord, EdgeGroupCoord) {
         let slice = as_u16_slice(&self.0);
-        let i = sym_coord.0 as usize * 2;
+        let i = sym_coord.inner() as usize * 2;
+        println!("{:?}", &slice[i..i + 2]);
         (slice[i].into(), slice[i + 1].into())
     }
 

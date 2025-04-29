@@ -5,6 +5,7 @@ use crate::{
     repr_cubie::{CornerOrient, ReprCubie},
 };
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Transform(pub u8);
 
@@ -14,6 +15,7 @@ impl From<SubGroupTransform> for Transform {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct SubGroupTransform(pub u8);
 
@@ -66,9 +68,9 @@ impl ReprCubie {
     pub const fn conjugate_by_subgroup_transform(self, transform: SubGroupTransform) -> Self {
         let mut base = ReprCubie::new();
 
-        let s_lr2 = transform.0 & 0b0000_0001;
-        let s_u4 = (transform.0 & 0b0000_0110) >> 1;
-        let s_f2 = (transform.0 & 0b0000_1000) >> 3;
+        let s_lr2 = transform.0 & 0b0001;
+        let s_u4 = (transform.0 & 0b0110) >> 1;
+        let s_f2 = (transform.0 & 0b1000) >> 3;
 
         if s_lr2 == 1 {
             base = base.apply_const_no_orient(S_LR2_INDEX);
@@ -204,6 +206,32 @@ fn check_symmetries() {
 
     for i in 0..48 {
         let key = c.conjugate_by_transform(Transform(i));
+
+        println!("{:?}", move_lookup.get(&key));
+    }
+
+    println!();
+
+    for i in 0..16 {
+        let key = c.conjugate_by_subgroup_transform(SubGroupTransform(i));
+
+        println!("{:?}", move_lookup.get(&key));
+    }
+
+    println!();
+
+    let c = ReprCubie::default().const_move(Move::F1);
+
+    for i in 0..48 {
+        let key = c.conjugate_by_transform(Transform(i));
+
+        println!("{:?}", move_lookup.get(&key));
+    }
+
+    println!();
+
+    for i in 0..16 {
+        let key = c.conjugate_by_subgroup_transform(SubGroupTransform(i));
 
         println!("{:?}", move_lookup.get(&key));
     }

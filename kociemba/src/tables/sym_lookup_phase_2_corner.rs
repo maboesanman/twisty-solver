@@ -26,7 +26,12 @@ fn generate_phase_2_corner_sym_lookup_table(
 ) {
     let mut reps: Vec<u16> = (0..40320u16)
         .into_par_iter()
-        .map(move |i| corner_perm_move_table.get_sym_representative(i.into()).0 .0)
+        .map(move |i| {
+            corner_perm_move_table
+                .get_sym_representative(i.into())
+                .0
+                .inner()
+        })
         .collect();
 
     // 2) sort + dedup to get the same ordering as BTreeSet
@@ -58,7 +63,7 @@ pub struct Phase2CornerSymLookupTable(Mmap);
 impl Phase2CornerSymLookupTable {
     pub fn get_raw_from_sym(&self, sym_coord: Phase2CornerSymCoord) -> CornerPermCoord {
         let slice = as_u16_slice(&self.0);
-        let i = sym_coord.0 as usize;
+        let i = sym_coord.inner() as usize;
         slice[i].into()
     }
 
@@ -69,7 +74,7 @@ impl Phase2CornerSymLookupTable {
     ) -> (Phase2CornerSymCoord, SubGroupTransform) {
         let (c, transform) = corner_perm_move_table.get_sym_representative(raw_coord);
         let slice = as_u16_slice(&self.0);
-        let sym_coord = (slice.binary_search(&c.0).unwrap() as u16).into();
+        let sym_coord = (slice.binary_search(&c.inner()).unwrap() as u16).into();
 
         (sym_coord, transform)
     }

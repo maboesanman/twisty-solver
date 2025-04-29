@@ -1,5 +1,4 @@
 use std::fmt::Debug;
-use std::intrinsics::ptr_offset_from;
 
 use num_enum::{IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive};
 
@@ -30,37 +29,22 @@ fn layout_correct() {
 }
 
 pub(crate) const fn corner_perm_offset() -> usize {
-    let c = ReprCubie::new();
-    let c_ptr: *const _ = &c;
-    let c_c_p_ptr: *const _ = &c.corner_perm;
-
-    unsafe { ptr_offset_from(c_c_p_ptr as *const u8, c_ptr as *const u8) as usize }
+    0
 }
 
 pub(crate) const fn corner_orient_offset() -> usize {
-    let c = ReprCubie::new();
-    let c_ptr: *const _ = &c;
-    let c_c_o_ptr: *const _ = &c.corner_orient;
-
-    unsafe { ptr_offset_from(c_c_o_ptr as *const u8, c_ptr as *const u8) as usize }
+    8
 }
 
 pub(crate) const fn edge_perm_offset() -> usize {
-    let c = ReprCubie::new();
-    let c_ptr: *const _ = &c;
-    let c_e_p_ptr: *const _ = &c.edge_perm;
-
-    unsafe { ptr_offset_from(c_e_p_ptr as *const u8, c_ptr as *const u8) as usize }
+    28
 }
 
 pub(crate) const fn edge_orient_offset() -> usize {
-    let c = ReprCubie::new();
-    let c_ptr: *const _ = &c;
-    let c_e_o_ptr: *const _ = &c.edge_orient;
-
-    unsafe { ptr_offset_from(c_e_o_ptr as *const u8, c_ptr as *const u8) as usize }
+    16
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(
     PartialEq,
     Eq,
@@ -202,10 +186,8 @@ impl ReprCubie {
     pub(crate) const fn into_ref(&self) -> &[u8; 40] {
         unsafe { core::mem::transmute(self) }
     }
-    pub(crate) fn into_mut_ref(&mut self) -> &mut [u8; 40] {
-        unsafe { core::mem::transmute(self) }
-    }
 
+    #[cfg(test)]
     pub(crate) fn is_valid(&self) -> bool {
         let mut v = self
             .corner_perm

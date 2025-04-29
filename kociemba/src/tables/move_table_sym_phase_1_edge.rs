@@ -2,14 +2,9 @@ use std::path::Path;
 
 use anyhow::Result;
 use memmap2::Mmap;
-use rayon::prelude::*;
 
 use crate::{
-    coords::{
-        phase_2_cubies, CornerPermCoord, EEdgePermCoord, Phase1EdgeSymCoord, UDEdgePermCoord,
-    },
-    moves::Move,
-    symmetries::SubGroupTransform,
+    coords::Phase1EdgeSymCoord, moves::Move, symmetries::SubGroupTransform,
     tables::table_loader::as_u16_slice_mut,
 };
 
@@ -17,7 +12,7 @@ use super::{
     move_table_raw_edge_grouping::EdgeGroupingMoveTable,
     move_table_raw_edge_orient::EdgeOrientMoveTable,
     sym_lookup_phase_1_edge::Phase1EdgeSymLookupTable,
-    table_loader::{as_u16_slice, generate_full_move_table, load_table},
+    table_loader::{as_u16_slice, load_table},
 };
 
 const PHASE_1_EDGE_MOVE_TABLE_SIZE_BYTES: usize = (64430 * 18) * 2;
@@ -33,7 +28,7 @@ fn generate_phase_1_edge_move_table(
     let buffer = as_u16_slice_mut(buffer);
 
     buffer
-        .par_chunks_mut(18 * 2)
+        .chunks_mut(18 * 2)
         .enumerate()
         .for_each(|(sym_coord, row)| {
             let (edge_orient_coord, edge_group_coord) =
@@ -87,7 +82,7 @@ impl Phase1EdgeMoveTable {
         mv: Move,
     ) -> (Phase1EdgeSymCoord, SubGroupTransform) {
         let slice = as_u16_slice(&self.0);
-        let i = coord.0 as usize * 18 * 2 + mv as u8 as usize * 2;
+        let i = coord.inner() as usize * 18 * 2 + mv as u8 as usize * 2;
         (slice[i].into(), SubGroupTransform(slice[i + 1] as u8))
     }
 }

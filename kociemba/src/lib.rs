@@ -1,4 +1,3 @@
-#![feature(core_intrinsics)]
 #![feature(portable_simd)]
 #![feature(slice_as_array)]
 pub mod coords;
