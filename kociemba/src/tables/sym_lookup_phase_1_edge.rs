@@ -5,37 +5,28 @@ use memmap2::Mmap;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
-    coords::{EdgeGroupCoord, EdgeOrientCoord, Phase1EdgeSymCoord},
+    coords::{EdgeGroupCoord, EdgeOrientCoord, Phase1EdgeSymCoord, Phase2CornerSymCoord},
     symmetries::SubGroupTransform,
 };
 
 use super::{
-    move_table_raw_edge_grouping::EdgeGroupingMoveTable,
-    move_table_raw_edge_orient::EdgeOrientMoveTable,
-    table_loader::{as_u16_2_slice, as_u16_slice, as_u16_slice_mut, load_table},
+    move_table_edge_group_and_orient::EdgeGroupAndOrientMoveTable, move_table_raw_edge_grouping::EdgeGroupingMoveTable, move_table_raw_edge_orient::EdgeOrientMoveTable, table_loader::{as_u16_2_slice, as_u16_slice, as_u16_slice_mut, load_table}
 };
 
 const PHASE_1_EDGE_SYM_LOOKUP_TABLE_SIZE_BYTES: usize = 64430 * 2 * 2;
-const PHASE_1_EDGE_SYM_LOOKUP_TABLE_CHECKSUM: u32 = 416901822;
+const PHASE_1_EDGE_SYM_LOOKUP_TABLE_CHECKSUM: u32 = 1283221251;
 
 fn generate_phase_1_edge_sym_lookup_table(
     buffer: &mut [u8],
-    edge_orient_move_table: &EdgeOrientMoveTable,
-    edge_group_move_table: &EdgeGroupingMoveTable,
+    move_table: &EdgeGroupAndOrientMoveTable,
 ) {
     let mut reps: Vec<[u16; 2]> = (0..2048u16)
         .into_par_iter()
         .flat_map(|i| {
             (0..495u16).into_par_iter().map(move |j| {
-                let edge_orient_syms = edge_orient_move_table.get_sym_array_ref(i.into());
-                let edge_group_syms = edge_group_move_table.get_sym_array_ref(j.into());
+                let (group, orient, _) = move_table.get_sym_representative(j.into(), i.into());
 
-                edge_orient_syms
-                    .iter()
-                    .zip(edge_group_syms)
-                    .map(|(a, b)| [*a, *b])
-                    .min()
-                    .unwrap()
+                [group.into(), orient.into()]
             })
         })
         .collect();
@@ -62,9 +53,7 @@ fn generate_phase_1_edge_sym_lookup_table(
 
 pub fn load_phase_1_edge_sym_lookup_table<P: AsRef<Path>>(
     path: P,
-
-    edge_orient_move_table: &EdgeOrientMoveTable,
-    edge_group_move_table: &EdgeGroupingMoveTable,
+    move_table: &EdgeGroupAndOrientMoveTable,
 ) -> Result<Phase1EdgeSymLookupTable> {
     load_table(
         path,
@@ -73,8 +62,7 @@ pub fn load_phase_1_edge_sym_lookup_table<P: AsRef<Path>>(
         |buf| {
             generate_phase_1_edge_sym_lookup_table(
                 buf,
-                edge_orient_move_table,
-                edge_group_move_table,
+                move_table,
             )
         },
     )
@@ -84,39 +72,23 @@ pub fn load_phase_1_edge_sym_lookup_table<P: AsRef<Path>>(
 pub struct Phase1EdgeSymLookupTable(Mmap);
 
 impl Phase1EdgeSymLookupTable {
-    pub fn get_raw_from_sym(
-        &self,
-        sym_coord: Phase1EdgeSymCoord,
-    ) -> (EdgeOrientCoord, EdgeGroupCoord) {
-        let slice = as_u16_slice(&self.0);
-        let i = sym_coord.inner() as usize * 2;
-        println!("{:?}", &slice[i..i + 2]);
-        (slice[i].into(), slice[i + 1].into())
+    pub fn get_raw_from_sym(&self, sym_coord: Phase2CornerSymCoord) -> (EdgeOrientCoord, EdgeGroupCoord) {
+        let slice = as_u16_2_slice(&self.0);
+        let i = sym_coord.inner() as usize;
+        let [group, orient] = slice[i];
+        (orient.into(), group.into())
     }
 
     pub fn get_sym_from_raw(
         &self,
-        edge_orient: EdgeOrientCoord,
-        edge_group: EdgeGroupCoord,
-        edge_orient_move_table: &EdgeOrientMoveTable,
-        edge_group_move_table: &EdgeGroupingMoveTable,
-    ) -> (Phase1EdgeSymCoord, SubGroupTransform) {
-        let edge_orient_syms = edge_orient_move_table.get_sym_array_ref(edge_orient);
-        let edge_group_syms = edge_group_move_table.get_sym_array_ref(edge_group);
-
-        let (transform, val) = edge_orient_syms
-            .iter()
-            .zip(edge_group_syms)
-            .map(|(a, b)| [*a, *b])
-            .enumerate()
-            .min_by_key(|(_, x)| *x)
-            .unwrap();
-        let transform = SubGroupTransform(transform as u8);
-
+        move_table: &EdgeGroupAndOrientMoveTable,
+        raw_orient: EdgeOrientCoord,
+        raw_group: EdgeGroupCoord,
+    ) -> (Phase2CornerSymCoord, SubGroupTransform) {
+        let (rep_group, rep_orient, transform) = move_table.get_sym_representative(raw_group, raw_orient);
         let slice = as_u16_2_slice(&self.0);
-        (
-            (slice.binary_search(&val).unwrap() as u16).into(),
-            transform,
-        )
+        let sym_coord = (slice.binary_search(&[rep_group.inner(), rep_orient.inner()]).unwrap() as u16).into();
+
+        (sym_coord, transform)
     }
 }

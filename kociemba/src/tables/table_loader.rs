@@ -1,65 +1,101 @@
+use rand::Fill;
 use rayon::prelude::*;
 use std::{fs::OpenOptions, path::Path};
 
-use anyhow::Result;
-use memmap2::{Mmap, MmapOptions};
+use crate::{repr_cubie::{ReprCube}, symmetries::SubGroupTransform};
+use anyhow::{Context, Result};
+use fs2::FileExt;           // ← add `fs2 = "0.4"` to Cargo.toml
+use memmap2::{Mmap, MmapMut, MmapOptions};
 
-use crate::{moves::Move, repr_cubie::ReprCubie, symmetries::SubGroupTransform};
-
-pub fn load_table<P, G>(path: P, size_bytes: usize, checksum: u32, generator: G) -> Result<Mmap>
+pub fn load_table<P, G>(path: P,
+                        size_bytes: usize,
+                        checksum: u32,
+                        mut generator: G) -> Result<Mmap>
 where
     P: AsRef<Path>,
-    G: for<'a> FnOnce(&'a mut [u8]),
+    G: for<'a> FnMut(&'a mut [u8]),
 {
-    if let Ok(file) = OpenOptions::new()
-        .read(true)
-        .write(false)
-        .create(false)
-        .truncate(false)
-        .open(&path)
-    {
-        let mmap = unsafe { MmapOptions::new().len(size_bytes).map(&file).unwrap() };
-        let hash_actual = crc32fast::hash(&mmap);
-        if hash_actual == checksum {
-            return Ok(mmap);
-        } else {
-            println!("table {} has checksum {}, which does not match expected checksum {}. regenerating...", path.as_ref().to_string_lossy(), hash_actual, checksum);
+    loop {
+        // ──────────────── 1. fast path: try to open for reading ────────────────
+        if let Ok(file) = OpenOptions::new()
+            .read(true)
+            .open(&path)
+        {
+            // block until any writer releases its lock
+            fs2::FileExt::lock_shared(&file)
+                .with_context(|| format!("locking (shared) {}", path.as_ref().display()))?;
+
+            // SAFETY: the file is at least `size_bytes` if it was generated correctly
+            let mmap = unsafe { MmapOptions::new().len(size_bytes).map(&file)? };
+            let hash_actual = crc32fast::hash(&mmap);
+
+            // we’re done – unlock and return the clean table
+            fs2::FileExt::unlock(&file)?;
+            if hash_actual == checksum {
+                return Ok(mmap);
+            }
+
+            // checksum is wrong – probably somebody crashed half-way.  Drop
+            // shared lock and fall through to the writer branch
         }
+
+        // ──────────────── 2. regenerate under an exclusive lock ────────────────
+        //
+        //   • open read-write (create/truncate)  
+        //   • take an EXCLUSIVE lock – this blocks while another writer owns it
+        //   • **re-check** the checksum in case another writer finished while
+        //     we were waiting
+        //   • if still wrong / file freshly created, regenerate
+        //
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&path)
+            .with_context(|| format!("opening {} for regeneration", path.as_ref().display()))?;
+
+        file.lock_exclusive()
+            .with_context(|| format!("locking (exclusive) {}", path.as_ref().display()))?;
+
+        // If the file already has the right size + checksum, another process
+        // finished the job while we waited.  Verify before clobbering.
+        let mut need_generate = true;
+        if file.metadata()?.len() == size_bytes as u64 {
+            let mmap = unsafe { MmapOptions::new().len(size_bytes).map(&file)? };
+            if crc32fast::hash(&mmap) == checksum {
+                need_generate = false;           // nothing to do – reuse it
+            }
+        }
+
+        if need_generate {
+            println!("generating table {}", path.as_ref().display());
+
+            file.set_len(size_bytes as u64)
+                .with_context(|| "set_len() during regeneration")?;
+            let mut mmap_mut: MmapMut =
+                unsafe { MmapOptions::new().len(size_bytes).map_mut(&file)? };
+
+            generator(&mut mmap_mut);
+
+            let hash_actual = crc32fast::hash(&mmap_mut);
+            if hash_actual != checksum {
+                fs2::FileExt::unlock(&file)?;
+                return Err(anyhow::anyhow!(
+                    "generation of {} failed – checksum {} ≠ expected {}",
+                    path.as_ref().display(),
+                    hash_actual,
+                    checksum
+                ));
+            }
+
+            mmap_mut.flush()?;   // make sure all pages hit the file
+            println!("generated {} with checksum {}", path.as_ref().display(), hash_actual);
+        }
+
+        // Release the exclusive lock *before* we go back to the read path.
+        fs2::FileExt::unlock(&file)?;
+        // The loop reiterates, re-opening as read-only and returning the map.
     }
-
-    println!("generating table {}", path.as_ref().to_string_lossy());
-
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&path)
-        .unwrap();
-
-    file.set_len(size_bytes as u64).unwrap();
-
-    let mut mmap_mut = unsafe { MmapOptions::new().len(size_bytes).map_mut(&file)? };
-
-    generator(&mut mmap_mut);
-
-    let hash_actual = crc32fast::hash(&mmap_mut);
-    if hash_actual != checksum {
-        return Err(anyhow::format_err!(
-            "generation of {} failed. generated checksum {} does not match expected checksum {}",
-            path.as_ref().to_string_lossy(),
-            hash_actual,
-            checksum
-        ));
-    }
-
-    println!(
-        "generated {} with checksum {}",
-        path.as_ref().to_string_lossy(),
-        hash_actual
-    );
-
-    Ok(mmap_mut.make_read_only().unwrap())
 }
 
 pub fn as_u16_slice(bytes: &[u8]) -> &[u16] {
@@ -112,26 +148,47 @@ pub fn as_u16_slice_mut(bytes: &mut [u8]) -> &mut [u16] {
     unsafe { std::slice::from_raw_parts_mut(ptr as *mut u16, len_u16) }
 }
 
-pub fn generate_full_move_table<const SIZE: usize, T, F>(buffer: &mut [u8], to_fn: T, from_fn: F)
+pub fn generate_phase_1_move_table<const SIZE: usize, T, F>(buffer: &mut [u8], to_fn: T, from_fn: F)
 where
-    T: Send + Sync + Fn(usize) -> ReprCubie,
-    F: Send + Sync + Fn(ReprCubie) -> u16,
+    T: Send + Sync + Fn(usize) -> ReprCube,
+    F: Send + Sync + Fn(ReprCube) -> u16,
 {
     assert_eq!(buffer.len(), SIZE);
     let buffer = as_u16_slice_mut(buffer);
 
-    buffer.par_chunks_mut(34).enumerate().for_each(|(i, row)| {
-        let cube = to_fn(i);
-        let mut j = 0usize;
-        while j < 18 {
-            let m: Move = unsafe { core::mem::transmute(j as u8) };
-            row[j] = from_fn(cube.const_move(m));
-            j += 1;
+    buffer.par_chunks_mut(18).enumerate().for_each(|(i, row)| {
+        for (j, coord) in to_fn(i).all_phase_1_adjacent().map(|(_, c)| from_fn(c)).enumerate() {
+            row[j] = coord
         }
-        while j < 34 {
-            let t = SubGroupTransform((j - 18) as u8);
-            row[j] = from_fn(cube.conjugate_by_subgroup_transform(t));
-            j += 1;
+    });
+}
+
+pub fn generate_phase_1_move_and_sym_table<const SIZE: usize, T, F>(buffer: &mut [u8], to_fn: T, from_fn: F)
+where
+    T: Send + Sync + Fn(usize) -> ReprCube,
+    F: Send + Sync + Fn(ReprCube) -> u16,
+{
+    assert_eq!(buffer.len(), SIZE);
+    let buffer = as_u16_slice_mut(buffer);
+
+    buffer.par_chunks_mut(33).enumerate().for_each(|(i, row)| {
+        for (j, coord) in to_fn(i).phase_1_move_table_entry_cubes().map(|c| from_fn(c)).enumerate() {
+            row[j] = coord
+        }
+    });
+}
+
+pub fn generate_phase_2_move_table<const SIZE: usize, T, F>(buffer: &mut [u8], to_fn: T, from_fn: F)
+where
+    T: Send + Sync + Fn(usize) -> ReprCube,
+    F: Send + Sync + Fn(ReprCube) -> u16,
+{
+    assert_eq!(buffer.len(), SIZE);
+    let buffer = as_u16_slice_mut(buffer);
+
+    buffer.par_chunks_mut(25).enumerate().for_each(|(i, row)| {
+        for (j, coord) in to_fn(i).phase_2_move_table_entry_cubes().map(|c| from_fn(c)).enumerate() {
+            row[j] = coord
         }
     });
 }

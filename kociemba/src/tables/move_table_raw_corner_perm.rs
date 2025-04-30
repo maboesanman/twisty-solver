@@ -1,21 +1,21 @@
-use std::path::Path;
+use std::{collections::HashSet, path::Path};
 
 use anyhow::Result;
 use memmap2::Mmap;
 
 use crate::{
     coords::{phase_2_cubies, CornerPermCoord},
-    moves::Move,
+    moves::{Move, Phase2Move},
     symmetries::SubGroupTransform,
 };
 
-use super::table_loader::{as_u16_slice, generate_full_move_table, load_table};
+use super::table_loader::{as_u16_slice, generate_phase_2_move_table, load_table};
 
-const CORNER_PERM_MOVE_TABLE_SIZE_BYTES: usize = (40320 * (18 + 16)) * 2;
-const CORNER_PERM_MOVE_TABLE_CHECKSUM: u32 = 683523999;
+const CORNER_PERM_MOVE_TABLE_SIZE_BYTES: usize = (40320 * (10 + 15)) * 2;
+const CORNER_PERM_MOVE_TABLE_CHECKSUM: u32 = 1827037757;
 
 fn generate_corner_perm_move_table(buffer: &mut [u8]) {
-    generate_full_move_table::<CORNER_PERM_MOVE_TABLE_SIZE_BYTES, _, _>(
+    generate_phase_2_move_table::<CORNER_PERM_MOVE_TABLE_SIZE_BYTES, _, _>(
         buffer,
         |i| phase_2_cubies((i as u16).into(), 0.into(), 0.into()),
         |c| CornerPermCoord::from_cubie(c).into(),
@@ -35,14 +35,14 @@ pub fn load_corner_perm_move_table<P: AsRef<Path>>(path: P) -> Result<CornerPerm
 pub struct CornerPermMoveTable(Mmap);
 
 impl CornerPermMoveTable {
-    fn get_slice_for_coord(&self, coord: CornerPermCoord) -> &[u16; 34] {
-        let i = (coord.inner() as usize) * 34;
-        as_u16_slice(&self.0)[i..i + 34].as_array().unwrap()
+    fn get_slice_for_coord(&self, coord: CornerPermCoord) -> &[u16; 25] {
+        let i = (coord.inner() as usize) * 25;
+        as_u16_slice(&self.0)[i..i + 25].as_array().unwrap()
     }
 
-    pub fn apply_move(&self, coord: CornerPermCoord, mv: Move) -> CornerPermCoord {
+    pub fn apply_move(&self, coord: CornerPermCoord, mv: Phase2Move) -> CornerPermCoord {
         let entry = self.get_slice_for_coord(coord);
-        entry[mv as u8 as usize].into()
+        entry[mv.into_index()].into()
     }
 
     pub fn conjugate_by_transform(
@@ -50,16 +50,20 @@ impl CornerPermMoveTable {
         coord: CornerPermCoord,
         transform: SubGroupTransform,
     ) -> CornerPermCoord {
+        if transform.0 == 0 {
+            return coord;
+        }
         let entry = self.get_slice_for_coord(coord);
-        entry[transform.0 as usize + 18].into()
+        entry[transform.0 as usize + 9].into()
     }
 
     pub fn get_sym_representative(
         &self,
         coord: CornerPermCoord,
     ) -> (CornerPermCoord, SubGroupTransform) {
-        let entry = &self.get_slice_for_coord(coord)[18..];
-        let (i, representative) = entry.iter().enumerate().min_by_key(|(_, x)| *x).unwrap();
+        let entry = &self.get_slice_for_coord(coord)[10..];
+        let coord_val: u16 = coord.into();
+        let (i, representative) = Some(&coord_val).into_iter().chain(entry.iter()).enumerate().min_by_key(|(_, x)| *x).unwrap();
         ((*representative).into(), SubGroupTransform(i as u8))
     }
 }
@@ -71,10 +75,9 @@ fn test() -> Result<()> {
         let coord = CornerPermCoord::from(i);
         let cube = phase_2_cubies(coord, 0.into(), 0.into());
 
-        for i in 0..18 {
-            let mv: Move = unsafe { core::mem::transmute(i as u8) };
-            let cubie_moved = CornerPermCoord::from_cubie(cube.const_move(mv));
-            let table_moved = table.apply_move(coord, mv);
+        for mv in Phase2Move::all_iter() {
+            let cubie_moved = CornerPermCoord::from_cubie(cube.then(mv.into()));
+            let table_moved = table.apply_move(coord, mv.into());
             assert_eq!(cubie_moved, table_moved);
         }
 
@@ -103,10 +106,9 @@ fn test_random() -> Result<()> {
             rng.random_range(0..24u8).into(),
         );
 
-        for i in 0..18 {
-            let mv: Move = unsafe { core::mem::transmute(i as u8) };
-            let cubie_moved = CornerPermCoord::from_cubie(cube.const_move(mv));
-            let table_moved = table.apply_move(coord, mv);
+        for mv in Phase2Move::all_iter() {
+            let cubie_moved = CornerPermCoord::from_cubie(cube.then(mv.into()));
+            let table_moved = table.apply_move(coord, mv.into());
             assert_eq!(cubie_moved, table_moved);
         }
 
@@ -118,6 +120,20 @@ fn test_random() -> Result<()> {
             assert_eq!(cubie_conjugated, table_conjugated);
         }
     }
+
+    Ok(())
+}
+
+#[test]
+fn test_sym() -> Result<()> {
+    let table = load_corner_perm_move_table("corner_perm_move_table.dat")?;
+    let mut reps = HashSet::new();
+    for i in 0..40320 {
+        let coord = CornerPermCoord::from(i);
+        
+        reps.insert(table.get_sym_representative(coord).0);
+    }
+    assert_eq!(reps.len(), 2768);
 
     Ok(())
 }

@@ -58,6 +58,14 @@ impl Move {
     pub fn all_iter() -> impl Iterator<Item = Self> {
         (0u8..18u8).map(|x| unsafe { core::mem::transmute(x) })
     }
+
+    pub fn into_u8(self) -> u8 {
+        unsafe { core::mem::transmute(self) }
+    }
+
+    pub fn into_index(self) -> usize {
+        self.into_u8() as usize
+    }
 }
 
 impl From<Phase2Move> for Move {
@@ -96,6 +104,14 @@ pub enum Phase2Move {
 impl Phase2Move {
     pub fn all_iter() -> impl Iterator<Item = Self> {
         (0u8..10u8).map(|x| unsafe { core::mem::transmute(x) })
+    }
+
+    pub fn into_u8(self) -> u8 {
+        unsafe { core::mem::transmute(self) }
+    }
+
+    pub fn into_index(self) -> usize {
+        self.into_u8() as usize
     }
 }
 
@@ -177,6 +193,10 @@ pub const fn compose(base: &[usize; 40], next: &[usize; 40]) -> [usize; 40] {
 
 // THIS IS THE MANUAL PERMUTATION DATA FOR THE GENERATIVE ELEMENTS OF THE GROUP
 
+const IDENTITY_CORNER_ROT: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
+const IDENTITY_EDGE_FLIP: [u8; 12] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const IDENTITY_ORIENT: [u8; 20] = combined_orient(&IDENTITY_CORNER_ROT, &IDENTITY_EDGE_FLIP);
+
 // corner permutations
 const U1_CORNER_INDEX: [u8; 8] = [2, 0, 3, 1, 4, 5, 6, 7];
 const D1_CORNER_INDEX: [u8; 8] = [0, 1, 2, 3, 5, 7, 4, 6];
@@ -209,38 +229,32 @@ const B_EDGE_FLIP: [u8; 12] = [0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1];
 const U1_INDEX: [usize; 40] = combined_index(&U1_CORNER_INDEX, &U1_EDGE_INDEX);
 const U2_INDEX: [usize; 40] = compose(&U1_INDEX, &U1_INDEX);
 const U3_INDEX: [usize; 40] = compose(&U2_INDEX, &U1_INDEX);
-const U_MASK: [bool; 40] = combined_mask(&U1_INDEX);
 
 const D1_INDEX: [usize; 40] = combined_index(&D1_CORNER_INDEX, &D1_EDGE_INDEX);
 const D2_INDEX: [usize; 40] = compose(&D1_INDEX, &D1_INDEX);
 const D3_INDEX: [usize; 40] = compose(&D2_INDEX, &D1_INDEX);
-const D_MASK: [bool; 40] = combined_mask(&D1_INDEX);
 
 const F1_INDEX: [usize; 40] = combined_index(&F1_CORNER_INDEX, &F1_EDGE_INDEX);
 const F2_INDEX: [usize; 40] = compose(&F1_INDEX, &F1_INDEX);
 const F3_INDEX: [usize; 40] = compose(&F2_INDEX, &F1_INDEX);
-const F_MASK: [bool; 40] = combined_mask(&F1_INDEX);
 
 const B1_INDEX: [usize; 40] = combined_index(&B1_CORNER_INDEX, &B1_EDGE_INDEX);
 const B2_INDEX: [usize; 40] = compose(&B1_INDEX, &B1_INDEX);
 const B3_INDEX: [usize; 40] = compose(&B2_INDEX, &B1_INDEX);
-const B_MASK: [bool; 40] = combined_mask(&B1_INDEX);
 
 const R1_INDEX: [usize; 40] = combined_index(&R1_CORNER_INDEX, &R1_EDGE_INDEX);
 const R2_INDEX: [usize; 40] = compose(&R1_INDEX, &R1_INDEX);
 const R3_INDEX: [usize; 40] = compose(&R2_INDEX, &R1_INDEX);
-const R_MASK: [bool; 40] = combined_mask(&R1_INDEX);
 
 const L1_INDEX: [usize; 40] = combined_index(&L1_CORNER_INDEX, &L1_EDGE_INDEX);
 const L2_INDEX: [usize; 40] = compose(&L1_INDEX, &L1_INDEX);
 const L3_INDEX: [usize; 40] = compose(&L2_INDEX, &L1_INDEX);
-const L_MASK: [bool; 40] = combined_mask(&L1_INDEX);
 
 // THESE ARE THE ORIENTATION CORRECTIONS TO ADD FOR THE CORRESPONSING FACE 90/270 TURNS
 const F_ORIENT: [u8; 20] = combined_orient(&F_CORNER_ROT, &F_EDGE_FLIP);
 const B_ORIENT: [u8; 20] = combined_orient(&B_CORNER_ROT, &B_EDGE_FLIP);
-const R_ORIENT: [u8; 8] = R_CORNER_ROT;
-const L_ORIENT: [u8; 8] = L_CORNER_ROT;
+const R_ORIENT: [u8; 20] = combined_orient(&R_CORNER_ROT, &IDENTITY_EDGE_FLIP);
+const L_ORIENT: [u8; 20] = combined_orient(&L_CORNER_ROT, &IDENTITY_EDGE_FLIP);
 
 // THESE ARE ORIENTATION REMAINDER CORRECTIONS. ONLY NEEDED IF ORIENTATION CORRECTION APPLIED
 const FULL_REM: [u8; 20] = [3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2];
@@ -369,57 +383,43 @@ impl ReprCubie {
 
         let buf = self.into_array();
 
-        let (idx, mask, orient) = match m {
-            Move::U1 => (U1_INDEX, U_MASK, Orient::None),
-            Move::U2 => (U2_INDEX, U_MASK, Orient::None),
-            Move::U3 => (U3_INDEX, U_MASK, Orient::None),
-            Move::D1 => (D1_INDEX, D_MASK, Orient::None),
-            Move::D2 => (D2_INDEX, D_MASK, Orient::None),
-            Move::D3 => (D3_INDEX, D_MASK, Orient::None),
-            Move::F1 => (F1_INDEX, F_MASK, Orient::Big(F_ORIENT)),
-            Move::F2 => (F2_INDEX, F_MASK, Orient::None),
-            Move::F3 => (F3_INDEX, F_MASK, Orient::Big(F_ORIENT)),
-            Move::B1 => (B1_INDEX, B_MASK, Orient::Big(B_ORIENT)),
-            Move::B2 => (B2_INDEX, B_MASK, Orient::None),
-            Move::B3 => (B3_INDEX, B_MASK, Orient::Big(B_ORIENT)),
-            Move::R1 => (R1_INDEX, R_MASK, Orient::Small(R_ORIENT)),
-            Move::R2 => (R2_INDEX, R_MASK, Orient::None),
-            Move::R3 => (R3_INDEX, R_MASK, Orient::Small(R_ORIENT)),
-            Move::L1 => (L1_INDEX, L_MASK, Orient::Small(L_ORIENT)),
-            Move::L2 => (L2_INDEX, L_MASK, Orient::None),
-            Move::L3 => (L3_INDEX, L_MASK, Orient::Small(L_ORIENT)),
+        let (idx, orient) = match m {
+            Move::U1 => (U1_INDEX, IDENTITY_ORIENT),
+            Move::U2 => (U2_INDEX, IDENTITY_ORIENT),
+            Move::U3 => (U3_INDEX, IDENTITY_ORIENT),
+            Move::D1 => (D1_INDEX, IDENTITY_ORIENT),
+            Move::D2 => (D2_INDEX, IDENTITY_ORIENT),
+            Move::D3 => (D3_INDEX, IDENTITY_ORIENT),
+            Move::F1 => (F1_INDEX, F_ORIENT),
+            Move::F2 => (F2_INDEX, IDENTITY_ORIENT),
+            Move::F3 => (F3_INDEX, F_ORIENT),
+            Move::B1 => (B1_INDEX, B_ORIENT),
+            Move::B2 => (B2_INDEX, IDENTITY_ORIENT),
+            Move::B3 => (B3_INDEX, B_ORIENT),
+            Move::R1 => (R1_INDEX, R_ORIENT),
+            Move::R2 => (R2_INDEX, IDENTITY_ORIENT),
+            Move::R3 => (R3_INDEX, R_ORIENT),
+            Move::L1 => (L1_INDEX, L_ORIENT),
+            Move::L2 => (L2_INDEX, IDENTITY_ORIENT),
+            Move::L3 => (L3_INDEX, L_ORIENT),
         };
         let mut buf_new = buf;
 
         let mut i = 0;
         while i < 40 {
-            if mask[i] {
-                buf_new[i] = buf[idx[i]];
-            }
+            buf_new[i] = buf[idx[i]];
             i += 1;
         }
 
         let mut buf = buf_new;
 
         const ORIENT_OFFSET: usize = corner_orient_offset();
-
-        match orient {
-            Orient::Big(correction) => {
-                let mut i = 0;
-                while i < 20 {
-                    buf[i + ORIENT_OFFSET] = (buf[i + ORIENT_OFFSET] + correction[i]) % FULL_REM[i];
-                    i += 1;
-                }
-            }
-            Orient::Small(correction) => {
-                let mut i = 0;
-                while i < 8 {
-                    buf[i + ORIENT_OFFSET] = (buf[i + ORIENT_OFFSET] + correction[i]) % FULL_REM[i];
-                    i += 1;
-                }
-            }
-            Orient::None => {}
-        };
+        
+        let mut i = 0;
+        while i < 20 {
+            buf[i + ORIENT_OFFSET] = (buf[i + ORIENT_OFFSET] + orient[i]) % FULL_REM[i];
+            i += 1;
+        }
 
         unsafe { Self::from_array_unchecked(buf) }
     }
@@ -910,4 +910,25 @@ fn test_long_apply() {
         c2.apply(i, o);
     }
     assert_eq!(count, 1260);
+}
+
+#[test]
+fn test_transition() {
+    let mut c = ReprCubie::new();
+
+    c.phase_1_move(Move::R1);
+    c.phase_1_move(Move::U1);
+    c.phase_1_move(Move::R3);
+    c.phase_1_move(Move::U3);
+
+    let i = c.get_index();
+    let o = c.get_orient();
+
+    let mut c2 = ReprCubie::new();
+
+    for _ in 0..6 {
+        c2.apply(i, o);
+    }
+
+    assert!(c2.is_solved());
 }

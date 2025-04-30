@@ -89,6 +89,8 @@ macro_rules! permutation_coord {
     };
 }
 
+permutation_coord!(12, u32);
+
 permutation_coord!(8, u16);
 
 permutation_coord!(4, u8);
@@ -156,6 +158,53 @@ pub const fn edge_grouping_inverse(mut coord: u16) -> [bool; 12] {
     }
 
     buf
+}
+
+pub const fn is_odd<const N: usize>(perm: &[u8; N]) -> bool {
+    let mut seen  = [false; N];
+    let mut parity = 0;
+
+    let mut i = 0;
+    while i < N {
+        if !seen[i] {
+            let mut len = 0;
+            let mut j   = i;
+            while !seen[j] {
+                seen[j] = true;
+                j = perm[j] as usize;
+                len += 1;
+            }
+            if len > 0 {
+                parity ^= (len - 1) & 1;
+            }
+        }
+        i += 1;
+    }
+
+    parity == 1
+}
+
+/// Returns `true` if `arr` is a permutation of `1..=N`
+/// (no duplicates, no out‐of‐range), else `false`.
+pub const fn is_perm<const N: usize>(arr: &[u8; N]) -> bool {
+    // a little boolean table indexed 1..=N
+    let mut seen = [false; N];
+    let mut i = 0;
+    while i < N {
+        let v = arr[i] as usize;
+        // out of 1..=N ?
+        if v >= N {
+            return false;
+        }
+        // duplicate?
+        if seen[v] {
+            return false;
+        }
+        seen[v] = true;
+        i += 1;
+    }
+    // if we saw exactly N distinct values in 1..=N, it's guaranteed to be complete
+    true
 }
 
 #[test]

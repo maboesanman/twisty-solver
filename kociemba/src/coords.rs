@@ -1,6 +1,6 @@
 use crate::{
     permutation_coord::{self, permutation_coord_4_inverse, permutation_coord_8_inverse},
-    repr_cubie::ReprCubie,
+    repr_cubie::{ReprCube, SOLVED_CUBE},
 };
 
 macro_rules! define_coord {
@@ -36,7 +36,7 @@ macro_rules! define_coord {
 define_coord!(CornerOrientCoord, u16, 2187, 12);
 
 impl CornerOrientCoord {
-    pub const fn from_cubie(cube: ReprCubie) -> Self {
+    pub const fn from_cubie(cube: ReprCube) -> Self {
         let mut total = 0u16;
         let mut i = 0;
         while i < 7 {
@@ -46,13 +46,31 @@ impl CornerOrientCoord {
 
         Self(total)
     }
+
+    pub const fn into_cubie(mut self) -> ReprCube {
+        let mut cube = SOLVED_CUBE;
+
+        let mut sum = 0;
+        let mut i = 7;
+        while i > 0 {
+            i -= 1;
+            let value = (self.0 % 3) as u8;
+            cube.corner_orient[i] = unsafe { core::mem::transmute(value) };
+            sum += value as u16;
+            self.0 /= 3;
+        }
+
+        cube.corner_orient[7] = unsafe { core::mem::transmute(((3 - (sum % 3)) % 3) as u8) };
+
+        cube
+    }
 }
 
 // 2048 (11 bits) u16
 define_coord!(EdgeOrientCoord, u16, 2048, 11);
 
 impl EdgeOrientCoord {
-    pub const fn from_cubie(cube: ReprCubie) -> Self {
+    pub const fn from_cubie(cube: ReprCube) -> Self {
         let mut total = 0u16;
         let mut i = 0;
         while i < 11 {
@@ -62,6 +80,25 @@ impl EdgeOrientCoord {
 
         Self(total)
     }
+
+    pub const fn into_cubie(mut self) -> ReprCube {
+        let mut sum = 0;
+        let mut i = 11;
+
+        let mut cube = SOLVED_CUBE;
+
+        while i > 0 {
+            i -= 1;
+            let value = (self.0 % 2) as u8;
+            cube.edge_orient[i] = unsafe { core::mem::transmute(value) };
+            sum += value as u16;
+            self.0 /= 2;
+        }
+
+        cube.edge_orient[11] = unsafe { core::mem::transmute(((2 - (sum % 2)) % 2) as u8) };
+
+        cube
+    }
 }
 
 // 495 (8.9 bits) u16
@@ -69,7 +106,7 @@ impl EdgeOrientCoord {
 define_coord!(EdgeGroupCoord, u16, 495, 9);
 
 impl EdgeGroupCoord {
-    pub const fn from_cubie(value: ReprCubie) -> Self {
+    pub const fn from_cubie(value: ReprCube) -> Self {
         let mut items = [false; 12];
         let mut i = 0;
         while i < 12 {
@@ -80,73 +117,53 @@ impl EdgeGroupCoord {
         debug_assert!(value < 495);
         Self(value)
     }
+
+    pub const fn into_cubie(self) -> ReprCube {
+        let mut cube = SOLVED_CUBE;
+
+        let edge_group = permutation_coord::edge_grouping_inverse(self.0);
+
+        let mut odd = false;
+        let mut i = 0;
+        while i < 11 {
+            let mut j = i + 1;
+            while j < 12 {
+                if edge_group[i] && !edge_group[j] {
+                    odd = !odd;
+                }
+                j += 1;
+            }
+            i += 1;
+        }
+
+        let ud: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+        let e: [u8; 4] = if odd { [8, 9, 11, 10] } else { [8, 9, 10, 11] };
+
+        let mut ud_i = 0;
+        let mut e_i = 0;
+        while ud_i + e_i < 12 {
+            if edge_group[ud_i + e_i] {
+                cube.edge_perm[ud_i + e_i] = unsafe { core::mem::transmute(e[e_i]) };
+                e_i += 1;
+            } else {
+                cube.edge_perm[ud_i + e_i] = unsafe { core::mem::transmute(ud[ud_i]) };
+                ud_i += 1;
+            }
+        }
+
+        cube
+    }
 }
 
 pub const fn phase_1_cubies(
     corners: CornerOrientCoord,
     edges: EdgeOrientCoord,
     edge_group: EdgeGroupCoord,
-) -> ReprCubie {
-    let mut corners = corners.0;
-    let mut edges = edges.0;
-
-    let mut cube = ReprCubie::new();
-
-    let mut sum = 0;
-    let mut i = 7;
-    while i > 0 {
-        i -= 1;
-        let value = (corners % 3) as u8;
-        cube.corner_orient[i] = unsafe { core::mem::transmute(value) };
-        sum += value as u16;
-        corners /= 3;
-    }
-
-    cube.corner_orient[7] = unsafe { core::mem::transmute(((3 - (sum % 3)) % 3) as u8) };
-
-    let mut sum = 0;
-    let mut i = 11;
-    while i > 0 {
-        i -= 1;
-        let value = (edges % 2) as u8;
-        cube.edge_orient[i] = unsafe { core::mem::transmute(value) };
-        sum += value as u16;
-        edges /= 2;
-    }
-
-    cube.edge_orient[11] = unsafe { core::mem::transmute(((2 - (sum % 2)) % 2) as u8) };
-
-    let edge_group = permutation_coord::edge_grouping_inverse(edge_group.0);
-
-    let mut odd = false;
-    let mut i = 0;
-    while i < 11 {
-        let mut j = i + 1;
-        while j < 12 {
-            if edge_group[i] && !edge_group[j] {
-                odd = !odd;
-            }
-            j += 1;
-        }
-        i += 1;
-    }
-
-    let ud: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
-    let e: [u8; 4] = if odd { [8, 9, 11, 10] } else { [8, 9, 10, 11] };
-
-    let mut ud_i = 0;
-    let mut e_i = 0;
-    while ud_i + e_i < 12 {
-        if edge_group[ud_i + e_i] {
-            cube.edge_perm[ud_i + e_i] = unsafe { core::mem::transmute(e[e_i]) };
-            e_i += 1;
-        } else {
-            cube.edge_perm[ud_i + e_i] = unsafe { core::mem::transmute(ud[ud_i]) };
-            ud_i += 1;
-        }
-    }
-
-    cube
+) -> ReprCube {
+    edge_group
+        .into_cubie()
+        .then(corners.into_cubie())
+        .then(edges.into_cubie())
 }
 
 // Phase 2 Raw Coordinates
@@ -155,18 +172,15 @@ pub const fn phase_1_cubies(
 define_coord!(CornerPermCoord, u16, 40320, 16);
 
 impl CornerPermCoord {
-    pub const fn from_cubie(value: ReprCubie) -> Self {
-        let perm = [
-            value.corner_perm[0] as u8,
-            value.corner_perm[1] as u8,
-            value.corner_perm[2] as u8,
-            value.corner_perm[3] as u8,
-            value.corner_perm[4] as u8,
-            value.corner_perm[5] as u8,
-            value.corner_perm[6] as u8,
-            value.corner_perm[7] as u8,
-        ];
-        Self(permutation_coord::permutation_coord_8(&perm))
+    pub const fn from_cubie(value: ReprCube) -> Self {
+        Self(permutation_coord::permutation_coord_8(&value.corner_perm))
+    }
+
+    pub const fn into_cubie(self) -> ReprCube {
+        ReprCube {
+            corner_perm: permutation_coord::permutation_coord_8_inverse(self.0),
+            ..SOLVED_CUBE
+        }
     }
 }
 
@@ -175,18 +189,29 @@ impl CornerPermCoord {
 define_coord!(UDEdgePermCoord, u16, 40320, 16);
 
 impl UDEdgePermCoord {
-    pub const fn from_cubie(value: ReprCubie) -> Self {
-        let perm = [
-            value.edge_perm[0] as u8,
-            value.edge_perm[1] as u8,
-            value.edge_perm[2] as u8,
-            value.edge_perm[3] as u8,
-            value.edge_perm[4] as u8,
-            value.edge_perm[5] as u8,
-            value.edge_perm[6] as u8,
-            value.edge_perm[7] as u8,
+    pub const fn from_cubie(value: ReprCube) -> Self {
+        let first8 = [
+            value.edge_perm[0],
+            value.edge_perm[1],
+            value.edge_perm[2],
+            value.edge_perm[3],
+            value.edge_perm[4],
+            value.edge_perm[5],
+            value.edge_perm[6],
+            value.edge_perm[7],
         ];
-        Self(permutation_coord::permutation_coord_8(&perm))
+        Self(permutation_coord::permutation_coord_8(&first8))
+    }
+
+    pub const fn into_cubie(self) -> ReprCube {
+        let perm = permutation_coord::permutation_coord_8_inverse(self.0);
+        ReprCube {
+            edge_perm: [
+                perm[0], perm[1], perm[2], perm[3], perm[4], perm[5], perm[6], perm[7], 8, 9, 10,
+                11,
+            ],
+            ..SOLVED_CUBE
+        }
     }
 }
 
@@ -195,14 +220,35 @@ impl UDEdgePermCoord {
 define_coord!(EEdgePermCoord, u8, 24, 5);
 
 impl EEdgePermCoord {
-    pub const fn from_cubie(value: ReprCubie) -> Self {
-        let perm = [
-            value.edge_perm[8] as u8,
-            value.edge_perm[9] as u8,
-            value.edge_perm[10] as u8,
-            value.edge_perm[11] as u8,
+    pub const fn from_cubie(value: ReprCube) -> Self {
+        let last4 = [
+            value.edge_perm[8],
+            value.edge_perm[9],
+            value.edge_perm[10],
+            value.edge_perm[11],
         ];
-        Self(permutation_coord::permutation_coord_4(&perm))
+        Self(permutation_coord::permutation_coord_4(&last4))
+    }
+
+    pub const fn into_cubie(self) -> ReprCube {
+        let perm = permutation_coord::permutation_coord_4_inverse(self.0);
+        ReprCube {
+            edge_perm: [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                perm[0] + 8,
+                perm[1] + 8,
+                perm[2] + 8,
+                perm[3] + 8,
+            ],
+            ..SOLVED_CUBE
+        }
     }
 }
 
@@ -210,27 +256,11 @@ pub const fn phase_2_cubies(
     corners: CornerPermCoord,
     ud_edges: UDEdgePermCoord,
     e_edges: EEdgePermCoord,
-) -> ReprCubie {
-    let corner_perm_raw = permutation_coord_8_inverse(corners.0);
-    let ud_edge_perm_raw = permutation_coord_8_inverse(ud_edges.0);
-    let e_edge_perm_raw = permutation_coord_4_inverse(e_edges.0);
-
-    let mut cube = ReprCubie::new();
-
-    let mut i = 0;
-
-    while i < 8 {
-        cube.corner_perm[i] = unsafe { core::mem::transmute(corner_perm_raw[i]) };
-        cube.edge_perm[i] = unsafe { core::mem::transmute(ud_edge_perm_raw[i]) };
-        i += 1;
-    }
-
-    while i < 12 {
-        cube.edge_perm[i] = unsafe { core::mem::transmute(e_edge_perm_raw[i - 8] + 8) };
-        i += 1;
-    }
-
-    cube
+) -> ReprCube {
+    corners
+        .into_cubie()
+        .then(ud_edges.into_cubie())
+        .then(e_edges.into_cubie())
 }
 
 // sym coordinates
@@ -245,7 +275,6 @@ define_coord!(Phase2CornerSymCoord, u16, 2768, 12);
 fn test_corner_orient() {
     for i in 0..2187 {
         let cube = phase_1_cubies(i.into(), 0.into(), 0.into());
-        assert!(cube.is_valid());
         assert_eq!(CornerOrientCoord::from_cubie(cube), i.into());
         assert_eq!(EdgeOrientCoord::from_cubie(cube), 0.into());
         assert_eq!(EdgeGroupCoord::from_cubie(cube), 0.into());
@@ -253,10 +282,25 @@ fn test_corner_orient() {
 }
 
 #[test]
+fn test_corner_orient_random() {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    for i in 0..2187 {
+        let a = i.into();
+        let b = rng.random_range(0..2048).into();
+        let c = rng.random_range(0..495).into();
+
+        let cube = phase_1_cubies(a, b, c);
+        assert_eq!(CornerOrientCoord::from_cubie(cube), a);
+        assert_eq!(EdgeOrientCoord::from_cubie(cube), b);
+        assert_eq!(EdgeGroupCoord::from_cubie(cube), c);
+    }
+}
+
+#[test]
 fn test_edge_orient() {
     for i in 0..2048 {
         let cube = phase_1_cubies(0.into(), i.into(), 0.into());
-        assert!(cube.is_valid());
         assert_eq!(CornerOrientCoord::from_cubie(cube), 0.into());
         assert_eq!(EdgeOrientCoord::from_cubie(cube), i.into());
         assert_eq!(EdgeGroupCoord::from_cubie(cube), 0.into());
@@ -264,10 +308,25 @@ fn test_edge_orient() {
 }
 
 #[test]
+fn test_edge_orient_random() {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    for i in 0..2048 {
+        let a = rng.random_range(0..2187).into();
+        let b = i.into();
+        let c = rng.random_range(0..495).into();
+
+        let cube = phase_1_cubies(a, b, c);
+        assert_eq!(CornerOrientCoord::from_cubie(cube), a);
+        assert_eq!(EdgeOrientCoord::from_cubie(cube), b);
+        assert_eq!(EdgeGroupCoord::from_cubie(cube), c);
+    }
+}
+
+#[test]
 fn test_edge_group() {
     for i in 0..495 {
         let cube = phase_1_cubies(0.into(), 0.into(), i.into());
-        assert!(cube.is_valid());
         assert_eq!(CornerOrientCoord::from_cubie(cube), 0.into());
         assert_eq!(EdgeOrientCoord::from_cubie(cube), 0.into());
         assert_eq!(EdgeGroupCoord::from_cubie(cube), i.into());
@@ -275,16 +334,19 @@ fn test_edge_group() {
 }
 
 #[test]
-fn test_edge_group_45() {
-    let i = 45;
-    let cube = phase_1_cubies(0.into(), 0.into(), i.into());
-    println!("{cube:?}");
-    let edge_perm = cube.edge_perm.map(|x| x as u8);
-    println!("{edge_perm:?}");
-    assert!(cube.is_valid());
-    assert_eq!(CornerOrientCoord::from_cubie(cube), 0.into());
-    assert_eq!(EdgeOrientCoord::from_cubie(cube), 0.into());
-    assert_eq!(EdgeGroupCoord::from_cubie(cube), i.into());
+fn test_edge_group_random() {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    for i in 0..495 {
+        let a = rng.random_range(0..2187).into();
+        let b = rng.random_range(0..2048).into();
+        let c = i.into();
+
+        let cube = phase_1_cubies(a, b, c);
+        assert_eq!(CornerOrientCoord::from_cubie(cube), a);
+        assert_eq!(EdgeOrientCoord::from_cubie(cube), b);
+        assert_eq!(EdgeGroupCoord::from_cubie(cube), c);
+    }
 }
 
 #[test]
@@ -294,6 +356,22 @@ fn test_corner_perm() {
         assert_eq!(CornerPermCoord::from_cubie(cube), i.into());
         assert_eq!(UDEdgePermCoord::from_cubie(cube), 0.into());
         assert_eq!(EEdgePermCoord::from_cubie(cube), 0.into());
+    }
+}
+
+#[test]
+fn test_corner_perm_random() {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    for i in 0..40320 {
+        let a = i.into();
+        let b = rng.random_range(0..40320).into();
+        let c = rng.random_range(0..24).into();
+
+        let cube = phase_2_cubies(a, b, c);
+        assert_eq!(CornerPermCoord::from_cubie(cube), a);
+        assert_eq!(UDEdgePermCoord::from_cubie(cube), b);
+        assert_eq!(EEdgePermCoord::from_cubie(cube), c);
     }
 }
 
@@ -308,12 +386,81 @@ fn test_ud_edge_perm() {
 }
 
 #[test]
+fn test_ud_edge_perm_random() {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    for i in 0..40320 {
+        let a = rng.random_range(0..40320).into();
+        let b = i.into();
+        let c = rng.random_range(0..24).into();
+
+        let cube = phase_2_cubies(a, b, c);
+        // assert!(cube.is_valid());
+        assert_eq!(CornerPermCoord::from_cubie(cube), a);
+        assert_eq!(UDEdgePermCoord::from_cubie(cube), b);
+        assert_eq!(EEdgePermCoord::from_cubie(cube), c);
+    }
+}
+
+#[test]
 fn test_e_edge_perm() {
     for i in 0..24 {
         let cube = phase_2_cubies(0.into(), 0.into(), i.into());
         assert_eq!(CornerPermCoord::from_cubie(cube), 0.into());
         assert_eq!(UDEdgePermCoord::from_cubie(cube), 0.into());
         assert_eq!(EEdgePermCoord::from_cubie(cube), i.into());
+    }
+}
+
+#[test]
+fn test_e_edge_perm_random() {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    for i in 0..24 {
+        let a = rng.random_range(0..40320).into();
+        let b = rng.random_range(0..40320).into();
+        let c = i.into();
+
+        let cube = phase_2_cubies(a, b, c);
+        assert_eq!(CornerPermCoord::from_cubie(cube), a);
+        assert_eq!(UDEdgePermCoord::from_cubie(cube), b);
+        assert_eq!(EEdgePermCoord::from_cubie(cube), c);
+    }
+}
+
+#[test]
+fn test_phase_1_cube() {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    for _ in 0..10000 {
+        let a = rng.random_range(0..2187).into();
+        let b = rng.random_range(0..2048).into();
+        let c = rng.random_range(0..495).into();
+        let cube = phase_1_cubies(a, b, c);
+        assert_eq!(a, CornerOrientCoord::from_cubie(cube));
+        assert_eq!(b, EdgeOrientCoord::from_cubie(cube));
+        assert_eq!(c, EdgeGroupCoord::from_cubie(cube));
+    }
+}
+
+#[test]
+fn test_phase_2_cube() {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    for _ in 0..20000 {
+        let a = rng.random_range(0..40320).into();
+        let b = rng.random_range(0..40320).into();
+        let c = rng.random_range(0..24).into();
+        let cube = phase_2_cubies(a, b, c);
+        if !cube.is_valid() {
+            continue;
+        }
+        assert_eq!(0, CornerOrientCoord::from_cubie(cube).0);
+        assert_eq!(0, EdgeOrientCoord::from_cubie(cube).0);
+        assert_eq!(0, EdgeGroupCoord::from_cubie(cube).0);
+        assert_eq!(a, CornerPermCoord::from_cubie(cube));
+        assert_eq!(b, UDEdgePermCoord::from_cubie(cube));
+        assert_eq!(c, EEdgePermCoord::from_cubie(cube));
     }
 }
 

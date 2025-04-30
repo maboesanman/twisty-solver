@@ -2,35 +2,27 @@ use std::path::Path;
 
 use anyhow::Result;
 use memmap2::Mmap;
+use rayon::prelude::*;
 
 use crate::{
     coords::{phase_2_cubies, EEdgePermCoord},
-    moves::Move,
-    symmetries::{SubGroupTransform, Transform},
+    moves::{Move, Phase2Move},
+    symmetries::SubGroupTransform,
 };
 
-use super::table_loader::load_table;
+use super::table_loader::{as_u16_slice, generate_phase_2_move_table, load_table};
 
-const E_EDGE_PERM_MOVE_TABLE_SIZE_BYTES: usize = 24 * (18 + 16);
-const E_EDGE_PERM_MOVE_TABLE_CHECKSUM: u32 = 1568500842;
+const E_EDGE_PERM_MOVE_TABLE_SIZE_BYTES: usize = 24 * (10 + 15);
+const E_EDGE_PERM_MOVE_TABLE_CHECKSUM: u32 = 665180893;
 
 fn generate_e_edge_perm_move_table(buffer: &mut [u8]) {
     assert_eq!(buffer.len(), E_EDGE_PERM_MOVE_TABLE_SIZE_BYTES);
-
-    for i in 0..24 {
-        let cube = phase_2_cubies(0.into(), 0.into(), (i as u8).into());
-        let mut j = 0usize;
-        while j < 18 {
-            let m: Move = unsafe { core::mem::transmute(j as u8) };
-            buffer[i * 34 + j] = EEdgePermCoord::from_cubie(cube.const_move(m)).into();
-            j += 1;
+    buffer.par_chunks_mut(25).enumerate().for_each(|(i, row)| {
+        for (j, coord) in phase_2_cubies(0.into(),0.into() ,(i as u8).into())
+        .phase_2_move_table_entry_cubes().map(|c| EEdgePermCoord::from_cubie(c).into()).enumerate() {
+            row[j] = coord
         }
-        while j < 34 {
-            let t = Transform((j - 18) as u8);
-            buffer[i * 34 + j] = EEdgePermCoord::from_cubie(cube.conjugate_by_transform(t)).into();
-            j += 1;
-        }
-    }
+    });
 }
 
 pub fn load_e_edge_perm_move_table<P: AsRef<Path>>(path: P) -> Result<EEdgePermMoveTable> {
@@ -46,9 +38,14 @@ pub fn load_e_edge_perm_move_table<P: AsRef<Path>>(path: P) -> Result<EEdgePermM
 pub struct EEdgePermMoveTable(Mmap);
 
 impl EEdgePermMoveTable {
-    pub fn apply_move(&self, coord: EEdgePermCoord, mv: Move) -> EEdgePermCoord {
-        let i = (coord.inner() as usize) * 34 + (mv as u8 as usize);
-        self.0[i].into()
+    fn get_slice_for_coord(&self, coord: EEdgePermCoord) -> &[u8; 25] {
+        let i = (coord.inner() as usize) * 25;
+        &self.0[i..i + 25].as_array().unwrap()
+    }
+
+    pub fn apply_move(&self, coord: EEdgePermCoord, mv: Phase2Move) -> EEdgePermCoord {
+        let entry = self.get_slice_for_coord(coord);
+        entry[mv.into_index()].into()
     }
 
     pub fn conjugate_by_transform(
@@ -56,8 +53,11 @@ impl EEdgePermMoveTable {
         coord: EEdgePermCoord,
         transform: SubGroupTransform,
     ) -> EEdgePermCoord {
-        let i = (coord.inner() as usize) * 34 + (transform.0 as usize + 18);
-        self.0[i].into()
+        if transform.0 == 0 {
+            return coord;
+        }
+        let entry = self.get_slice_for_coord(coord);
+        entry[transform.0 as usize + 9].into()
     }
 }
 
@@ -68,10 +68,9 @@ fn test() -> Result<()> {
         let coord = EEdgePermCoord::from(i);
         let cube = phase_2_cubies(0.into(), 0.into(), coord);
 
-        for i in 0..18 {
-            let mv: Move = unsafe { core::mem::transmute(i as u8) };
-            let cubie_moved = EEdgePermCoord::from_cubie(cube.const_move(mv));
-            let table_moved = table.apply_move(coord, mv);
+        for mv in Phase2Move::all_iter() {
+            let cubie_moved = EEdgePermCoord::from_cubie(cube.then(mv.into()));
+            let table_moved = table.apply_move(coord, mv.into());
             assert_eq!(cubie_moved, table_moved);
         }
 
@@ -100,10 +99,9 @@ fn test_random() -> Result<()> {
             coord,
         );
 
-        for i in 0..18 {
-            let mv: Move = unsafe { core::mem::transmute(i as u8) };
-            let cubie_moved = EEdgePermCoord::from_cubie(cube.const_move(mv));
-            let table_moved = table.apply_move(coord, mv);
+        for mv in Phase2Move::all_iter() {
+            let cubie_moved = EEdgePermCoord::from_cubie(cube.then(mv.into()));
+            let table_moved = table.apply_move(coord, mv.into());
             assert_eq!(cubie_moved, table_moved);
         }
 
