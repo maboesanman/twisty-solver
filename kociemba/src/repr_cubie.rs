@@ -1,6 +1,5 @@
 use std::fmt::Debug;
 
-use num_enum::{IntoPrimitive, TryFromPrimitive, UnsafeFromPrimitive};
 use rand::distr::{Distribution, StandardUniform};
 
 use crate::{
@@ -10,259 +9,6 @@ use crate::{
     },
     symmetries::SubGroupTransform,
 };
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-#[repr(C)]
-pub struct ReprCubie {
-    // THE ORIENTATION HERE IS IMPORTANT
-    // EDGE_ORIENT AND CORNER ORIENT ARE SUPPOSED TO BE ADJACENT
-    // see corner resident enum for ordering
-    pub(crate) corner_perm: [CornerResident; 8],
-    pub(crate) corner_orient: [CornerOrient; 8],
-
-    // see edge resident enum for ordering
-    // only first 12 are used
-    pub(crate) edge_orient: [EdgeOrient; 12],
-    pub(crate) edge_perm: [EdgeResident; 12],
-}
-
-#[test]
-fn layout_correct() {
-    assert_eq!(std::mem::size_of::<ReprCubie>(), 40);
-    assert_eq!(memoffset::offset_of!(ReprCubie, corner_perm), 0);
-    assert_eq!(memoffset::offset_of!(ReprCubie, corner_orient), 8);
-    assert_eq!(memoffset::offset_of!(ReprCubie, edge_orient), 16);
-    assert_eq!(memoffset::offset_of!(ReprCubie, edge_perm), 28);
-}
-
-pub(crate) const fn corner_perm_offset() -> usize {
-    0
-}
-
-pub(crate) const fn corner_orient_offset() -> usize {
-    8
-}
-
-pub(crate) const fn edge_perm_offset() -> usize {
-    28
-}
-
-pub(crate) const fn edge_orient_offset() -> usize {
-    16
-}
-
-#[allow(clippy::upper_case_acronyms)]
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Clone,
-    Copy,
-    UnsafeFromPrimitive,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Debug,
-    Hash,
-)]
-#[repr(u8)]
-pub(crate) enum CornerResident {
-    UFR = 0,
-    UFL = 1,
-    UBR = 2,
-    UBL = 3,
-    DFR = 4,
-    DFL = 5,
-    DBR = 6,
-    DBL = 7,
-}
-
-#[repr(u8)]
-#[derive(
-    Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive, Debug, Hash,
-)]
-pub(crate) enum CornerOrient {
-    Solved = 0,
-    Clockwise = 1,
-    CounterClockwise = 2,
-}
-
-#[repr(u8)]
-#[derive(
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Clone,
-    Copy,
-    UnsafeFromPrimitive,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Debug,
-    Hash,
-)]
-pub(crate) enum EdgeResident {
-    UF = 0,
-    UB = 1,
-    UR = 2,
-    UL = 3,
-    DF = 4,
-    DB = 5,
-    DR = 6,
-    DL = 7,
-    FR = 8,
-    FL = 9,
-    BR = 10,
-    BL = 11,
-}
-
-#[repr(u8)]
-#[derive(
-    Clone, Copy, PartialEq, Eq, UnsafeFromPrimitive, TryFromPrimitive, IntoPrimitive, Debug, Hash,
-)]
-pub(crate) enum EdgeOrient {
-    Solved = 0,
-    Unsolved = 1,
-}
-
-impl Default for ReprCubie {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ReprCubie {
-    pub const fn new() -> Self {
-        Self {
-            corner_perm: [
-                CornerResident::UFR,
-                CornerResident::UFL,
-                CornerResident::UBR,
-                CornerResident::UBL,
-                CornerResident::DFR,
-                CornerResident::DFL,
-                CornerResident::DBR,
-                CornerResident::DBL,
-            ],
-            corner_orient: [
-                CornerOrient::Solved,
-                CornerOrient::Solved,
-                CornerOrient::Solved,
-                CornerOrient::Solved,
-                CornerOrient::Solved,
-                CornerOrient::Solved,
-                CornerOrient::Solved,
-                CornerOrient::Solved,
-            ],
-            edge_perm: [
-                EdgeResident::UF,
-                EdgeResident::UB,
-                EdgeResident::UR,
-                EdgeResident::UL,
-                EdgeResident::DF,
-                EdgeResident::DB,
-                EdgeResident::DR,
-                EdgeResident::DL,
-                EdgeResident::FR,
-                EdgeResident::FL,
-                EdgeResident::BR,
-                EdgeResident::BL,
-            ],
-            edge_orient: [
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-                EdgeOrient::Solved,
-            ],
-        }
-    }
-    pub(crate) const fn into_array(self) -> [u8; 40] {
-        unsafe { core::mem::transmute(self) }
-    }
-    pub(crate) const unsafe fn from_array_unchecked(array: [u8; 40]) -> Self {
-        unsafe { core::mem::transmute(array) }
-    }
-    pub(crate) const fn into_ref(&self) -> &[u8; 40] {
-        unsafe { core::mem::transmute(self) }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn is_valid(&self) -> bool {
-        let mut v = self
-            .corner_perm
-            .iter()
-            .map(|x| *x as u8)
-            .collect::<Vec<_>>();
-        v.sort();
-        if v != (0..8u8).collect::<Vec<_>>() {
-            return false;
-        }
-
-        let mut v = self.edge_perm.iter().map(|x| *x as u8).collect::<Vec<_>>();
-        v.sort();
-        if v != (0..12u8).collect::<Vec<_>>() {
-            return false;
-        }
-
-        let mut corner_perm_odd = false;
-        for i in 0..7 {
-            for j in i..8 {
-                if self.corner_perm[i] > self.corner_perm[j] {
-                    corner_perm_odd = !corner_perm_odd;
-                }
-            }
-        }
-
-        let mut edge_perm_odd = false;
-        for i in 0..11 {
-            for j in i..12 {
-                if self.edge_perm[i] > self.edge_perm[j] {
-                    edge_perm_odd = !edge_perm_odd;
-                }
-            }
-        }
-
-        if corner_perm_odd != edge_perm_odd {
-            return false;
-        }
-
-        let edge_orientation_sum: u8 = self.edge_orient.iter().map(|x| *x as u8).sum();
-        if edge_orientation_sum % 2 != 0 {
-            return false;
-        }
-
-        let corner_orientation_sum: u8 = self.corner_orient.iter().map(|x| *x as u8).sum();
-        if corner_orientation_sum % 3 != 0 {
-            return false;
-        }
-
-        true
-    }
-
-    pub fn is_solved(&self) -> bool {
-        self == &ReprCubie::new()
-    }
-
-    // pub fn equivalent_(&self) ->  {
-
-    // }
-
-    pub fn adjacent(&self) -> impl '_ + Iterator<Item = Self> {
-        Move::all_iter().map(|mv| self.const_move(mv))
-    }
-
-    pub fn adjacent_phase_2(&self) -> impl '_ + Iterator<Item = Self> {
-        Phase2Move::all_iter().map(|mv| self.const_move(mv.into()))
-    }
-}
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct ReprCube {
@@ -539,6 +285,10 @@ impl ReprCube {
         }
 
         true
+    }
+
+    pub fn is_solved(self) -> bool {
+        self == SOLVED_CUBE
     }
 
     /// concatenate two cubes, as transformations from the solved cube.
@@ -827,4 +577,371 @@ fn move_entries() {
             _ => println!("{e:?}"),
         }
     }
+}
+
+#[test]
+fn test_all_moves() {
+    let c = ReprCube::default();
+    c.then(U1);
+    c.then(U2);
+    c.then(U3);
+    c.then(U2);
+
+    assert!(c.is_valid());
+    assert!(c.is_solved());
+
+    c.then(D1);
+    c.then(D2);
+    c.then(D3);
+    c.then(D2);
+
+    assert!(c.is_valid());
+    assert!(c.is_solved());
+
+    c.then(F1);
+    c.then(F2);
+    c.then(F3);
+    c.then(F2);
+
+    assert!(c.is_valid());
+    assert!(c.is_solved());
+
+    c.then(B1);
+    c.then(B2);
+    c.then(B3);
+    c.then(B2);
+
+    assert!(c.is_valid());
+    assert!(c.is_solved());
+
+    c.then(R1);
+    c.then(R2);
+    c.then(R3);
+    c.then(R2);
+
+    assert!(c.is_valid());
+    assert!(c.is_solved());
+
+    c.then(L1);
+    c.then(L2);
+    c.then(L3);
+    c.then(L2);
+
+    assert!(c.is_valid());
+    assert!(c.is_solved());
+}
+
+#[test]
+fn test_long_identity() {
+    let c = ReprCube::default();
+    c.then(F1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(R1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(F3);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(U1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(B2);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(L3);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(D3);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(R2);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(L1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(B2);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(F3);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(D1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(U2);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(R1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(B1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(U3);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(B3);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(D1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(F3);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(U2);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(F3);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(R1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(U1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(R3);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(L2);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(U1);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(L2);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(D3);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(L2);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(D2);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(F2);
+
+    assert!(c.is_valid());
+    assert!(!c.is_solved());
+    c.then(D1);
+
+    assert!(c.is_valid());
+    assert!(c.is_solved());
+}
+
+#[test]
+fn sexy_move() {
+    let c = ReprCube::default();
+
+    for _ in 0..6 {
+        c.then(U1);
+        c.then(F1);
+        c.then(U3);
+        c.then(F3);
+    }
+
+    assert!(c.is_valid());
+    assert!(c.is_solved());
+}
+
+#[test]
+fn hundred_thousand_moves_simd() {
+    let c = ReprCube::default();
+
+    for _ in 0..1000 {
+        c.then(F1);
+        c.then(R1);
+        c.then(F3);
+        c.then(U1);
+        c.then(B2);
+        c.then(L3);
+        c.then(D3);
+        c.then(R2);
+        c.then(L1);
+        c.then(B2);
+        c.then(F3);
+        c.then(D1);
+        c.then(U2);
+        c.then(R1);
+        c.then(B1);
+        c.then(U3);
+        c.then(B3);
+        c.then(D1);
+        c.then(F3);
+        c.then(U2);
+        c.then(F3);
+        c.then(R1);
+        c.then(U1);
+        c.then(R3);
+        c.then(L2);
+        c.then(U1);
+        c.then(L2);
+        c.then(D3);
+        c.then(L2);
+        c.then(D2);
+        c.then(F2);
+        c.then(D1);
+        c.then(F1);
+        c.then(R1);
+        c.then(F3);
+        c.then(U1);
+        c.then(B2);
+        c.then(L3);
+        c.then(D3);
+        c.then(R2);
+        c.then(L2);
+        c.then(L3);
+        c.then(B2);
+        c.then(F3);
+        c.then(D1);
+        c.then(U2);
+        c.then(R1);
+        c.then(B1);
+        c.then(U3);
+        c.then(B3);
+        c.then(D1);
+        c.then(F3);
+        c.then(U1);
+        c.then(U1);
+        c.then(F3);
+        c.then(R1);
+        c.then(U1);
+        c.then(R3);
+        c.then(L2);
+        c.then(U1);
+        c.then(L2);
+        c.then(D3);
+        c.then(L2);
+        c.then(D2);
+        c.then(F2);
+        c.then(D1);
+        c.then(F1);
+        c.then(R1);
+        c.then(F3);
+        c.then(U1);
+        c.then(B2);
+        c.then(L3);
+        c.then(D3);
+        c.then(R2);
+        c.then(L1);
+        c.then(B2);
+        c.then(F2);
+        c.then(F1);
+        c.then(D1);
+        c.then(U2);
+        c.then(R1);
+        c.then(B1);
+        c.then(U3);
+        c.then(B3);
+        c.then(D1);
+        c.then(F3);
+        c.then(U2);
+        c.then(F3);
+        c.then(R1);
+        c.then(U1);
+        c.then(R3);
+        c.then(L2);
+        c.then(U1);
+        c.then(L2);
+        c.then(D3);
+        c.then(L1);
+        c.then(L1);
+        c.then(D2);
+        c.then(F2);
+        c.then(D1);
+    }
+
+    assert!(c.is_valid());
+    assert!(c.is_solved());
+}
+
+#[test]
+fn test_apply() {
+    let c = ReprCube::default();
+
+    c.then(R1);
+    c.then(U1);
+    c.then(R3);
+    c.then(U3);
+
+    let mut c2 = ReprCube::default();
+
+    for _ in 0..6 {
+        c2 = c2.then(c);
+    }
+
+    assert!(c2.is_solved());
+}
+
+#[test]
+fn test_2_move_apply() {
+    let c = ReprCube::default();
+
+    c.then(R1);
+    c.then(U1);
+
+    let mut c2 = ReprCube::default();
+    c2 = c2.then(c);
+    let mut count = 1;
+    while !c2.is_solved() {
+        count += 1;
+        c2 = c2.then(c);
+    }
+
+    assert_eq!(count, 105);
+}
+
+#[test]
+fn test_long_apply() {
+    let c = ReprCube::default();
+
+    c.then(R1);
+    c.then(U2);
+    c.then(D3);
+    c.then(B1);
+    c.then(D3);
+
+    let mut c2 = ReprCube::default();
+    c2 = c2.then(c);
+    let mut count = 1;
+    while !c2.is_solved() {
+        count += 1;
+        c2 = c2.then(c);
+    }
+    assert_eq!(count, 1260);
 }
