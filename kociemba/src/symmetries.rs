@@ -1,7 +1,7 @@
 // 0b_xx00_0_00_0
 
 use crate::{
-    moves::{combined_index, combined_orient, Move},
+    moves::{combined_index, combined_orient},
     repr_cubie::{CornerOrient, ReprCubie},
 };
 
@@ -20,13 +20,12 @@ impl From<SubGroupTransform> for Transform {
 pub struct SubGroupTransform(pub u8);
 
 impl SubGroupTransform {
-
     pub fn nontrivial_iter() -> impl Iterator<Item = Self> {
-        (1..16).into_iter().map(SubGroupTransform)
+        (1..16).map(SubGroupTransform)
     }
 
     pub fn all_iter() -> impl Iterator<Item = Self> {
-        (0..16).into_iter().map(SubGroupTransform)
+        (0..16).map(SubGroupTransform)
     }
 }
 

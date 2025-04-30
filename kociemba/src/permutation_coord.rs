@@ -161,14 +161,14 @@ pub const fn edge_grouping_inverse(mut coord: u16) -> [bool; 12] {
 }
 
 pub const fn is_odd<const N: usize>(perm: &[u8; N]) -> bool {
-    let mut seen  = [false; N];
+    let mut seen = [false; N];
     let mut parity = 0;
 
     let mut i = 0;
     while i < N {
         if !seen[i] {
             let mut len = 0;
-            let mut j   = i;
+            let mut j = i;
             while !seen[j] {
                 seen[j] = true;
                 j = perm[j] as usize;

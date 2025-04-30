@@ -1,26 +1,19 @@
-use rand::Fill;
 use rayon::prelude::*;
 use std::{fs::OpenOptions, path::Path};
 
-use crate::{repr_cubie::{ReprCube}, symmetries::SubGroupTransform};
+use crate::repr_cubie::ReprCube;
 use anyhow::{Context, Result};
-use fs2::FileExt;           // ← add `fs2 = "0.4"` to Cargo.toml
+use fs2::FileExt; // ← add `fs2 = "0.4"` to Cargo.toml
 use memmap2::{Mmap, MmapMut, MmapOptions};
 
-pub fn load_table<P, G>(path: P,
-                        size_bytes: usize,
-                        checksum: u32,
-                        mut generator: G) -> Result<Mmap>
+pub fn load_table<P, G>(path: P, size_bytes: usize, checksum: u32, mut generator: G) -> Result<Mmap>
 where
     P: AsRef<Path>,
     G: for<'a> FnMut(&'a mut [u8]),
 {
     loop {
         // ──────────────── 1. fast path: try to open for reading ────────────────
-        if let Ok(file) = OpenOptions::new()
-            .read(true)
-            .open(&path)
-        {
+        if let Ok(file) = OpenOptions::new().read(true).open(&path) {
             // block until any writer releases its lock
             fs2::FileExt::lock_shared(&file)
                 .with_context(|| format!("locking (shared) {}", path.as_ref().display()))?;
@@ -41,7 +34,7 @@ where
 
         // ──────────────── 2. regenerate under an exclusive lock ────────────────
         //
-        //   • open read-write (create/truncate)  
+        //   • open read-write (create/truncate)
         //   • take an EXCLUSIVE lock – this blocks while another writer owns it
         //   • **re-check** the checksum in case another writer finished while
         //     we were waiting
@@ -63,7 +56,7 @@ where
         if file.metadata()?.len() == size_bytes as u64 {
             let mmap = unsafe { MmapOptions::new().len(size_bytes).map(&file)? };
             if crc32fast::hash(&mmap) == checksum {
-                need_generate = false;           // nothing to do – reuse it
+                need_generate = false; // nothing to do – reuse it
             }
         }
 
@@ -88,8 +81,12 @@ where
                 ));
             }
 
-            mmap_mut.flush()?;   // make sure all pages hit the file
-            println!("generated {} with checksum {}", path.as_ref().display(), hash_actual);
+            mmap_mut.flush()?; // make sure all pages hit the file
+            println!(
+                "generated {} with checksum {}",
+                path.as_ref().display(),
+                hash_actual
+            );
         }
 
         // Release the exclusive lock *before* we go back to the read path.
@@ -157,14 +154,21 @@ where
     let buffer = as_u16_slice_mut(buffer);
 
     buffer.par_chunks_mut(18).enumerate().for_each(|(i, row)| {
-        for (j, coord) in to_fn(i).all_phase_1_adjacent().map(|(_, c)| from_fn(c)).enumerate() {
+        for (j, coord) in to_fn(i)
+            .all_phase_1_adjacent()
+            .map(|(_, c)| from_fn(c))
+            .enumerate()
+        {
             row[j] = coord
         }
     });
 }
 
-pub fn generate_phase_1_move_and_sym_table<const SIZE: usize, T, F>(buffer: &mut [u8], to_fn: T, from_fn: F)
-where
+pub fn generate_phase_1_move_and_sym_table<const SIZE: usize, T, F>(
+    buffer: &mut [u8],
+    to_fn: T,
+    from_fn: F,
+) where
     T: Send + Sync + Fn(usize) -> ReprCube,
     F: Send + Sync + Fn(ReprCube) -> u16,
 {
@@ -172,7 +176,11 @@ where
     let buffer = as_u16_slice_mut(buffer);
 
     buffer.par_chunks_mut(33).enumerate().for_each(|(i, row)| {
-        for (j, coord) in to_fn(i).phase_1_move_table_entry_cubes().map(|c| from_fn(c)).enumerate() {
+        for (j, coord) in to_fn(i)
+            .phase_1_move_table_entry_cubes()
+            .map(&from_fn)
+            .enumerate()
+        {
             row[j] = coord
         }
     });
@@ -187,7 +195,11 @@ where
     let buffer = as_u16_slice_mut(buffer);
 
     buffer.par_chunks_mut(25).enumerate().for_each(|(i, row)| {
-        for (j, coord) in to_fn(i).phase_2_move_table_entry_cubes().map(|c| from_fn(c)).enumerate() {
+        for (j, coord) in to_fn(i)
+            .phase_2_move_table_entry_cubes()
+            .map(&from_fn)
+            .enumerate()
+        {
             row[j] = coord
         }
     });

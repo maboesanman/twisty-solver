@@ -1,11 +1,11 @@
-use std::{collections::HashSet, path::Path};
+use std::path::Path;
 
 use anyhow::Result;
 use memmap2::Mmap;
 
 use crate::{
-    coords::{phase_2_cubies, CornerPermCoord},
-    moves::{Move, Phase2Move},
+    coords::{CornerPermCoord, phase_2_cubies},
+    moves::Phase2Move,
     symmetries::SubGroupTransform,
 };
 
@@ -63,7 +63,12 @@ impl CornerPermMoveTable {
     ) -> (CornerPermCoord, SubGroupTransform) {
         let entry = &self.get_slice_for_coord(coord)[10..];
         let coord_val: u16 = coord.into();
-        let (i, representative) = Some(&coord_val).into_iter().chain(entry.iter()).enumerate().min_by_key(|(_, x)| *x).unwrap();
+        let (i, representative) = Some(&coord_val)
+            .into_iter()
+            .chain(entry.iter())
+            .enumerate()
+            .min_by_key(|(_, x)| *x)
+            .unwrap();
         ((*representative).into(), SubGroupTransform(i as u8))
     }
 }
@@ -77,7 +82,7 @@ fn test() -> Result<()> {
 
         for mv in Phase2Move::all_iter() {
             let cubie_moved = CornerPermCoord::from_cubie(cube.then(mv.into()));
-            let table_moved = table.apply_move(coord, mv.into());
+            let table_moved = table.apply_move(coord, mv);
             assert_eq!(cubie_moved, table_moved);
         }
 
@@ -108,7 +113,7 @@ fn test_random() -> Result<()> {
 
         for mv in Phase2Move::all_iter() {
             let cubie_moved = CornerPermCoord::from_cubie(cube.then(mv.into()));
-            let table_moved = table.apply_move(coord, mv.into());
+            let table_moved = table.apply_move(coord, mv);
             assert_eq!(cubie_moved, table_moved);
         }
 
@@ -127,10 +132,10 @@ fn test_random() -> Result<()> {
 #[test]
 fn test_sym() -> Result<()> {
     let table = load_corner_perm_move_table("corner_perm_move_table.dat")?;
-    let mut reps = HashSet::new();
+    let mut reps = std::collections::HashSet::new();
     for i in 0..40320 {
         let coord = CornerPermCoord::from(i);
-        
+
         reps.insert(table.get_sym_representative(coord).0);
     }
     assert_eq!(reps.len(), 2768);

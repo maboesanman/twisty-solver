@@ -13,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    move_table_raw_corner_perm::{load_corner_perm_move_table, CornerPermMoveTable},
+    move_table_raw_corner_perm::CornerPermMoveTable,
     table_loader::{as_u16_slice, as_u16_slice_mut, load_table},
 };
 
@@ -80,11 +80,13 @@ impl Phase2CornerSymLookupTable {
     }
 }
 
-
 #[test]
 fn test() -> Result<()> {
-    let corner_table = load_corner_perm_move_table("corner_perm_move_table.dat")?;
-    let table = load_phase_2_corner_sym_lookup_table("phase_2_corner_sym_lookup_table.dat", &corner_table)?;
+    let corner_table = super::move_table_raw_corner_perm::load_corner_perm_move_table(
+        "corner_perm_move_table.dat",
+    )?;
+    let table =
+        load_phase_2_corner_sym_lookup_table("phase_2_corner_sym_lookup_table.dat", &corner_table)?;
 
     for i in 0..40320 {
         let raw_coord = CornerPermCoord::from(i);

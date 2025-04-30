@@ -1,5 +1,5 @@
 use crate::{
-    permutation_coord::{self, permutation_coord_4_inverse, permutation_coord_8_inverse},
+    permutation_coord::{self},
     repr_cubie::{ReprCube, SOLVED_CUBE},
 };
 
@@ -110,7 +110,7 @@ impl EdgeGroupCoord {
         let mut items = [false; 12];
         let mut i = 0;
         while i < 12 {
-            items[i] = value.edge_perm[i] as u8 > 7;
+            items[i] = value.edge_perm[i] > 7;
             i += 1;
         }
         let value = permutation_coord::edge_grouping(&items);

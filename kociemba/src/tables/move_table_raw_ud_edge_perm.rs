@@ -4,8 +4,8 @@ use anyhow::Result;
 use memmap2::Mmap;
 
 use crate::{
-    coords::{phase_2_cubies, UDEdgePermCoord},
-    moves::{Move, Phase2Move},
+    coords::{UDEdgePermCoord, phase_2_cubies},
+    moves::Phase2Move,
     symmetries::SubGroupTransform,
 };
 
@@ -17,7 +17,7 @@ const UD_EDGE_PERM_MOVE_TABLE_CHECKSUM: u32 = 3029666453;
 fn generate_ud_edge_perm_move_table(buffer: &mut [u8]) {
     generate_phase_2_move_table::<UD_EDGE_PERM_MOVE_TABLE_SIZE_BYTES, _, _>(
         buffer,
-        |i| phase_2_cubies(0.into(),(i as u16).into() ,0.into()),
+        |i| phase_2_cubies(0.into(), (i as u16).into(), 0.into()),
         |c| UDEdgePermCoord::from_cubie(c).into(),
     );
 }
@@ -67,7 +67,7 @@ fn test() -> Result<()> {
 
         for mv in Phase2Move::all_iter() {
             let cubie_moved = UDEdgePermCoord::from_cubie(cube.then(mv.into()));
-            let table_moved = table.apply_move(coord, mv.into());
+            let table_moved = table.apply_move(coord, mv);
             assert_eq!(cubie_moved, table_moved);
         }
 
@@ -98,7 +98,7 @@ fn test_random() -> Result<()> {
 
         for mv in Phase2Move::all_iter() {
             let cubie_moved = UDEdgePermCoord::from_cubie(cube.then(mv.into()));
-            let table_moved = table.apply_move(coord, mv.into());
+            let table_moved = table.apply_move(coord, mv);
             assert_eq!(cubie_moved, table_moved);
         }
 

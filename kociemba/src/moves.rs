@@ -1,7 +1,7 @@
 use std::simd::{Mask, Simd};
 
 use super::repr_cubie::{
-    corner_orient_offset, corner_perm_offset, edge_orient_offset, edge_perm_offset, ReprCubie,
+    ReprCubie, corner_orient_offset, corner_perm_offset, edge_orient_offset, edge_perm_offset,
 };
 
 #[repr(u8)]
@@ -414,7 +414,7 @@ impl ReprCubie {
         let mut buf = buf_new;
 
         const ORIENT_OFFSET: usize = corner_orient_offset();
-        
+
         let mut i = 0;
         while i < 20 {
             buf[i + ORIENT_OFFSET] = (buf[i + ORIENT_OFFSET] + orient[i]) % FULL_REM[i];
