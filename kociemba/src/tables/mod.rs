@@ -7,4 +7,8 @@ pub mod sym_lookup_phase_2_corner;
 
 pub mod move_table_edge_group_and_orient;
 
+pub mod move_table_sym_phase_1_edge;
+
+pub mod move_table_sym_phase_2_corner;
+
 mod table_loader;

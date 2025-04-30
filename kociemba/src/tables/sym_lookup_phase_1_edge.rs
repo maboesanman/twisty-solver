@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use memmap2::Mmap;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::prelude::*;
 
 use crate::{
     coords::{EdgeGroupCoord, EdgeOrientCoord, Phase2CornerSymCoord},
@@ -100,14 +100,16 @@ fn test() -> Result<()> {
     let table =
         load_phase_1_edge_sym_lookup_table("phase_1_edge_sym_lookup_table.dat", &move_table)?;
 
-    for (i, j) in itertools::iproduct!(0..2048, 1..495) {
-        let orient = EdgeOrientCoord::from(i);
-        let group = EdgeGroupCoord::from(j);
-        let (sym_coord, transform) = table.get_sym_from_raw(&move_table, group, orient);
-        let rep_coord = table.get_raw_from_sym(sym_coord);
-        let recovered_raw_coord = move_table.conjugate_by_transform(group, orient, transform);
-        assert_eq!(rep_coord, recovered_raw_coord);
-    }
+    itertools::iproduct!(0..2048, 0..495)
+        .par_bridge()
+        .for_each(|(i, j)| {
+            let orient = EdgeOrientCoord::from(i);
+            let group = EdgeGroupCoord::from(j);
+            let (sym_coord, transform) = table.get_sym_from_raw(&move_table, group, orient);
+            let rep_coord = table.get_raw_from_sym(sym_coord);
+            let recovered_raw_coord = move_table.conjugate_by_transform(group, orient, transform);
+            assert_eq!(rep_coord, recovered_raw_coord);
+        });
 
     Ok(())
 }

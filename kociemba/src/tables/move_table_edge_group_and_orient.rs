@@ -197,8 +197,6 @@ fn test_sym() -> Result<()> {
         let group_coord = j.into();
 
         let rep = table.get_sym_representative(group_coord, orient_coord);
-        let (rep_i, rep_j, rep_k) = rep;
-        println!("{i:?}-{rep_i:?}-{j:?}-{rep_j:?}");
         reps.insert((rep.0, rep.1));
     });
     assert_eq!(reps.len(), 64430);

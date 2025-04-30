@@ -145,25 +145,6 @@ pub fn as_u16_slice_mut(bytes: &mut [u8]) -> &mut [u16] {
     unsafe { std::slice::from_raw_parts_mut(ptr as *mut u16, len_u16) }
 }
 
-pub fn generate_phase_1_move_table<const SIZE: usize, T, F>(buffer: &mut [u8], to_fn: T, from_fn: F)
-where
-    T: Send + Sync + Fn(usize) -> ReprCube,
-    F: Send + Sync + Fn(ReprCube) -> u16,
-{
-    assert_eq!(buffer.len(), SIZE);
-    let buffer = as_u16_slice_mut(buffer);
-
-    buffer.par_chunks_mut(18).enumerate().for_each(|(i, row)| {
-        for (j, coord) in to_fn(i)
-            .all_phase_1_adjacent()
-            .map(|(_, c)| from_fn(c))
-            .enumerate()
-        {
-            row[j] = coord
-        }
-    });
-}
-
 pub fn generate_phase_1_move_and_sym_table<const SIZE: usize, T, F>(
     buffer: &mut [u8],
     to_fn: T,

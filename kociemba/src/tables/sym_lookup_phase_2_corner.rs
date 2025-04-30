@@ -2,10 +2,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use memmap2::Mmap;
-use rayon::{
-    iter::{IntoParallelIterator, ParallelIterator},
-    slice::ParallelSliceMut,
-};
+use rayon::prelude::*;
 
 use crate::{
     coords::{CornerPermCoord, Phase2CornerSymCoord},
@@ -88,13 +85,13 @@ fn test() -> Result<()> {
     let table =
         load_phase_2_corner_sym_lookup_table("phase_2_corner_sym_lookup_table.dat", &corner_table)?;
 
-    for i in 0..40320 {
+    (0..40320).par_bridge().for_each(|i| {
         let raw_coord = CornerPermCoord::from(i);
         let (sym_coord, transform) = table.get_sym_from_raw(&corner_table, raw_coord);
         let rep_coord = table.get_raw_from_sym(sym_coord);
         let recovered_raw_coord = corner_table.conjugate_by_transform(raw_coord, transform);
         assert_eq!(rep_coord, recovered_raw_coord);
-    }
+    });
 
     Ok(())
 }

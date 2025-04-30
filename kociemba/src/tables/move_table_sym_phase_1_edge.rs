@@ -9,8 +9,7 @@ use crate::{
 };
 
 use super::{
-    move_table_raw_edge_grouping::EdgeGroupingMoveTable,
-    move_table_raw_edge_orient::EdgeOrientMoveTable,
+    move_table_edge_group_and_orient::EdgeGroupAndOrientMoveTable,
     sym_lookup_phase_1_edge::Phase1EdgeSymLookupTable,
     table_loader::{as_u16_slice, load_table},
 };
@@ -18,11 +17,10 @@ use super::{
 const PHASE_1_EDGE_MOVE_TABLE_SIZE_BYTES: usize = (64430 * 18) * 2;
 const PHASE_1_EDGE_MOVE_TABLE_CHECKSUM: u32 = 37629438;
 
-fn generate_phase_1_edge_move_table(
+fn generate_phase_1_edge_sym_move_table(
     buffer: &mut [u8],
-    phase_1_edge_sym_lookup_table: &Phase1EdgeSymLookupTable,
-    edge_orient_move_table: &EdgeOrientMoveTable,
-    edge_group_move_table: &EdgeGroupingMoveTable,
+    sym_lookup_table: &Phase1EdgeSymLookupTable,
+    move_table: &EdgeGroupAndOrientMoveTable,
 ) {
     assert_eq!(buffer.len(), PHASE_1_EDGE_MOVE_TABLE_SIZE_BYTES);
     let buffer = as_u16_slice_mut(buffer);
@@ -31,18 +29,16 @@ fn generate_phase_1_edge_move_table(
         .chunks_mut(18 * 2)
         .enumerate()
         .for_each(|(sym_coord, row)| {
-            let (edge_orient_coord, edge_group_coord) =
-                phase_1_edge_sym_lookup_table.get_raw_from_sym((sym_coord as u16).into());
+            let (edge_group_coord, edge_orient_coord) =
+                sym_lookup_table.get_raw_from_sym((sym_coord as u16).into());
             for j in 0..18 {
                 let mv: Move = unsafe { core::mem::transmute(j as u8) };
-                let new_edge_orient_coord =
-                    edge_orient_move_table.apply_move(edge_orient_coord, mv);
-                let new_edge_group_coord = edge_group_move_table.apply_move(edge_group_coord, mv);
-                let (sym_coord, transform) = phase_1_edge_sym_lookup_table.get_sym_from_raw(
-                    new_edge_orient_coord,
+                let (new_edge_group_coord, new_edge_orient_coord) =
+                    move_table.apply_move(edge_group_coord, edge_orient_coord, mv);
+                let (sym_coord, transform) = sym_lookup_table.get_sym_from_raw(
+                    move_table,
                     new_edge_group_coord,
-                    edge_orient_move_table,
-                    edge_group_move_table,
+                    new_edge_orient_coord,
                 );
 
                 row[2 * j] = sym_coord.into();
@@ -51,31 +47,23 @@ fn generate_phase_1_edge_move_table(
         });
 }
 
-pub fn load_phase_1_edge_move_table<P: AsRef<Path>>(
+pub fn load_phase_1_edge_sym_move_table<P: AsRef<Path>>(
     path: P,
-    phase_1_edge_sym_lookup_table: &Phase1EdgeSymLookupTable,
-    edge_orient_move_table: &EdgeOrientMoveTable,
-    edge_group_move_table: &EdgeGroupingMoveTable,
-) -> Result<Phase1EdgeMoveTable> {
+    sym_lookup_table: &Phase1EdgeSymLookupTable,
+    move_table: &EdgeGroupAndOrientMoveTable,
+) -> Result<Phase1EdgeSymMoveTable> {
     load_table(
         path,
         PHASE_1_EDGE_MOVE_TABLE_SIZE_BYTES,
         PHASE_1_EDGE_MOVE_TABLE_CHECKSUM,
-        |buf| {
-            generate_phase_1_edge_move_table(
-                buf,
-                phase_1_edge_sym_lookup_table,
-                edge_orient_move_table,
-                edge_group_move_table,
-            )
-        },
+        |buf| generate_phase_1_edge_sym_move_table(buf, sym_lookup_table, move_table),
     )
-    .map(Phase1EdgeMoveTable)
+    .map(Phase1EdgeSymMoveTable)
 }
 
-pub struct Phase1EdgeMoveTable(Mmap);
+pub struct Phase1EdgeSymMoveTable(Mmap);
 
-impl Phase1EdgeMoveTable {
+impl Phase1EdgeSymMoveTable {
     pub fn apply_move(
         &self,
         coord: Phase1EdgeSymCoord,
