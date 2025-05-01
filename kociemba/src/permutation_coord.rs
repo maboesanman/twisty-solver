@@ -1,17 +1,15 @@
 use paste::paste;
 
 macro_rules! permutation_coord {
-    ($n:expr, $t:ty) => {
+    ($n:expr, $t:ty, $dense:expr) => {
         paste! {
             const [<FACTORIALS_ $n>]: [$t; $n + 1] = {
                 let mut f: [$t; $n + 1] = [1; $n + 1];
                 let mut i = 1;
-                loop {
+                // compute f[1] … f[n] inclusive
+                while i <= $n {
                     f[i] = f[i - 1] * (i as $t);
                     i += 1;
-                    if i == $n {
-                        break;
-                    }
                 }
                 f
             };
@@ -19,12 +17,9 @@ macro_rules! permutation_coord {
             const [<FIRST_PERM_ $n>]: [u8; $n] = {
                 let mut f: [u8; $n] = [0; $n];
                 let mut i = 0;
-                loop {
+                while i < $n {
                     f[i] = i as u8;
                     i += 1;
-                    if i == $n {
-                        break;
-                    }
                 }
                 f
             };
@@ -77,23 +72,65 @@ macro_rules! permutation_coord {
                 result
             }
 
+            // ——— parity-interleaved rank: even perms→even codes, odd→odd
+            pub const fn [<permutation_coord_ $n _parity>](perm: &[u8; $n]) -> $t {
+                let mut r = [<permutation_coord_ $n>](perm);
+                // is_odd returns bool, cast into integer 0/1
+                if (r & 1) != (is_odd(perm) as $t) {
+                    r ^= 1;
+                }
+                r
+            }
+
+            // ——— parity-aware unrank: pick the branch whose parity matches code&1
+            pub const fn [<permutation_coord_ $n _parity_inverse>](code: $t) -> [u8; $n] {
+                let p = [<permutation_coord_ $n _inverse>](code);
+                if (is_odd(&p) as $t) == (code & 1) {
+                    p
+                } else {
+                    [<permutation_coord_ $n _inverse>](code ^ 1)
+                }
+            }
+
             #[test]
             fn [<permutation_coord_ $n _test>]() {
-                // the domain is small enough so we just check the whole thing.
-                for i in 0..[<FACTORIALS_ $n>][$n] {
-                    let s = [<permutation_coord_ $n _inverse>](i);
-                    assert_eq!([<permutation_coord_ $n>](&s), i);
+                if $dense {
+                    // the domain is small enough so we just check the whole thing.
+                    for i in 0..[<FACTORIALS_ $n>][$n] {
+                        let s = [<permutation_coord_ $n _inverse>](i);
+                        assert_eq!([<permutation_coord_ $n>](&s), i);
+                    }
+                } else {
+                    // the domain is too big, sample randomly
+                    for i in 0..[<FACTORIALS_ $n>][$n] {
+                        let s = [<permutation_coord_ $n _inverse>](i);
+                        assert_eq!([<permutation_coord_ $n>](&s), i);
+                    }
+                }
+            }
+
+            #[test]
+            fn [<permutation_coord_ $n _parity_test>]() {
+                if $dense {
+                    // the domain is small enough so we just check the whole thing.
+                    for i in 0..[<FACTORIALS_ $n>][$n] {
+                        let s = [<permutation_coord_ $n _parity_inverse>](i);
+                        assert_eq!(is_odd(&s) as $t, i % 2);
+                        assert_eq!([<permutation_coord_ $n _parity>](&s), i);
+                    }
+                } else {
+                    
                 }
             }
         }
     };
 }
 
-permutation_coord!(12, u32);
+permutation_coord!(12, u32, false);
 
-permutation_coord!(8, u16);
+permutation_coord!(8, u16, true);
 
-permutation_coord!(4, u8);
+permutation_coord!(4, u8, true);
 
 const COMBINATIONS: [[u16; 4]; 12] = {
     const FACTORIALS: [u32; 12] = [

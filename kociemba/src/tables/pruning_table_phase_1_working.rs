@@ -1,0 +1,224 @@
+
+use itertools::Itertools;
+use rand::distr::{Distribution, StandardUniform, Uniform};
+use rayon::prelude::*;
+use std::sync::atomic::{AtomicU8, Ordering};
+
+use std::path::Path;
+
+use anyhow::Result;
+use memmap2::Mmap;
+
+
+use crate::coords::{CornerOrientCoord, EdgeGroupCoord, EdgeOrientCoord, Phase1EdgeSymCoord};
+use crate::moves::Move;
+use crate::repr_cubie::ReprCube;
+use crate::tables::move_table_raw_corner_orient::load_corner_orient_move_table;
+use crate::tables::move_table_raw_edge_group_and_orient::load_edge_group_and_orient_move_table;
+use crate::tables::move_table_sym_phase_1_edge::load_phase_1_edge_sym_move_table;
+use crate::tables::sym_lookup_phase_1_edge::load_phase_1_edge_sym_lookup_table;
+
+use super::move_table_raw_corner_orient::CornerOrientMoveTable;
+use super::move_table_sym_phase_1_edge::Phase1EdgeSymMoveTable;
+use super::table_loader::{as_atomic_u8_slice, load_table};
+
+const PHASE_1_PRUNING_TABLE_SIZE_BYTES: usize = (64430 * 2187) / 4 + 1;
+const PHASE_1_PRUNING_TABLE_CHECKSUM: u32 = 204444714;
+
+
+struct WorkingTable<'a>(&'a [AtomicU8]);
+
+impl<'a> WorkingTable<'a> {
+    fn visited(&self, coords: (Phase1EdgeSymCoord, CornerOrientCoord)) -> bool {
+        let i = coords.0.inner() as usize * 2187 + coords.1.inner() as usize;
+
+        let j = i % 4;
+        let i = i / 4;
+
+        let atomic = &self.0[i];
+
+        let shift = j * 2;
+        let mask  = 0b11 << shift;
+    
+        atomic.load(Ordering::Relaxed) & mask != 0
+    }
+
+    /// write to the table. returns true if write was successful and the moves from here should be handled.
+    fn write(&self, coords: (Phase1EdgeSymCoord, CornerOrientCoord), val: u8) -> bool {
+        let i = coords.0.inner() as usize * 2187 + coords.1.inner() as usize;
+
+        let j = i % 4;
+        let i = i / 4;
+
+        let atomic = &self.0[i];
+
+        let shift = j * 2;
+        let mask  = 0b11 << shift;
+        let bits  = (((val % 3) + 1) & 0b11) << shift;
+
+        // try once: if the slot is still 00, set it to `bits`, else bail
+        atomic.fetch_update(
+            Ordering::AcqRel,      // on success: Acquire+Release
+            Ordering::Acquire,     // on failure: Acquire
+            |old| {
+                if old & mask != 0 {
+                    None            // someone else already wrote non-zero
+                } else {
+                    Some(old | bits) // set the two bits
+                }
+            }
+        ).is_ok()
+    }
+}
+
+
+
+fn generate_phase_1_pruning_table(buffer: &mut [u8], edge_table: &Phase1EdgeSymMoveTable, corner_table: &CornerOrientMoveTable) {
+    let atom = unsafe { as_atomic_u8_slice(buffer) };
+    let working = WorkingTable(atom);
+
+    // initial state
+    let root = (0.into(), 0.into());
+    working.write(root, 0);
+    let mut frontier = vec![root];
+    let mut level = 0u8;                         // real level, not mod-3
+
+    while !frontier.is_empty() {
+        // let unvisited = atom.len() - frontier.len();
+        // let use_bottom_up =
+        //     frontier.len() * /* degree of graph */ 18 > unvisited; // cheap heuristic
+
+        let next: Vec<_> = { //if !use_bottom_up {
+            /* ---------- top-down ---------- */
+            frontier
+                .iter()
+                .flat_map(|&v| neighbors(v, edge_table, corner_table))
+                .filter_map(|nbr| {
+                    if working.write(nbr, level + 1) {
+                        Some(nbr)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+            };
+        // } else {
+        //     /* ---------- bottom-up ---------- */
+        //     itertools::iproduct!(0..64430, 0..2187)
+        //         .par_bridge()
+        //         .map(|(i, j)| (Phase1EdgeSymCoord::from(i), CornerOrientCoord::from(j)))
+        //         .filter_map(|v| {
+        //             if working.visited(v) {
+        //                 return None;                // already discovered
+        //             }
+        //             for n in neighbors(v, edge_table, corner_table) {
+        //                 if working.visited(n) {
+
+        //                 }
+        //             }
+        //             None
+        //         })
+        //         .collect()
+        // };
+
+        frontier = next;
+        level += 1;
+    }
+
+    println!("{:?}", frontier.len());
+    println!("{:?}", level);
+}
+
+pub fn load_phase_1_pruning_table<P: AsRef<Path>>(path: P, edge_table: &Phase1EdgeSymMoveTable, corner_table: &CornerOrientMoveTable) -> Result<Phase1PruningTable> {
+    load_table(
+        path,
+        PHASE_1_PRUNING_TABLE_SIZE_BYTES,
+        PHASE_1_PRUNING_TABLE_CHECKSUM,
+        |buf| generate_phase_1_pruning_table(buf, edge_table, corner_table),
+    )
+    .map(Phase1PruningTable)
+}
+
+pub struct Phase1PruningTable(Mmap);
+
+impl Phase1PruningTable {
+    pub fn get_value(&self, coords: (Phase1EdgeSymCoord, CornerOrientCoord)) -> u8 {
+        let i = coords.0.inner() as usize * 2187 + coords.1.inner() as usize;
+
+        let j = i % 4;
+        let i = i / 4;
+
+        let byte = self.0[i];
+
+        let shift = j * 2;
+
+        ((byte >> shift) & 0b11) - 1
+    }
+}
+
+fn neighbors(coords: (Phase1EdgeSymCoord, CornerOrientCoord), edge_table: &Phase1EdgeSymMoveTable, corner_table: &CornerOrientMoveTable) -> impl Iterator<Item = (Phase1EdgeSymCoord, CornerOrientCoord)> {
+    Move::all_iter().map(move |mv| {
+        let (new_sym_coord, transform) = edge_table.apply_move(coords.0, mv);
+        let new_raw_coord = corner_table.apply_move_and_transform(coords.1, mv, transform);
+        (new_sym_coord, new_raw_coord)
+    })
+}
+
+#[test]
+fn test_neighbors() -> anyhow::Result<()> {
+    let phase_1_move_edge_raw_table =
+        load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
+    let phase_1_move_corner_raw_table =
+        load_corner_orient_move_table("corner_orient_move_table.dat")?;
+    let phase_1_lookup_edge_sym_table = load_phase_1_edge_sym_lookup_table(
+        "phase_1_edge_sym_lookup_table.dat",
+        &phase_1_move_edge_raw_table,
+    )?;
+    let phase_1_move_edge_sym_table = load_phase_1_edge_sym_move_table(
+        "phase_1_edge_sym_move_table.dat",
+        &phase_1_lookup_edge_sym_table,
+        &phase_1_move_edge_raw_table,
+    )?;
+
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    
+    for _ in 0..1000 {
+        let cube: ReprCube = StandardUniform.sample(&mut rng);
+
+        let eo = EdgeOrientCoord::from_cubie(cube);
+        let eg = EdgeGroupCoord::from_cubie(cube);
+        let co = CornerOrientCoord::from_cubie(cube);
+    
+        let (sym_start, transform) =
+            phase_1_lookup_edge_sym_table.get_sym_from_raw(&phase_1_move_edge_raw_table, eg, eo);
+        
+        let raw_start = phase_1_move_corner_raw_table.conjugate_by_transform(co, transform);
+
+        let sym_neighbors: Vec<_> = neighbors((sym_start, raw_start), &phase_1_move_edge_sym_table, &phase_1_move_corner_raw_table).collect();
+
+        let raw_then_sym: Vec<_> = Move::all_iter().map(|mv| cube.then(mv.into())).map(|cube| {
+            let eo = EdgeOrientCoord::from_cubie(cube);
+            let eg = EdgeGroupCoord::from_cubie(cube);
+            let co = CornerOrientCoord::from_cubie(cube);
+        
+            let (sym_start, transform) =
+                phase_1_lookup_edge_sym_table.get_sym_from_raw(&phase_1_move_edge_raw_table, eg, eo);
+            
+            let raw_start = phase_1_move_corner_raw_table.conjugate_by_transform(co, transform);
+            (sym_start, raw_start)
+        }).collect();
+
+        for a in sym_neighbors.iter() {
+            // if !raw_then_sym.contains(a) {
+            //     println!("sym_neighbors: {:?}", &sym_neighbors.iter().map(|(a, b)| (a.inner(), b.inner())).collect_vec());
+            //     println!("raw_neighbors: {:?}", &raw_then_sym.iter().map(|(a, b)| (a.inner(), b.inner())).collect_vec());
+            //     println!();
+            //     continue 'main;
+            // }
+            assert!(raw_then_sym.contains(a))
+        }
+    }
+
+    Ok(())
+}

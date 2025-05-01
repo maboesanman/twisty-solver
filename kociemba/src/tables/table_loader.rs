@@ -185,3 +185,13 @@ where
         }
     });
 }
+
+/// # Safety
+/// * `data` must not be accessed again through the old `[u8]` view  
+/// * all further writes / reads **must** use atomic methods
+pub unsafe fn as_atomic_u8_slice(data: &mut [u8]) -> & [std::sync::atomic::AtomicU8] {
+    debug_assert_eq!(core::mem::size_of::<std::sync::atomic::AtomicU8>(), 1);   // true on every platform
+    let len = data.len();
+    let ptr = data.as_mut_ptr() as *const std::sync::atomic::AtomicU8;
+    unsafe { core::slice::from_raw_parts(ptr, len) }
+}

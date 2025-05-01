@@ -104,7 +104,7 @@ impl EdgeGroupAndOrientMoveTable {
             .into_iter()
             .chain(entry.iter())
             .enumerate()
-            .min_by_key(|(_, x)| *x)
+            .min_by_key(|(i, x)| (*x, *i))
             .unwrap();
         (
             representative[0].into(),

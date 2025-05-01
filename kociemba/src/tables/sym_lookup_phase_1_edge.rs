@@ -5,12 +5,12 @@ use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::{
-    coords::{EdgeGroupCoord, EdgeOrientCoord, Phase2CornerSymCoord},
+    coords::{EdgeGroupCoord, EdgeOrientCoord, Phase1EdgeSymCoord},
     symmetries::SubGroupTransform,
 };
 
 use super::{
-    move_table_edge_group_and_orient::EdgeGroupAndOrientMoveTable,
+    move_table_raw_edge_group_and_orient::EdgeGroupAndOrientMoveTable,
     table_loader::{as_u16_2_slice, as_u16_slice_mut, load_table},
 };
 
@@ -65,7 +65,7 @@ pub struct Phase1EdgeSymLookupTable(Mmap);
 impl Phase1EdgeSymLookupTable {
     pub fn get_raw_from_sym(
         &self,
-        sym_coord: Phase2CornerSymCoord,
+        sym_coord: Phase1EdgeSymCoord,
     ) -> (EdgeGroupCoord, EdgeOrientCoord) {
         let slice = as_u16_2_slice(&self.0);
         let i = sym_coord.inner() as usize;
@@ -78,7 +78,7 @@ impl Phase1EdgeSymLookupTable {
         move_table: &EdgeGroupAndOrientMoveTable,
         raw_group: EdgeGroupCoord,
         raw_orient: EdgeOrientCoord,
-    ) -> (Phase2CornerSymCoord, SubGroupTransform) {
+    ) -> (Phase1EdgeSymCoord, SubGroupTransform) {
         let (rep_group, rep_orient, transform) =
             move_table.get_sym_representative(raw_group, raw_orient);
         let slice = as_u16_2_slice(&self.0);
@@ -94,7 +94,7 @@ impl Phase1EdgeSymLookupTable {
 #[test]
 fn test() -> Result<()> {
     let move_table =
-        super::move_table_edge_group_and_orient::load_edge_group_and_orient_move_table(
+        super::move_table_raw_edge_group_and_orient::load_edge_group_and_orient_move_table(
             "edge_group_and_orient_move_table.dat",
         )?;
     let table =

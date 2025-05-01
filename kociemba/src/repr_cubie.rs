@@ -28,36 +28,36 @@ impl Default for ReprCube {
 macro_rules! cube {
     // 1) ENTRY POINT: invoked as `cube![ F U2 Dp ]`
     [ $($mv:ident)+ ] => {
-        SOLVED_CUBE
+        crate::repr_cubie::SOLVED_CUBE
         $(
             .then(cube!(@mv $mv))
         )+
     };
 
     // 2) “up to 2” and “up prime” on each face:
-    (@mv U)  => { U1 };
-    (@mv U2) => { U2 };
-    (@mv Up) => { U3 };
+    (@mv U)  => { crate::repr_cubie::U1 };
+    (@mv U2) => { crate::repr_cubie::U2 };
+    (@mv Up) => { crate::repr_cubie::U3 };
 
-    (@mv D)  => { D1 };
-    (@mv D2) => { D2 };
-    (@mv Dp) => { D3 };
+    (@mv D)  => { crate::repr_cubie::D1 };
+    (@mv D2) => { crate::repr_cubie::D2 };
+    (@mv Dp) => { crate::repr_cubie::D3 };
 
-    (@mv F)  => { F1 };
-    (@mv F2) => { F2 };
-    (@mv Fp) => { F3 };
+    (@mv F)  => { crate::repr_cubie::F1 };
+    (@mv F2) => { crate::repr_cubie::F2 };
+    (@mv Fp) => { crate::repr_cubie::F3 };
 
-    (@mv B)  => { B1 };
-    (@mv B2) => { B2 };
-    (@mv Bp) => { B3 };
+    (@mv B)  => { crate::repr_cubie::B1 };
+    (@mv B2) => { crate::repr_cubie::B2 };
+    (@mv Bp) => { crate::repr_cubie::B3 };
 
-    (@mv L)  => { L1 };
-    (@mv L2) => { L2 };
-    (@mv Lp) => { L3 };
+    (@mv L)  => { crate::repr_cubie::L1 };
+    (@mv L2) => { crate::repr_cubie::L2 };
+    (@mv Lp) => { crate::repr_cubie::L3 };
 
-    (@mv R)  => { R1 };
-    (@mv R2) => { R2 };
-    (@mv Rp) => { R3 };
+    (@mv R)  => { crate::repr_cubie::R1 };
+    (@mv R2) => { crate::repr_cubie::R2 };
+    (@mv Rp) => { crate::repr_cubie::R3 };
 }
 
 pub const SOLVED_CUBE: ReprCube = ReprCube {
@@ -67,68 +67,69 @@ pub const SOLVED_CUBE: ReprCube = ReprCube {
     edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 };
 
-const U1: ReprCube = ReprCube {
+pub const U1: ReprCube = ReprCube {
     corner_perm: [2, 0, 3, 1, 4, 5, 6, 7],
     edge_perm: [2, 3, 1, 0, 4, 5, 6, 7, 8, 9, 10, 11],
     corner_orient: [0, 0, 0, 0, 0, 0, 0, 0],
     edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 };
 
-const U2: ReprCube = U1.then(U1);
-const U3: ReprCube = U2.then(U1);
+pub const U2: ReprCube = U1.then(U1);
+pub const U3: ReprCube = U2.then(U1);
 
-const D1: ReprCube = ReprCube {
+pub const D1: ReprCube = ReprCube {
     corner_perm: [0, 1, 2, 3, 5, 7, 4, 6],
     edge_perm: [0, 1, 2, 3, 7, 6, 4, 5, 8, 9, 10, 11],
     corner_orient: [0, 0, 0, 0, 0, 0, 0, 0],
     edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 };
 
-const D2: ReprCube = D1.then(D1);
-const D3: ReprCube = D2.then(D1);
+pub const D2: ReprCube = D1.then(D1);
+pub const D3: ReprCube = D2.then(D1);
 
-const F1: ReprCube = ReprCube {
+pub const F1: ReprCube = ReprCube {
     corner_perm: [1, 5, 2, 3, 0, 4, 6, 7],
     edge_perm: [9, 1, 2, 3, 8, 5, 6, 7, 0, 4, 10, 11],
     corner_orient: [1, 2, 0, 0, 2, 1, 0, 0],
     edge_orient: [1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0],
 };
 
-const F2: ReprCube = F1.then(F1);
-const F3: ReprCube = F2.then(F1);
+pub const F2: ReprCube = F1.then(F1);
+pub const F3: ReprCube = F2.then(F1);
 
-const B1: ReprCube = ReprCube {
+pub const B1: ReprCube = ReprCube {
     corner_perm: [0, 1, 6, 2, 4, 5, 7, 3],
     edge_perm: [0, 10, 2, 3, 4, 11, 6, 7, 8, 9, 5, 1],
     corner_orient: [0, 0, 2, 1, 0, 0, 1, 2],
     edge_orient: [0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1],
 };
 
-const B2: ReprCube = B1.then(B1);
-const B3: ReprCube = B2.then(B1);
+pub const B2: ReprCube = B1.then(B1);
+pub const B3: ReprCube = B2.then(B1);
 
-const R1: ReprCube = ReprCube {
+pub const R1: ReprCube = ReprCube {
     corner_perm: [4, 1, 0, 3, 6, 5, 2, 7],
     edge_perm: [0, 1, 8, 3, 4, 5, 10, 7, 6, 9, 2, 11],
     corner_orient: [2, 0, 1, 0, 1, 0, 2, 0],
     edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 };
 
-const R2: ReprCube = R1.then(R1);
-const R3: ReprCube = R2.then(R1);
+pub const R2: ReprCube = R1.then(R1);
+pub const R3: ReprCube = R2.then(R1);
 
-const L1: ReprCube = ReprCube {
+pub const L1: ReprCube = ReprCube {
     corner_perm: [0, 3, 2, 7, 4, 1, 6, 5],
     edge_perm: [0, 1, 2, 11, 4, 5, 6, 9, 8, 3, 10, 7],
     corner_orient: [0, 1, 0, 2, 0, 2, 0, 1],
     edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 };
 
-const L2: ReprCube = L1.then(L1);
-const L3: ReprCube = L2.then(L1);
+pub const L2: ReprCube = L1.then(L1);
+pub const L3: ReprCube = L2.then(L1);
 
-const S_URF3_1: ReprCube = cube![R Lp F Bp U Dp R Lp];
-const S_URF3_2: ReprCube = S_URF3_1.then(S_URF3_1);
+// const S_URF3_1: ReprCube = cube![R Lp F Bp U Dp R Lp];
+// const S_URF3_2: ReprCube = S_URF3_1.then(S_URF3_1);
+
 const S_F2: ReprCube = cube![R2 L2 F Bp U2 D2 F Bp];
 const S_U4_1: ReprCube = ReprCube {
     corner_perm: [2, 0, 3, 1, 6, 4, 7, 5],
@@ -169,6 +170,54 @@ impl From<Move> for ReprCube {
             Move::L2 => L2,
             Move::L3 => L3,
         }
+    }
+}
+
+impl TryFrom<ReprCube> for Move {
+    type Error = ReprCube;
+
+    fn try_from(value: ReprCube) -> Result<Self, Self::Error> {
+        Ok(match value {
+            U1 => Move::U1,
+            U2 => Move::U2,
+            U3 => Move::U3,
+            D1 => Move::D1,
+            D2 => Move::D2,
+            D3 => Move::D3,
+            F1 => Move::F1,
+            F2 => Move::F2,
+            F3 => Move::F3,
+            B1 => Move::B1,
+            B2 => Move::B2,
+            B3 => Move::B3,
+            R1 => Move::R1,
+            R2 => Move::R2,
+            R3 => Move::R3,
+            L1 => Move::L1,
+            L2 => Move::L2,
+            L3 => Move::L3,
+            _ => return Err(value)
+        })
+    }
+}
+
+impl TryFrom<ReprCube> for Phase2Move {
+    type Error = ReprCube;
+
+    fn try_from(value: ReprCube) -> Result<Self, Self::Error> {
+        Ok(match value {
+            U1 => Phase2Move::U1,
+            U2 => Phase2Move::U2,
+            U3 => Phase2Move::U3,
+            D1 => Phase2Move::D1,
+            D2 => Phase2Move::D2,
+            D3 => Phase2Move::D3,
+            F2 => Phase2Move::F2,
+            B2 => Phase2Move::B2,
+            R2 => Phase2Move::R2,
+            L2 => Phase2Move::L2,
+            _ => return Err(value)
+        })
     }
 }
 
@@ -581,51 +630,51 @@ fn move_entries() {
 
 #[test]
 fn test_all_moves() {
-    let c = ReprCube::default();
-    c.then(U1);
-    c.then(U2);
-    c.then(U3);
-    c.then(U2);
+    let mut c = ReprCube::default();
+    c = c.then(U1);
+    c = c.then(U2);
+    c = c.then(U3);
+    c = c.then(U2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
 
-    c.then(D1);
-    c.then(D2);
-    c.then(D3);
-    c.then(D2);
+    c = c.then(D1);
+    c = c.then(D2);
+    c = c.then(D3);
+    c = c.then(D2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
 
-    c.then(F1);
-    c.then(F2);
-    c.then(F3);
-    c.then(F2);
+    c = c.then(F1);
+    c = c.then(F2);
+    c = c.then(F3);
+    c = c.then(F2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
 
-    c.then(B1);
-    c.then(B2);
-    c.then(B3);
-    c.then(B2);
+    c = c.then(B1);
+    c = c.then(B2);
+    c = c.then(B3);
+    c = c.then(B2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
 
-    c.then(R1);
-    c.then(R2);
-    c.then(R3);
-    c.then(R2);
+    c = c.then(R1);
+    c = c.then(R2);
+    c = c.then(R3);
+    c = c.then(R2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
 
-    c.then(L1);
-    c.then(L2);
-    c.then(L3);
-    c.then(L2);
+    c = c.then(L1);
+    c = c.then(L2);
+    c = c.then(L3);
+    c = c.then(L2);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
@@ -633,132 +682,132 @@ fn test_all_moves() {
 
 #[test]
 fn test_long_identity() {
-    let c = ReprCube::default();
-    c.then(F1);
+    let mut c = ReprCube::default();
+    c = c.then(F1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(R1);
+    c = c.then(R1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(F3);
+    c = c.then(F3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(U1);
+    c = c.then(U1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(B2);
+    c = c.then(B2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(L3);
+    c = c.then(L3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(D3);
+    c = c.then(D3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(R2);
+    c = c.then(R2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(L1);
+    c = c.then(L1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(B2);
+    c = c.then(B2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(F3);
+    c = c.then(F3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(D1);
+    c = c.then(D1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(U2);
+    c = c.then(U2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(R1);
+    c = c.then(R1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(B1);
+    c = c.then(B1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(U3);
+    c = c.then(U3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(B3);
+    c = c.then(B3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(D1);
+    c = c.then(D1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(F3);
+    c = c.then(F3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(U2);
+    c = c.then(U2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(F3);
+    c = c.then(F3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(R1);
+    c = c.then(R1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(U1);
+    c = c.then(U1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(R3);
+    c = c.then(R3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(L2);
+    c = c.then(L2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(U1);
+    c = c.then(U1);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(L2);
+    c = c.then(L2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(D3);
+    c = c.then(D3);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(L2);
+    c = c.then(L2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(D2);
+    c = c.then(D2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(F2);
+    c = c.then(F2);
 
     assert!(c.is_valid());
     assert!(!c.is_solved());
-    c.then(D1);
+    c = c.then(D1);
 
     assert!(c.is_valid());
     assert!(c.is_solved());
@@ -766,13 +815,10 @@ fn test_long_identity() {
 
 #[test]
 fn sexy_move() {
-    let c = ReprCube::default();
+    let mut c = ReprCube::default();
 
     for _ in 0..6 {
-        c.then(U1);
-        c.then(F1);
-        c.then(U3);
-        c.then(F3);
+        c = c.then(cube![U F Up Fp]);
     }
 
     assert!(c.is_valid());
@@ -781,109 +827,109 @@ fn sexy_move() {
 
 #[test]
 fn hundred_thousand_moves_simd() {
-    let c = ReprCube::default();
+    let mut c = ReprCube::default();
 
     for _ in 0..1000 {
-        c.then(F1);
-        c.then(R1);
-        c.then(F3);
-        c.then(U1);
-        c.then(B2);
-        c.then(L3);
-        c.then(D3);
-        c.then(R2);
-        c.then(L1);
-        c.then(B2);
-        c.then(F3);
-        c.then(D1);
-        c.then(U2);
-        c.then(R1);
-        c.then(B1);
-        c.then(U3);
-        c.then(B3);
-        c.then(D1);
-        c.then(F3);
-        c.then(U2);
-        c.then(F3);
-        c.then(R1);
-        c.then(U1);
-        c.then(R3);
-        c.then(L2);
-        c.then(U1);
-        c.then(L2);
-        c.then(D3);
-        c.then(L2);
-        c.then(D2);
-        c.then(F2);
-        c.then(D1);
-        c.then(F1);
-        c.then(R1);
-        c.then(F3);
-        c.then(U1);
-        c.then(B2);
-        c.then(L3);
-        c.then(D3);
-        c.then(R2);
-        c.then(L2);
-        c.then(L3);
-        c.then(B2);
-        c.then(F3);
-        c.then(D1);
-        c.then(U2);
-        c.then(R1);
-        c.then(B1);
-        c.then(U3);
-        c.then(B3);
-        c.then(D1);
-        c.then(F3);
-        c.then(U1);
-        c.then(U1);
-        c.then(F3);
-        c.then(R1);
-        c.then(U1);
-        c.then(R3);
-        c.then(L2);
-        c.then(U1);
-        c.then(L2);
-        c.then(D3);
-        c.then(L2);
-        c.then(D2);
-        c.then(F2);
-        c.then(D1);
-        c.then(F1);
-        c.then(R1);
-        c.then(F3);
-        c.then(U1);
-        c.then(B2);
-        c.then(L3);
-        c.then(D3);
-        c.then(R2);
-        c.then(L1);
-        c.then(B2);
-        c.then(F2);
-        c.then(F1);
-        c.then(D1);
-        c.then(U2);
-        c.then(R1);
-        c.then(B1);
-        c.then(U3);
-        c.then(B3);
-        c.then(D1);
-        c.then(F3);
-        c.then(U2);
-        c.then(F3);
-        c.then(R1);
-        c.then(U1);
-        c.then(R3);
-        c.then(L2);
-        c.then(U1);
-        c.then(L2);
-        c.then(D3);
-        c.then(L1);
-        c.then(L1);
-        c.then(D2);
-        c.then(F2);
-        c.then(D1);
+        c = c.then(F1);
+        c = c.then(R1);
+        c = c.then(F3);
+        c = c.then(U1);
+        c = c.then(B2);
+        c = c.then(L3);
+        c = c.then(D3);
+        c = c.then(R2);
+        c = c.then(L1);
+        c = c.then(B2);
+        c = c.then(F3);
+        c = c.then(D1);
+        c = c.then(U2);
+        c = c.then(R1);
+        c = c.then(B1);
+        c = c.then(U3);
+        c = c.then(B3);
+        c = c.then(D1);
+        c = c.then(F3);
+        c = c.then(U2);
+        c = c.then(F3);
+        c = c.then(R1);
+        c = c.then(U1);
+        c = c.then(R3);
+        c = c.then(L2);
+        c = c.then(U1);
+        c = c.then(L2);
+        c = c.then(D3);
+        c = c.then(L2);
+        c = c.then(D2);
+        c = c.then(F2);
+        c = c.then(D1);
+        c = c.then(F1);
+        c = c.then(R1);
+        c = c.then(F3);
+        c = c.then(U1);
+        c = c.then(B2);
+        c = c.then(L3);
+        c = c.then(D3);
+        c = c.then(R2);
+        c = c.then(L2);
+        c = c.then(L3);
+        c = c.then(B2);
+        c = c.then(F3);
+        c = c.then(D1);
+        c = c.then(U2);
+        c = c.then(R1);
+        c = c.then(B1);
+        c = c.then(U3);
+        c = c.then(B3);
+        c = c.then(D1);
+        c = c.then(F3);
+        c = c.then(U1);
+        c = c.then(U1);
+        c = c.then(F3);
+        c = c.then(R1);
+        c = c.then(U1);
+        c = c.then(R3);
+        c = c.then(L2);
+        c = c.then(U1);
+        c = c.then(L2);
+        c = c.then(D3);
+        c = c.then(L2);
+        c = c.then(D2);
+        c = c.then(F2);
+        c = c.then(D1);
+        c = c.then(F1);
+        c = c.then(R1);
+        c = c.then(F3);
+        c = c.then(U1);
+        c = c.then(B2);
+        c = c.then(L3);
+        c = c.then(D3);
+        c = c.then(R2);
+        c = c.then(L1);
+        c = c.then(B2);
+        c = c.then(F2);
+        c = c.then(F1);
+        c = c.then(D1);
+        c = c.then(U2);
+        c = c.then(R1);
+        c = c.then(B1);
+        c = c.then(U3);
+        c = c.then(B3);
+        c = c.then(D1);
+        c = c.then(F3);
+        c = c.then(U2);
+        c = c.then(F3);
+        c = c.then(R1);
+        c = c.then(U1);
+        c = c.then(R3);
+        c = c.then(L2);
+        c = c.then(U1);
+        c = c.then(L2);
+        c = c.then(D3);
+        c = c.then(L1);
+        c = c.then(L1);
+        c = c.then(D2);
+        c = c.then(F2);
+        c = c.then(D1);
     }
 
     assert!(c.is_valid());
@@ -892,12 +938,7 @@ fn hundred_thousand_moves_simd() {
 
 #[test]
 fn test_apply() {
-    let c = ReprCube::default();
-
-    c.then(R1);
-    c.then(U1);
-    c.then(R3);
-    c.then(U3);
+    let c = cube![R U Rp Up];
 
     let mut c2 = ReprCube::default();
 
@@ -910,10 +951,7 @@ fn test_apply() {
 
 #[test]
 fn test_2_move_apply() {
-    let c = ReprCube::default();
-
-    c.then(R1);
-    c.then(U1);
+    let c = cube![R U];
 
     let mut c2 = ReprCube::default();
     c2 = c2.then(c);
@@ -928,13 +966,7 @@ fn test_2_move_apply() {
 
 #[test]
 fn test_long_apply() {
-    let c = ReprCube::default();
-
-    c.then(R1);
-    c.then(U2);
-    c.then(D3);
-    c.then(B1);
-    c.then(D3);
+    let c = cube![R U2 Dp B Dp];
 
     let mut c2 = ReprCube::default();
     c2 = c2.then(c);

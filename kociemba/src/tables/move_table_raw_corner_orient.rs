@@ -51,6 +51,15 @@ impl CornerOrientMoveTable {
         let i = (coord.inner() as usize) * 33 + (transform.0 as usize + 17);
         as_u16_slice(&self.0)[i].into()
     }
+
+    pub fn apply_move_and_transform(
+        &self,
+        coord: CornerOrientCoord,
+        mv: Move,
+        transform: SubGroupTransform,
+    ) -> CornerOrientCoord {
+        self.conjugate_by_transform(self.apply_move(coord, mv), transform)
+    }
 }
 
 #[test]

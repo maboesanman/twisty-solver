@@ -2,20 +2,18 @@ use std::path::Path;
 
 use anyhow::Result;
 use memmap2::Mmap;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
-    coords::Phase1EdgeSymCoord, moves::Move, symmetries::SubGroupTransform,
-    tables::table_loader::as_u16_slice_mut,
+    coords::Phase1EdgeSymCoord, moves::Move, repr_cubie::{ReprCube, SOLVED_CUBE}, symmetries::SubGroupTransform, tables::table_loader::as_u16_slice_mut
 };
 
 use super::{
-    move_table_edge_group_and_orient::EdgeGroupAndOrientMoveTable,
-    sym_lookup_phase_1_edge::Phase1EdgeSymLookupTable,
-    table_loader::{as_u16_slice, load_table},
+    move_table_raw_corner_orient::load_corner_orient_move_table, move_table_raw_edge_group_and_orient::{load_edge_group_and_orient_move_table, EdgeGroupAndOrientMoveTable}, pruning_table_phase_1_working::load_phase_1_pruning_table, sym_lookup_phase_1_edge::{load_phase_1_edge_sym_lookup_table, Phase1EdgeSymLookupTable}, table_loader::{as_u16_slice, load_table}
 };
 
-const PHASE_1_EDGE_MOVE_TABLE_SIZE_BYTES: usize = (64430 * 18) * 2;
-const PHASE_1_EDGE_MOVE_TABLE_CHECKSUM: u32 = 37629438;
+const PHASE_1_EDGE_MOVE_TABLE_SIZE_BYTES: usize = (64430 * 18) * 2 * 2;
+const PHASE_1_EDGE_MOVE_TABLE_CHECKSUM: u32 = 3661454509;
 
 fn generate_phase_1_edge_sym_move_table(
     buffer: &mut [u8],
@@ -73,4 +71,34 @@ impl Phase1EdgeSymMoveTable {
         let i = coord.inner() as usize * 18 * 2 + mv as u8 as usize * 2;
         (slice[i].into(), SubGroupTransform(slice[i + 1] as u8))
     }
+}
+
+#[test]
+fn test_inversion() -> anyhow::Result<()> {
+    let phase_1_move_edge_raw_table =
+        load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
+    let phase_1_lookup_edge_sym_table = load_phase_1_edge_sym_lookup_table(
+        "phase_1_edge_sym_lookup_table.dat",
+        &phase_1_move_edge_raw_table,
+    )?;
+    let phase_1_move_edge_sym_table = load_phase_1_edge_sym_move_table(
+        "phase_1_edge_sym_move_table.dat",
+        &phase_1_lookup_edge_sym_table,
+        &phase_1_move_edge_raw_table,
+    )?;
+    (0..64430u16).into_par_iter().for_each(|i| {
+        let coord = Phase1EdgeSymCoord::from(i);
+
+        for mv in Move::all_iter() {
+            let move_cube = ReprCube::from(mv);
+            let (next, transform1) = phase_1_move_edge_sym_table.apply_move(coord, mv);
+            let inv_move_cube = Move::try_from(move_cube.conjugate_by_subgroup_transform(transform1).inverse()).unwrap();
+            let (recovered,transform2) = phase_1_move_edge_sym_table.apply_move(next, inv_move_cube);
+
+            assert_eq!(coord, recovered);
+            assert_eq!(SOLVED_CUBE, SOLVED_CUBE.conjugate_by_subgroup_transform(transform1).conjugate_by_subgroup_transform(transform2));
+        }
+    });
+
+    Ok(())
 }

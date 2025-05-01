@@ -9,3 +9,5 @@ pub mod permutation_coord;
 pub mod repr_cubie;
 pub mod symmetries;
 pub mod tables;
+
+pub mod search;
