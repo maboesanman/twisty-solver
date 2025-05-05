@@ -4,11 +4,11 @@ use anyhow::Result;
 use memmap2::Mmap;
 
 use crate::{
-    coords::Phase1EdgeSymCoord, moves::{Move, Phase2Move}, repr_cubie::{ReprCube, SOLVED_CUBE}, symmetries::SubGroupTransform, tables::table_loader::as_u16_slice_mut
+    coords::Phase1EdgeSymCoord, moves::Phase2Move, symmetries::SubGroupTransform, tables::table_loader::as_u16_slice_mut
 };
 
 use super::{
-    move_table_raw_corner_perm::{load_corner_perm_move_table, CornerPermMoveTable}, move_table_raw_e_edge_perm::load_e_edge_perm_move_table, move_table_raw_ud_edge_perm::load_ud_edge_perm_move_table, sym_lookup_phase_2_corner::{load_phase_2_corner_sym_lookup_table, Phase2CornerSymLookupTable}, table_loader::{as_u16_slice, load_table}
+    move_table_raw_corner_perm::CornerPermMoveTable, sym_lookup_phase_2_corner::Phase2CornerSymLookupTable, table_loader::{as_u16_slice, load_table}
 };
 
 const PHASE_2_CORNER_MOVE_TABLE_SIZE_BYTES: usize = (2768 * 10) * 2 * 2;
@@ -70,8 +70,8 @@ impl Phase2CornerSymMoveTable {
 fn test_inversion() -> anyhow::Result<()> {
     use rayon::prelude::*;
 
-    let phase_2_move_corner_raw_table = load_corner_perm_move_table("corner_perm_move_table.dat")?;
-    let phase_2_lookup_corner_sym_table = load_phase_2_corner_sym_lookup_table(
+    let phase_2_move_corner_raw_table = crate::tables::move_table_raw_corner_perm::load_corner_perm_move_table("corner_perm_move_table.dat")?;
+    let phase_2_lookup_corner_sym_table = crate::tables::sym_lookup_phase_2_corner::load_phase_2_corner_sym_lookup_table(
         "phase_2_corner_sym_lookup_table.dat",
         &phase_2_move_corner_raw_table,
     )?;
@@ -84,13 +84,13 @@ fn test_inversion() -> anyhow::Result<()> {
         let coord = Phase1EdgeSymCoord::from(i);
 
         for mv in Phase2Move::all_iter() {
-            let move_cube = ReprCube::from(mv);
+            let move_cube = crate::repr_cubie::ReprCube::from(mv);
             let (next, transform1) = phase_2_move_corner_sym_table.apply_move(coord, mv);
             let inv_move_cube = Phase2Move::try_from(move_cube.conjugate_by_subgroup_transform(transform1).inverse()).unwrap();
             let (recovered,transform2) = phase_2_move_corner_sym_table.apply_move(next, inv_move_cube);
 
             assert_eq!(coord, recovered);
-            assert_eq!(SOLVED_CUBE, SOLVED_CUBE.conjugate_by_subgroup_transform(transform1).conjugate_by_subgroup_transform(transform2));
+            assert_eq!(crate::repr_cubie::SOLVED_CUBE, crate::repr_cubie::SOLVED_CUBE.conjugate_by_subgroup_transform(transform1).conjugate_by_subgroup_transform(transform2));
         }
     });
 

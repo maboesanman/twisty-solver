@@ -11,3 +11,4 @@ pub mod symmetries;
 pub mod tables;
 
 pub mod search;
+pub mod repr_phase_1;

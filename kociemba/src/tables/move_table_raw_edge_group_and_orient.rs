@@ -1,17 +1,17 @@
-use std::path::Path;
+use std::{cmp::Reverse, path::Path};
 
 use anyhow::Result;
+use itertools::Itertools;
 use memmap2::Mmap;
+use rand::distr::{Distribution, StandardUniform};
 use rayon::prelude::*;
+use smallvec::SmallVec;
 
 use crate::{
-    coords::{EdgeGroupCoord, EdgeOrientCoord, phase_1_cubies},
-    moves::Move,
-    symmetries::SubGroupTransform,
-    tables::table_loader::as_u16_slice_mut,
+    coords::{phase_1_cubies, EdgeGroupCoord, EdgeOrientCoord}, moves::Move, repr_cubie::ReprCube, symmetries::SubGroupTransform, tables::table_loader::as_u16_slice_mut
 };
 
-use super::table_loader::{as_u16_slice, load_table};
+use super::{table_loader::{as_u16_slice, load_table}, Tables};
 
 // 2048 edge orient values, 495 edge group values, (18 cube moves + 15 non-identity transforms), 2 coordinates out, 2 bytes each
 // this move table should be (group, orient, move/transform) -> (group, orient)
@@ -100,15 +100,15 @@ impl EdgeGroupAndOrientMoveTable {
         let entry =
             unsafe { self.get_slice_for_coords(group, orient)[36..].as_chunks_unchecked::<2>() };
         let first = [group.into(), orient.into()];
-        let (i, representative) = Some(&first)
+        let (i, [group, orient]) = Some(&first)
             .into_iter()
             .chain(entry.iter())
             .enumerate()
             .min_by_key(|(i, x)| (*x, *i))
             .unwrap();
         (
-            representative[0].into(),
-            representative[1].into(),
+            (*group).into(),
+            (*orient).into(),
             SubGroupTransform(i as u8),
         )
     }
@@ -116,7 +116,7 @@ impl EdgeGroupAndOrientMoveTable {
 
 #[test]
 fn test() -> Result<()> {
-    let table = load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
+    let tables = Tables::new()?;
     itertools::iproduct!(0..2048, 0..495)
         .par_bridge()
         .for_each(|(i, j)| {
@@ -130,7 +130,7 @@ fn test() -> Result<()> {
                     EdgeGroupCoord::from_cubie(moved),
                     EdgeOrientCoord::from_cubie(moved),
                 );
-                let table_moved = table.apply_move(group_coord, orient_coord, mv);
+                let table_moved = tables.phase_1_move_edge_raw_table.apply_move(group_coord, orient_coord, mv);
                 assert_eq!(cubie_moved, table_moved);
             }
 
@@ -141,7 +141,7 @@ fn test() -> Result<()> {
                     EdgeOrientCoord::from_cubie(moved),
                 );
                 let table_conjugated =
-                    table.conjugate_by_transform(group_coord, orient_coord, transform);
+                tables.phase_1_move_edge_raw_table.conjugate_by_transform(group_coord, orient_coord, transform);
                 assert_eq!(cubie_conjugated, table_conjugated);
             }
         });
@@ -191,6 +191,33 @@ fn test_random() -> Result<()> {
 fn test_sym() -> Result<()> {
     let table = load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
     let mut reps = std::collections::HashSet::new();
+    reps.reserve(80000);
+    itertools::iproduct!(0..2048, 0..495).for_each(|(i, j)| {
+        let orient_coord = i.into();
+        let group_coord = j.into();
+
+        let rep = table.get_sym_representative(group_coord, orient_coord);
+        reps.insert((rep.0, rep.1));
+    });
+    assert_eq!(reps.len(), 64430);
+
+    Ok(())
+}
+
+#[test]
+fn test_sym_2() -> Result<()> {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+    let table = load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
+    let mut reps = std::collections::HashSet::new();
+
+    for i in 0..1000 {
+        let cube: ReprCube = StandardUniform.sample(&mut rng);
+
+        for i in 0..16 {
+            
+        }
+    }
     reps.reserve(80000);
     itertools::iproduct!(0..2048, 0..495).for_each(|(i, j)| {
         let orient_coord = i.into();

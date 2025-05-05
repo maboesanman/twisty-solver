@@ -1,15 +1,15 @@
-use rand::distr::{Distribution, StandardUniform};
+use rand::distr::Distribution;
 
 use crate::{
     coords::{CornerOrientCoord, EdgeGroupCoord, EdgeOrientCoord},
     moves::Move,
     repr_cubie::{ReprCube, SOLVED_CUBE},
     tables::{
-        move_table_raw_corner_orient::{load_corner_orient_move_table, CornerOrientMoveTable},
-        move_table_raw_edge_group_and_orient::{load_edge_group_and_orient_move_table, EdgeGroupAndOrientMoveTable},
-        move_table_sym_phase_1_edge::{load_phase_1_edge_sym_move_table, Phase1EdgeSymMoveTable},
-        pruning_table_phase_1_working::{load_phase_1_pruning_table, Phase1PruningTable},
-        sym_lookup_phase_1_edge::{load_phase_1_edge_sym_lookup_table, Phase1EdgeSymLookupTable},
+        move_table_raw_corner_orient::CornerOrientMoveTable,
+        move_table_raw_edge_group_and_orient::EdgeGroupAndOrientMoveTable,
+        move_table_sym_phase_1_edge::Phase1EdgeSymMoveTable,
+        pruning_table_phase_1_working::Phase1PruningTable,
+        sym_lookup_phase_1_edge::Phase1EdgeSymLookupTable,
     },
 };
 
@@ -55,7 +55,7 @@ pub fn phase_1_solve(
     ) {
         Some(x) => x,
         None => {
-            println!("failed: {:?}", cube);
+            println!("failed: {cube:?}");
             return vec![];
         }
     };
@@ -94,20 +94,20 @@ pub fn phase_1_solve(
 #[test]
 fn search_test() -> anyhow::Result<()> {
     let phase_1_move_edge_raw_table =
-        load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
+        crate::tables::move_table_raw_edge_group_and_orient::load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
     let phase_1_move_corner_raw_table =
-        load_corner_orient_move_table("corner_orient_move_table.dat")?;
-    let phase_1_lookup_edge_sym_table = load_phase_1_edge_sym_lookup_table(
+        crate::tables::move_table_raw_corner_orient::load_corner_orient_move_table("corner_orient_move_table.dat")?;
+    let phase_1_lookup_edge_sym_table = crate::tables::sym_lookup_phase_1_edge::load_phase_1_edge_sym_lookup_table(
         "phase_1_edge_sym_lookup_table.dat",
         &phase_1_move_edge_raw_table,
     )?;
-    let phase_1_move_edge_sym_table = load_phase_1_edge_sym_move_table(
+    let phase_1_move_edge_sym_table = crate::tables::move_table_sym_phase_1_edge::load_phase_1_edge_sym_move_table(
         "phase_1_edge_sym_move_table.dat",
         &phase_1_lookup_edge_sym_table,
         &phase_1_move_edge_raw_table,
     )?;
 
-    let phase_1_pruning_table = load_phase_1_pruning_table(
+    let phase_1_pruning_table = crate::tables::pruning_table_phase_1_working::load_phase_1_pruning_table(
         "phase_1_pruning_table.dat",
         &phase_1_move_edge_sym_table,
         &phase_1_move_corner_raw_table,
@@ -133,20 +133,20 @@ fn search_test() -> anyhow::Result<()> {
 #[test]
 fn search_test_superflip() -> anyhow::Result<()> {
     let phase_1_move_edge_raw_table =
-        load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
+        crate::tables::move_table_raw_edge_group_and_orient::load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
     let phase_1_move_corner_raw_table =
-        load_corner_orient_move_table("corner_orient_move_table.dat")?;
-    let phase_1_lookup_edge_sym_table = load_phase_1_edge_sym_lookup_table(
+        crate::tables::move_table_raw_corner_orient::load_corner_orient_move_table("corner_orient_move_table.dat")?;
+    let phase_1_lookup_edge_sym_table = crate::tables::sym_lookup_phase_1_edge::load_phase_1_edge_sym_lookup_table(
         "phase_1_edge_sym_lookup_table.dat",
         &phase_1_move_edge_raw_table,
     )?;
-    let phase_1_move_edge_sym_table = load_phase_1_edge_sym_move_table(
+    let phase_1_move_edge_sym_table = crate::tables::move_table_sym_phase_1_edge::load_phase_1_edge_sym_move_table(
         "phase_1_edge_sym_move_table.dat",
         &phase_1_lookup_edge_sym_table,
         &phase_1_move_edge_raw_table,
     )?;
 
-    let phase_1_pruning_table = load_phase_1_pruning_table(
+    let phase_1_pruning_table = crate::tables::pruning_table_phase_1_working::load_phase_1_pruning_table(
         "phase_1_pruning_table.dat",
         &phase_1_move_edge_sym_table,
         &phase_1_move_corner_raw_table,
@@ -174,20 +174,20 @@ fn search_test_random() -> anyhow::Result<()> {
     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(18);
 
     let phase_1_move_edge_raw_table =
-        load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
+        crate::tables::move_table_raw_edge_group_and_orient::load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
     let phase_1_move_corner_raw_table =
-        load_corner_orient_move_table("corner_orient_move_table.dat")?;
-    let phase_1_lookup_edge_sym_table = load_phase_1_edge_sym_lookup_table(
+        crate::tables::move_table_raw_corner_orient::load_corner_orient_move_table("corner_orient_move_table.dat")?;
+    let phase_1_lookup_edge_sym_table = crate::tables::sym_lookup_phase_1_edge::load_phase_1_edge_sym_lookup_table(
         "phase_1_edge_sym_lookup_table.dat",
         &phase_1_move_edge_raw_table,
     )?;
-    let phase_1_move_edge_sym_table = load_phase_1_edge_sym_move_table(
+    let phase_1_move_edge_sym_table = crate::tables::move_table_sym_phase_1_edge::load_phase_1_edge_sym_move_table(
         "phase_1_edge_sym_move_table.dat",
         &phase_1_lookup_edge_sym_table,
         &phase_1_move_edge_raw_table,
     )?;
 
-    let phase_1_pruning_table = load_phase_1_pruning_table(
+    let phase_1_pruning_table = crate::tables::pruning_table_phase_1_working::load_phase_1_pruning_table(
         "phase_1_pruning_table.dat",
         &phase_1_move_edge_sym_table,
         &phase_1_move_corner_raw_table,

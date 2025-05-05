@@ -1,6 +1,5 @@
 
-use itertools::Itertools;
-use rand::distr::{Distribution, StandardUniform, Uniform};
+use rand::distr::Distribution;
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -10,13 +9,8 @@ use anyhow::Result;
 use memmap2::Mmap;
 
 
-use crate::coords::{CornerOrientCoord, EdgeGroupCoord, EdgeOrientCoord, Phase1EdgeSymCoord};
+use crate::coords::{CornerOrientCoord, Phase1EdgeSymCoord};
 use crate::moves::Move;
-use crate::repr_cubie::ReprCube;
-use crate::tables::move_table_raw_corner_orient::load_corner_orient_move_table;
-use crate::tables::move_table_raw_edge_group_and_orient::load_edge_group_and_orient_move_table;
-use crate::tables::move_table_sym_phase_1_edge::load_phase_1_edge_sym_move_table;
-use crate::tables::sym_lookup_phase_1_edge::load_phase_1_edge_sym_lookup_table;
 
 use super::move_table_raw_corner_orient::CornerOrientMoveTable;
 use super::move_table_sym_phase_1_edge::Phase1EdgeSymMoveTable;
@@ -126,7 +120,7 @@ fn generate_phase_1_pruning_table(buffer: &mut [u8], edge_table: &Phase1EdgeSymM
     }
 
     println!("{:?}", frontier.len());
-    println!("{:?}", level);
+    println!("{level:?}");
 }
 
 pub fn load_phase_1_pruning_table<P: AsRef<Path>>(path: P, edge_table: &Phase1EdgeSymMoveTable, corner_table: &CornerOrientMoveTable) -> Result<Phase1PruningTable> {
@@ -167,14 +161,14 @@ fn neighbors(coords: (Phase1EdgeSymCoord, CornerOrientCoord), edge_table: &Phase
 #[test]
 fn test_neighbors() -> anyhow::Result<()> {
     let phase_1_move_edge_raw_table =
-        load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
+        crate::tables::move_table_raw_edge_group_and_orient::load_edge_group_and_orient_move_table("edge_group_and_orient_move_table.dat")?;
     let phase_1_move_corner_raw_table =
-        load_corner_orient_move_table("corner_orient_move_table.dat")?;
-    let phase_1_lookup_edge_sym_table = load_phase_1_edge_sym_lookup_table(
+        crate::tables::move_table_raw_corner_orient::load_corner_orient_move_table("corner_orient_move_table.dat")?;
+    let phase_1_lookup_edge_sym_table = crate::tables::sym_lookup_phase_1_edge::load_phase_1_edge_sym_lookup_table(
         "phase_1_edge_sym_lookup_table.dat",
         &phase_1_move_edge_raw_table,
     )?;
-    let phase_1_move_edge_sym_table = load_phase_1_edge_sym_move_table(
+    let phase_1_move_edge_sym_table = crate::tables::move_table_sym_phase_1_edge::load_phase_1_edge_sym_move_table(
         "phase_1_edge_sym_move_table.dat",
         &phase_1_lookup_edge_sym_table,
         &phase_1_move_edge_raw_table,
@@ -183,11 +177,11 @@ fn test_neighbors() -> anyhow::Result<()> {
     use rand::{Rng, SeedableRng};
     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
     
-    for _ in 0..1000 {
-        let cube: ReprCube = StandardUniform.sample(&mut rng);
+    'main: for _ in 0..1000 {
+        let cube: crate::repr_cubie::ReprCube = rand::distr::StandardUniform.sample(&mut rng);
 
-        let eo = EdgeOrientCoord::from_cubie(cube);
-        let eg = EdgeGroupCoord::from_cubie(cube);
+        let eo = crate::coords::EdgeOrientCoord::from_cubie(cube);
+        let eg = crate::coords::EdgeGroupCoord::from_cubie(cube);
         let co = CornerOrientCoord::from_cubie(cube);
     
         let (sym_start, transform) =
@@ -198,8 +192,8 @@ fn test_neighbors() -> anyhow::Result<()> {
         let sym_neighbors: Vec<_> = neighbors((sym_start, raw_start), &phase_1_move_edge_sym_table, &phase_1_move_corner_raw_table).collect();
 
         let raw_then_sym: Vec<_> = Move::all_iter().map(|mv| cube.then(mv.into())).map(|cube| {
-            let eo = EdgeOrientCoord::from_cubie(cube);
-            let eg = EdgeGroupCoord::from_cubie(cube);
+            let eo = crate::coords::EdgeOrientCoord::from_cubie(cube);
+            let eg = crate::coords::EdgeGroupCoord::from_cubie(cube);
             let co = CornerOrientCoord::from_cubie(cube);
         
             let (sym_start, transform) =
@@ -211,8 +205,8 @@ fn test_neighbors() -> anyhow::Result<()> {
 
         for a in sym_neighbors.iter() {
             // if !raw_then_sym.contains(a) {
-            //     println!("sym_neighbors: {:?}", &sym_neighbors.iter().map(|(a, b)| (a.inner(), b.inner())).collect_vec());
-            //     println!("raw_neighbors: {:?}", &raw_then_sym.iter().map(|(a, b)| (a.inner(), b.inner())).collect_vec());
+            //     println!("sym_neighbors: {:?}", &itertools::Itertools::collect_vec(sym_neighbors.iter().map(|(a,b)|(a.inner(),b.inner()))));
+            //     println!("raw_neighbors: {:?}", &itertools::Itertools::collect_vec(raw_then_sym.iter().map(|(a,b)|(a.inner(),b.inner()))));
             //     println!();
             //     continue 'main;
             // }
