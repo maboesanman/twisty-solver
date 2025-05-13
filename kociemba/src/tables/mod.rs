@@ -1,13 +1,9 @@
-// use lookup_sym_corner_perm::LookupSymCornerPermTable;
-// use lookup_sym_edge_group_flip::LookupSymEdgeGroupFlipTable;
-// use move_raw_corner_orient::MoveRawCornerOrientTable;
-// use move_raw_corner_perm::MoveRawCornerPermTable;
-// use move_raw_edge_group_flip::MoveRawEdgeGroupFlipTable;
-// use move_sym_corner_perm::MoveSymCornerPermTable;
-// use move_sym_edge_group_flip::MoveSymEdgeGroupFlipTable;
-// use part_move_raw_e_edge_perm::PartMoveRawEEdgePermTable;
-// use part_move_raw_ud_edge_perm::PartMoveRawUDEdgePermTable;
-// use prune_phase_1::PrunePhase1Table;
+use lookup_sym_corner_perm::LookupSymCornerPermTable;
+use lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
+use move_raw_corner_orient::MoveRawCornerOrientTable;
+use move_raw_corner_perm::MoveRawCornerPermTable;
+use move_raw_e_edge_perm::MoveRawEEdgePermTable;
+use move_raw_ud_edge_perm::MoveRawUDEdgePermTable;
 
 pub mod lookup_sym_corner_perm;
 pub mod lookup_sym_edge_group_orient;
@@ -16,6 +12,7 @@ pub mod move_raw_corner_perm;
 pub mod move_raw_e_edge_perm;
 pub mod move_raw_ud_edge_perm;
 
+pub mod move_sym_edge_group_orient;
 // pub mod move_raw_edge_group_flip;
 
 // pub mod move_sym_edge_group_flip;
@@ -29,22 +26,20 @@ mod table_loader;
 
 pub struct Tables {
     // // raw coord complete move tables
-    // pub move_raw_edge_group_flip: Option<MoveRawEdgeGroupFlipTable>,
-    // pub move_raw_corner_orient: Option<MoveRawCornerOrientTable>,
-    // pub move_raw_corner_perm: Option<MoveRawCornerPermTable>,
+    pub move_raw_corner_orient: Option<MoveRawCornerOrientTable>,
+    pub move_raw_corner_perm: Option<MoveRawCornerPermTable>,
 
-    // // raw coord partial move tables (only phase 2 moves)
-    // pub part_move_raw_ud_edge_perm: Option<PartMoveRawUDEdgePermTable>,
-    // pub part_move_raw_e_edge_perm: Option<PartMoveRawEEdgePermTable>,
+    // // raw coord domino move tables
+    pub part_move_raw_ud_edge_perm: Option<MoveRawUDEdgePermTable>,
+    pub part_move_raw_e_edge_perm: Option<MoveRawEEdgePermTable>,
 
     // // sym coord move tables
     // pub move_sym_edge_group_flip: Option<MoveSymEdgeGroupFlipTable>,
     // pub move_sym_corner_perm: Option<MoveSymCornerPermTable>,
 
     // // sym coord lookup tables
-    // pub lookup_sym_edge_group_flip: Option<LookupSymEdgeGroupFlipTable>,
-    // pub lookup_sym_corner_perm: Option<LookupSymCornerPermTable>,
-
+    pub lookup_sym_edge_group_flip: Option<LookupSymEdgeGroupOrientTable>,
+    pub lookup_sym_corner_perm: Option<LookupSymCornerPermTable>,
     // prune tables
     // pub prune_phase_1: PrunePhase1Table,
 }
@@ -85,15 +80,12 @@ impl Tables {
         //     PartMoveRawEEdgePermTable::load(dir.join("part_move_raw_e_edge_perm_table.dat"))?;
 
         Ok(Self {
-            // move_raw_edge_group_flip: None,
-            // move_raw_corner_orient: None,
-            // move_raw_corner_perm: None,
-            // part_move_raw_ud_edge_perm: None,
-            // part_move_raw_e_edge_perm: None,
-            // move_sym_edge_group_flip: None,
-            // move_sym_corner_perm: None,
-            // lookup_sym_edge_group_flip: None,
-            // lookup_sym_corner_perm: None,
+            move_raw_corner_orient: None,
+            move_raw_corner_perm: None,
+            part_move_raw_ud_edge_perm: None,
+            part_move_raw_e_edge_perm: None,
+            lookup_sym_edge_group_flip: None,
+            lookup_sym_corner_perm: None,
         })
     }
 }
