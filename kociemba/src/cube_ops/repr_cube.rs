@@ -2,8 +2,14 @@ use rand::distr::{Distribution, StandardUniform};
 
 use crate::permutation_math::{lehmer_rank::LehmerRank, permutation::Permutation};
 
-use super::{coords::{CornerOrientRawCoord, EdgeOrientRawCoord}, cube_move::{CubeMove, DominoMove}, cube_sym::DominoSymmetry, partial_reprs::{corner_orient::CornerOrient, corner_perm::CornerPerm, edge_orient::EdgeOrient, edge_perm::EdgePerm}};
-
+use super::{
+    coords::{CornerOrientRawCoord, EdgeOrientRawCoord},
+    cube_move::CubeMove,
+    partial_reprs::{
+        corner_orient::CornerOrient, corner_perm::CornerPerm, edge_orient::EdgeOrient,
+        edge_perm::EdgePerm,
+    },
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct ReprCube {
@@ -29,26 +35,38 @@ impl ReprCube {
 
         Self {
             corner_perm: self.corner_perm.then(mv_corner_perm),
-            corner_orient: self.corner_orient.permute(mv_corner_perm).correct(mv_corner_orient),
+            corner_orient: self
+                .corner_orient
+                .permute(mv_corner_perm)
+                .correct(mv_corner_orient),
             edge_perm: self.edge_perm.then(mv_edge_perm),
-            edge_orient: self.edge_orient.permute(mv_edge_perm).correct(mv_edge_orient),
+            edge_orient: self
+                .edge_orient
+                .permute(mv_edge_perm)
+                .correct(mv_edge_orient),
         }
     }
 
     pub const fn then(self, other: Self) -> Self {
         Self {
             corner_perm: self.corner_perm.then(other.corner_perm),
-            corner_orient: self.corner_orient.permute(other.corner_perm).correct(other.corner_orient),
+            corner_orient: self
+                .corner_orient
+                .permute(other.corner_perm)
+                .correct(other.corner_orient),
             edge_perm: self.edge_perm.then(other.edge_perm),
-            edge_orient: self.edge_orient.permute(other.edge_perm).correct(other.edge_orient),
+            edge_orient: self
+                .edge_orient
+                .permute(other.edge_perm)
+                .correct(other.edge_orient),
         }
     }
 
     pub const fn const_eq(self, other: Self) -> bool {
         self.corner_perm.const_eq(other.corner_perm)
-        && self.corner_orient.const_eq(other.corner_orient)
-        && self.edge_perm.const_eq(other.edge_perm)
-        && self.edge_orient.const_eq(other.edge_orient)
+            && self.corner_orient.const_eq(other.corner_orient)
+            && self.edge_perm.const_eq(other.edge_perm)
+            && self.edge_orient.const_eq(other.edge_orient)
     }
 
     pub fn pretty_print(self) {
@@ -177,29 +195,29 @@ macro_rules! cube {
     };
 
     // 2) “up to 2” and “up prime” on each face:
-    (@mv U)  => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::U1) };
-    (@mv U2) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::U2) };
-    (@mv Up) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::U3) };
+    (@mv U)  => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::U1) };
+    (@mv U2) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::U2) };
+    (@mv Up) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::U3) };
 
-    (@mv D)  => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::D1) };
-    (@mv D2) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::D2) };
-    (@mv Dp) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::D3) };
+    (@mv D)  => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::D1) };
+    (@mv D2) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::D2) };
+    (@mv Dp) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::D3) };
 
-    (@mv F)  => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::F1) };
-    (@mv F2) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::F2) };
-    (@mv Fp) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::F3) };
+    (@mv F)  => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::F1) };
+    (@mv F2) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::F2) };
+    (@mv Fp) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::F3) };
 
-    (@mv B)  => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::B1) };
-    (@mv B2) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::B2) };
-    (@mv Bp) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::B3) };
+    (@mv B)  => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::B1) };
+    (@mv B2) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::B2) };
+    (@mv Bp) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::B3) };
 
-    (@mv L)  => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::L1) };
-    (@mv L2) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::L2) };
-    (@mv Lp) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::L3) };
+    (@mv L)  => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::L1) };
+    (@mv L2) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::L2) };
+    (@mv Lp) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::L3) };
 
-    (@mv R)  => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::R1) };
-    (@mv R2) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::R2) };
-    (@mv Rp) => { crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move(crate::cube_ops::cube_move::CubeMove::R3) };
+    (@mv R)  => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::R1) };
+    (@mv R2) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::R2) };
+    (@mv Rp) => { $crate::cube_ops::repr_cube::ReprCube::SOLVED.apply_move($crate::cube_ops::cube_move::CubeMove::R3) };
 }
 
 impl Distribution<ReprCube> for StandardUniform {
@@ -216,7 +234,8 @@ impl Distribution<ReprCube> for StandardUniform {
         }
 
         cube.edge_orient = EdgeOrient::from_coord(EdgeOrientRawCoord(rng.random_range(0..2048)));
-        cube.corner_orient = CornerOrient::from_coord(CornerOrientRawCoord(rng.random_range(0..2048)));
+        cube.corner_orient =
+            CornerOrient::from_coord(CornerOrientRawCoord(rng.random_range(0..2048)));
 
         cube
     }
@@ -227,8 +246,11 @@ fn do_some_moves() {
     ReprCube::SOLVED.pretty_print();
 
     for mv in CubeMove::all_iter() {
-        println!("{}", mv);
-        ReprCube::SOLVED.apply_move(CubeMove::F1).apply_move(mv).pretty_print();
+        println!("{mv}");
+        ReprCube::SOLVED
+            .apply_move(CubeMove::F1)
+            .apply_move(mv)
+            .pretty_print();
     }
 }
 

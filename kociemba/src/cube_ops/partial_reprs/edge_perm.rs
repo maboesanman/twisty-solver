@@ -1,7 +1,6 @@
-use crate::{cube_ops::cube_move::CubeMove, permutation_math::{grouping::EdgeCombination, permutation::Permutation}};
+use crate::permutation_math::{grouping::EdgeCombination, permutation::Permutation};
 
 use super::{e_edge_perm::EEdgePerm, edge_group::EdgeGroup, ud_edge_perm::UDEdgePerm};
-
 
 /// The slot representation for edge permutation.
 /// While `Permutation<N>` represents an element of the permutation group, this represents

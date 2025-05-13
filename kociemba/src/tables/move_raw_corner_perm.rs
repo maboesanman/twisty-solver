@@ -1,7 +1,3 @@
-
-
-
-
 use std::path::Path;
 
 use anyhow::Result;
@@ -9,7 +5,8 @@ use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::cube_ops::{
-    coords::CornerPermRawCoord, cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::corner_perm::CornerPerm,
+    coords::CornerPermRawCoord, cube_move::CubeMove, cube_sym::DominoSymmetry,
+    partial_reprs::corner_perm::CornerPerm,
 };
 
 use super::table_loader::{as_u16_slice, as_u16_slice_mut, load_table};
@@ -22,7 +19,7 @@ pub struct MoveRawCornerPermTable(Mmap);
 impl MoveRawCornerPermTable {
     fn chunks(&self) -> &[[CornerPermRawCoord; 33]] {
         let buffer = as_u16_slice(&self.0);
-        unsafe { 
+        unsafe {
             let slice: &[[u16; 33]] = buffer.as_chunks_unchecked();
             core::slice::from_raw_parts(
                 slice.as_ptr() as *const [CornerPermRawCoord; 33],
@@ -56,9 +53,7 @@ impl MoveRawCornerPermTable {
             let perm = CornerPerm::from_coord(CornerPermRawCoord(i as u16));
             for (j, coord) in CubeMove::all_iter()
                 .map(move |mv| perm.apply_cube_move(mv))
-                .chain(
-                    DominoSymmetry::nontrivial_iter().map(move |sym| perm.domino_conjugate(sym)),
-                )
+                .chain(DominoSymmetry::nontrivial_iter().map(move |sym| perm.domino_conjugate(sym)))
                 .map(|perm| perm.into_coord())
                 .enumerate()
             {
@@ -80,11 +75,17 @@ fn test() -> Result<()> {
         let perm = CornerPerm::from_coord(coord);
 
         for mv in CubeMove::all_iter() {
-            assert_eq!(table.apply_cube_move(coord, mv), perm.apply_cube_move(mv).into_coord());
+            assert_eq!(
+                table.apply_cube_move(coord, mv),
+                perm.apply_cube_move(mv).into_coord()
+            );
         }
 
         for sym in DominoSymmetry::all_iter() {
-            assert_eq!(table.domino_conjugate(coord, sym), perm.domino_conjugate(sym).into_coord());
+            assert_eq!(
+                table.domino_conjugate(coord, sym),
+                perm.domino_conjugate(sym).into_coord()
+            );
         }
     }
 

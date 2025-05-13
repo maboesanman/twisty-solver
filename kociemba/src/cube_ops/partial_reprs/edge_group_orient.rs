@@ -1,8 +1,6 @@
-use crate::cube_ops::{coords::{EdgeGroupRawCoord, EdgeOrientRawCoord}, cube_move::{CubeMove, DominoMove}};
+use crate::cube_ops::coords::{EdgeGroupRawCoord, EdgeOrientRawCoord};
 
 use super::{edge_group::EdgeGroup, edge_orient::EdgeOrient, edge_perm::EdgePerm};
-
-
 
 // fits in 20 bits
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -17,7 +15,10 @@ impl EdgeGroupOrient {
     pub const fn from_coord(coord: EdgeGroupOrientRawCoord) -> Self {
         let group_coord = (coord.0 >> 11) as u16;
         let orient_coord = (coord.0 & 0b11111111111) as u16;
-        Self(EdgeGroup::from_coord(EdgeGroupRawCoord(group_coord)), EdgeOrient::from_coord(EdgeOrientRawCoord(orient_coord)))
+        Self(
+            EdgeGroup::from_coord(EdgeGroupRawCoord(group_coord)),
+            EdgeOrient::from_coord(EdgeOrientRawCoord(orient_coord)),
+        )
     }
 
     pub const fn into_coord(self) -> EdgeGroupOrientRawCoord {

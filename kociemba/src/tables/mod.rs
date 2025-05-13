@@ -98,7 +98,6 @@ impl Tables {
     }
 }
 
-
 #[test]
 fn gen_tables() -> anyhow::Result<()> {
     let _ = Tables::new()?;

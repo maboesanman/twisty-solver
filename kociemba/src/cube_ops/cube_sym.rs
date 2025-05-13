@@ -1,9 +1,14 @@
-use std::collections::HashSet;
+use crate::cube;
 
-use crate::{cube, permutation_math::permutation::Permutation};
-
-use super::{cube_move::{CubeMove, DominoMove}, partial_reprs::{corner_orient::CornerOrient, corner_perm::CornerPerm, e_edge_perm::EEdgePerm, edge_group::EdgeGroup, edge_group_orient::EdgeGroupOrient, edge_orient::EdgeOrient, edge_perm::EdgePerm, ud_edge_perm::UDEdgePerm}, repr_cube::ReprCube};
-
+use super::{
+    cube_move::{CubeMove, DominoMove},
+    partial_reprs::{
+        corner_orient::CornerOrient, corner_perm::CornerPerm, e_edge_perm::EEdgePerm,
+        edge_group::EdgeGroup, edge_group_orient::EdgeGroupOrient, edge_orient::EdgeOrient,
+        edge_perm::EdgePerm, ud_edge_perm::UDEdgePerm,
+    },
+    repr_cube::ReprCube,
+};
 
 pub const S_URF3_1_CORNER_PERM: CornerPerm = cube![R Lp F Bp U Dp R Lp].corner_perm;
 pub const S_URF3_1_EDGE_PERM: EdgePerm = cube![R Lp F Bp U Dp R Lp].edge_perm;
@@ -15,12 +20,15 @@ pub const S_URF3_1_CUBE: ReprCube = cube![R Lp F Bp U Dp R Lp];
 pub const S_F2_CORNER_PERM: CornerPerm = cube![R2 L2 F Bp U2 D2 F Bp].corner_perm;
 pub const S_F2_EDGE_PERM: EdgePerm = cube![R2 L2 F Bp U2 D2 F Bp].edge_perm;
 
-pub const S_LR_CORNER_PERM: CornerPerm = cube![U Dp F2 U F2 L2 U2 B2 R2 F2 L2 U2 F2 L2 Dp R2].corner_perm;
+pub const S_LR_CORNER_PERM: CornerPerm =
+    cube![U Dp F2 U F2 L2 U2 B2 R2 F2 L2 U2 F2 L2 Dp R2].corner_perm;
 pub const S_LR_EDGE_PERM: EdgePerm = cube![U2 F2 D2 U2 F2 U2 F2 B2].edge_perm;
 
 pub const S_U4_1_CORNER_PERM: CornerPerm = cube![B2 F2 D2 L2 R2 D B2 F2 U2 L2 R2 Up].corner_perm;
-pub const S_U4_1_EDGE_PERM: EdgePerm = cube![D B2 U B2 F2 R2 U2 L2 Dp R2 F2 Dp L D2 B2 Dp F L2 D F Up Rp].edge_perm;
-pub const S_U4_1_EDGE_ORIENT_CORRECT: EdgeOrient = EdgeOrient::const_from_array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]);
+pub const S_U4_1_EDGE_PERM: EdgePerm =
+    cube![D B2 U B2 F2 R2 U2 L2 Dp R2 F2 Dp L D2 B2 Dp F L2 D F Up Rp].edge_perm;
+pub const S_U4_1_EDGE_ORIENT_CORRECT: EdgeOrient =
+    EdgeOrient::const_from_array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]);
 
 // transform is 0b_00_dd_c_bb_a
 // S_LR^a ( S_U4^b ( S_F2^c ( S_URF3^d ) ) )
@@ -34,7 +42,7 @@ const CORNER_PERM_LOOKUP: [CornerPerm; 48] = {
     let mut table = [CornerPerm::SOLVED; 48];
     let mut i = 0usize;
     while i < 48 {
-        let a = (i & 0b000001);
+        let a = i & 0b000001;
         let b = (i & 0b000110) >> 1;
         let c = (i & 0b001000) >> 3;
         let d = (i & 0b110000) >> 4;
@@ -45,7 +53,6 @@ const CORNER_PERM_LOOKUP: [CornerPerm; 48] = {
             j += 1;
         }
 
-
         if c == 1 {
             table[i] = table[i].then(S_F2_CORNER_PERM);
         }
@@ -55,7 +62,7 @@ const CORNER_PERM_LOOKUP: [CornerPerm; 48] = {
             table[i] = table[i].then(S_U4_1_CORNER_PERM);
             j += 1;
         }
-        
+
         if a == 1 {
             table[i] = table[i].then(S_LR_CORNER_PERM);
         }
@@ -70,7 +77,7 @@ const EDGE_PERM_LOOKUP: [EdgePerm; 48] = {
     let mut table = [EdgePerm::SOLVED; 48];
     let mut i = 0usize;
     while i < 48 {
-        let a = (i & 0b000001);
+        let a = i & 0b000001;
         let b = (i & 0b000110) >> 1;
         let c = (i & 0b001000) >> 3;
         let d = (i & 0b110000) >> 4;
@@ -90,7 +97,7 @@ const EDGE_PERM_LOOKUP: [EdgePerm; 48] = {
             table[i] = table[i].then(S_U4_1_EDGE_PERM);
             j += 1;
         }
-        
+
         if a == 1 {
             table[i] = table[i].then(S_LR_EDGE_PERM);
         }
@@ -105,7 +112,7 @@ const EDGE_ORIENT_CORRECT: [EdgeOrient; 48] = {
     let mut table = [EdgeOrient::SOLVED; 48];
     let mut i = 0usize;
     while i < 48 {
-        let a = (i & 0b000001);
+        let a = i & 0b000001;
         let b = (i & 0b000110) >> 1;
         let c = (i & 0b001000) >> 3;
         let d = (i & 0b110000) >> 4;
@@ -127,7 +134,7 @@ const EDGE_ORIENT_CORRECT: [EdgeOrient; 48] = {
             table[i] = table[i].correct(S_U4_1_EDGE_ORIENT_CORRECT);
             j += 1;
         }
-        
+
         if a == 1 {
             table[i] = table[i].permute(S_LR_EDGE_PERM);
         }
@@ -176,7 +183,7 @@ impl TryFrom<CubeSymmetry> for DominoSymmetry {
 }
 
 impl CubeSymmetry {
-    pub const fn then(self, other: Self) -> Self {
+    pub const fn then(self, _other: Self) -> Self {
         unimplemented!()
     }
 
@@ -185,11 +192,11 @@ impl CubeSymmetry {
     }
 
     pub fn all_iter() -> impl Iterator<Item = Self> {
-        (0..48).map(|i| Self(i))
+        (0..48).map(Self)
     }
 
     pub fn nontrivial_iter() -> impl Iterator<Item = Self> {
-        (1..48).map(|i| Self(i))
+        (1..48).map(Self)
     }
 }
 
@@ -197,22 +204,26 @@ impl DominoSymmetry {
     pub const fn then(self, other: Self) -> Self {
         const TRANSFORM_COMPOSE_LOOKUP: [DominoSymmetry; 256] = {
             let reference_cube = cube![R U D2];
-        
+
             let mut output = [DominoSymmetry(0); 256];
-        
+
             let mut t1 = 0u8;
             while t1 < 16 {
-                let conj_1 = reference_cube.corner_perm.domino_conjugate(DominoSymmetry(t1));
+                let conj_1 = reference_cube
+                    .corner_perm
+                    .domino_conjugate(DominoSymmetry(t1));
                 let mut t2 = 0u8;
                 while t2 < 16 {
                     let conj_2 = conj_1.domino_conjugate(DominoSymmetry(t2));
                     let i = ((t1 << 4) + t2) as usize;
                     let mut t3 = 0;
                     'deep: while t3 < 16 {
-                        let conj_3 = reference_cube.corner_perm.domino_conjugate(DominoSymmetry(t3));
+                        let conj_3 = reference_cube
+                            .corner_perm
+                            .domino_conjugate(DominoSymmetry(t3));
                         if conj_2.const_eq(conj_3) {
                             output[i] = DominoSymmetry(t3);
-                            break 'deep
+                            break 'deep;
                         }
                         t3 += 1;
                     }
@@ -220,22 +231,24 @@ impl DominoSymmetry {
                 }
                 t1 += 1;
             }
-        
+
             output
         };
-        
+
         TRANSFORM_COMPOSE_LOOKUP[((self.0 << 4) + other.0) as usize]
     }
 
     pub const fn inverse(self) -> Self {
         const TRANSFORM_INVERT_LOOKUP: [DominoSymmetry; 16] = {
             let reference_cube = cube![R U D2];
-        
+
             let mut output = [DominoSymmetry(0); 16];
-        
+
             let mut t1 = 0u8;
             while t1 < 16 {
-                let conj_1 = reference_cube.corner_perm.domino_conjugate(DominoSymmetry(t1));
+                let conj_1 = reference_cube
+                    .corner_perm
+                    .domino_conjugate(DominoSymmetry(t1));
                 let mut t2 = 0u8;
                 while t2 < 16 {
                     let conj_2 = conj_1.domino_conjugate(DominoSymmetry(t2));
@@ -246,7 +259,7 @@ impl DominoSymmetry {
                 }
                 t1 += 1;
             }
-        
+
             output
         };
 
@@ -254,11 +267,11 @@ impl DominoSymmetry {
     }
 
     pub fn all_iter() -> impl Iterator<Item = Self> {
-        (0..16).map(|i| Self(i))
+        (0..16).map(Self)
     }
 
     pub fn nontrivial_iter() -> impl Iterator<Item = Self> {
-        (1..16).map(|i| Self(i))
+        (1..16).map(Self)
     }
 }
 
@@ -300,8 +313,8 @@ impl CornerOrient {
 
 impl EdgeGroupOrient {
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
-        let perm       = EDGE_PERM_LOOKUP[sym.0 as usize];
-        let new_group  = self.0.permute(perm);
+        let perm = EDGE_PERM_LOOKUP[sym.0 as usize];
+        let new_group = self.0.permute(perm);
         let mut orient = self.1.permute(perm);
 
         if ((sym.0 >> 1) & 1) == 1 {
@@ -332,7 +345,9 @@ impl ReprCube {
             corner_perm: self.corner_perm.domino_conjugate(sym),
             corner_orient: self.corner_orient.domino_conjugate(sym),
             edge_perm: self.edge_perm.domino_conjugate(sym),
-            edge_orient: EdgeGroupOrient(self.edge_perm.into_grouping(), self.edge_orient).domino_conjugate(sym).1,
+            edge_orient: EdgeGroupOrient(self.edge_perm.into_grouping(), self.edge_orient)
+                .domino_conjugate(sym)
+                .1,
         }
     }
 }
@@ -358,20 +373,20 @@ impl CubeMove {
         unimplemented!()
     }
 
-    pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
+    pub const fn domino_conjugate(self, _sym: DominoSymmetry) -> Self {
         todo!()
     }
 }
 
 impl DominoMove {
-    pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
+    pub const fn domino_conjugate(self, _sym: DominoSymmetry) -> Self {
         todo!()
     }
 }
 
 #[test]
 fn print_all_domino_conjugations() {
-    println!("{:?}", EDGE_ORIENT_CORRECT);
+    println!("{EDGE_ORIENT_CORRECT:?}");
     let cube = cube![R U Rp Up];
 
     for sym in DominoSymmetry::all_iter() {
@@ -383,7 +398,7 @@ fn print_all_domino_conjugations() {
 fn check_no_duplicates_for_corner_perm_repr() {
     let cube = cube![R U D2];
 
-    let mut set = HashSet::new();
+    let mut set = std::collections::HashSet::new();
 
     for sym in CubeSymmetry::all_iter() {
         assert!(set.insert(cube.corner_perm.conjugate(sym)))
@@ -392,13 +407,17 @@ fn check_no_duplicates_for_corner_perm_repr() {
 
 #[test]
 fn random_cubes_with_conjugation() {
-    use rand::{Rng, SeedableRng};
+    use rand::SeedableRng;
     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
     for _ in 0..100 {
-        let cube: ReprCube = rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
         for a in DominoSymmetry::all_iter() {
             for b in DominoSymmetry::all_iter() {
-                assert_eq!(cube.domino_conjugate(a).domino_conjugate(b), cube.domino_conjugate(a.then(b)))
+                assert_eq!(
+                    cube.domino_conjugate(a).domino_conjugate(b),
+                    cube.domino_conjugate(a.then(b))
+                )
             }
         }
     }

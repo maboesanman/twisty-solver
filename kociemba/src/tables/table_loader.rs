@@ -1,10 +1,14 @@
 use rayon::prelude::*;
-use std::{cmp::Reverse, collections::{BTreeSet, BinaryHeap}, fs::OpenOptions, path::Path};
+use std::{
+    cmp::Reverse,
+    collections::{BTreeSet, BinaryHeap},
+    fs::OpenOptions,
+    path::Path,
+};
 
 use anyhow::{Context, Result};
 use fs2::FileExt; // ← add `fs2 = "0.4"` to Cargo.toml
 use memmap2::{Mmap, MmapMut, MmapOptions};
-
 
 pub fn load_table<P, G>(path: P, size_bytes: usize, checksum: u32, mut generator: G) -> Result<Mmap>
 where
@@ -44,6 +48,7 @@ where
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&path)
             .with_context(|| format!("opening {} for regeneration", path.as_ref().display()))?;
 
@@ -214,25 +219,31 @@ pub fn as_u32_slice_mut(bytes: &mut [u8]) -> &mut [u32] {
 //     });
 // }
 
-/// # Safety
-/// * `data` must not be accessed again through the old `[u8]` view  
-/// * all further writes / reads **must** use atomic methods
-pub unsafe fn as_atomic_u8_slice(data: &mut [u8]) -> &[std::sync::atomic::AtomicU8] {
-    debug_assert_eq!(core::mem::size_of::<std::sync::atomic::AtomicU8>(), 1); // true on every platform
-    let len = data.len();
-    let ptr = data.as_mut_ptr() as *const std::sync::atomic::AtomicU8;
-    unsafe { core::slice::from_raw_parts(ptr, len) }
-}
+// /// # Safety
+// /// * `data` must not be accessed again through the old `[u8]` view
+// /// * all further writes / reads **must** use atomic methods
+// pub unsafe fn as_atomic_u8_slice(data: &mut [u8]) -> &[std::sync::atomic::AtomicU8] {
+//     debug_assert_eq!(core::mem::size_of::<std::sync::atomic::AtomicU8>(), 1); // true on every platform
+//     let len = data.len();
+//     let ptr = data.as_mut_ptr() as *const std::sync::atomic::AtomicU8;
+//     unsafe { core::slice::from_raw_parts(ptr, len) }
+// }
 
 pub fn collect_unique_sorted_parallel<T, I>(par_iter: I) -> impl Iterator<Item = T>
 where
     I: ParallelIterator<Item = T>,
     T: Send + Sync + Eq + std::hash::Hash + Ord + Copy,
 {
-    let sets: Vec<_> = par_iter.fold(|| BTreeSet::new(), |mut set, value| {
-        set.insert(value);
-        set
-    }).map(|set| set.into_iter()).collect();
+    let sets: Vec<_> = par_iter
+        .fold(
+            || BTreeSet::new(),
+            |mut set, value| {
+                set.insert(value);
+                set
+            },
+        )
+        .map(|set| set.into_iter())
+        .collect();
 
     UniqueSorted::new(sets)
 }
@@ -244,12 +255,14 @@ struct UniqueSorted<T> {
 
 impl<T: Send + Sync + Eq + std::hash::Hash + Ord> UniqueSorted<T> {
     pub fn new(mut sets: Vec<std::collections::btree_set::IntoIter<T>>) -> Self {
-        let heap = sets.iter_mut().map(|set| set.next()).enumerate().filter_map(|(i, t)| t.map(|t| (Reverse(t), i))).collect();
+        let heap = sets
+            .iter_mut()
+            .map(|set| set.next())
+            .enumerate()
+            .filter_map(|(i, t)| t.map(|t| (Reverse(t), i)))
+            .collect();
 
-        Self {
-            sets,
-            heap
-        }
+        Self { sets, heap }
     }
 
     fn pop(&mut self) -> Option<T> {
@@ -266,10 +279,10 @@ impl<T: Send + Sync + Eq + std::hash::Hash + Ord + Copy + Clone> Iterator for Un
         let candidate = self.pop()?;
 
         if self.heap.is_empty() {
-            return Some(candidate)
+            return Some(candidate);
         }
-        
-        while self.heap.peek().map(|x| x.0.0) == Some(candidate)  {
+
+        while self.heap.peek().map(|x| x.0.0) == Some(candidate) {
             self.pop();
         }
 

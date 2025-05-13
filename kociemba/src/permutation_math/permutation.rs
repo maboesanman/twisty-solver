@@ -9,9 +9,9 @@ impl<const N: usize> Default for Permutation<N> {
     }
 }
 
-impl<const N: usize> Into<[u8; N]> for Permutation<N> {
-    fn into(self) -> [u8; N] {
-        self.const_into_array()
+impl<const N: usize> From<Permutation<N>> for [u8; N] {
+    fn from(val: Permutation<N>) -> Self {
+        val.const_into_array()
     }
 }
 
@@ -123,11 +123,10 @@ impl<const N: usize> Permutation<N> {
         Permutation(inv)
     }
 
-
     pub const fn is_odd(self) -> bool {
         let mut seen = [false; N];
         let mut parity = 0;
-    
+
         let mut i = 0;
         while i < N {
             if !seen[i] {
@@ -144,7 +143,7 @@ impl<const N: usize> Permutation<N> {
             }
             i += 1;
         }
-    
+
         parity == 1
     }
 
@@ -152,7 +151,7 @@ impl<const N: usize> Permutation<N> {
         let mut i = 1;
         while i < N {
             if self.0[i] != other.0[i] {
-                return false
+                return false;
             }
             i += 1;
         }
@@ -180,7 +179,7 @@ mod tests {
     // N=0 and N=1 corner cases
     #[test]
     fn small_ns() {
-        let mut empty: [u8;0] = [];
+        let mut empty: [u8; 0] = [];
         Permutation::<0>::IDENTITY.apply_to(&mut empty);
         assert_eq!(empty, []);
 
@@ -211,9 +210,9 @@ mod tests {
         perm.apply_to(&mut in_place);
 
         // out‑of‑place result
-        let mut out = [0;5];
-        for i in 0..5 {
-            out[i] = [0, 10, 20, 30, 40][perm.0[i] as usize];
+        let mut out = [0; 5];
+        for (i, o) in out.iter_mut().enumerate() {
+            *o = [0, 10, 20, 30, 40][perm.0[i] as usize];
         }
 
         assert_eq!(in_place, out);
@@ -223,9 +222,9 @@ mod tests {
     #[test]
     fn double_invert_is_identity() {
         let perms = [
-            Permutation::<4>([1,3,0,2]),
-            Permutation::<4>([3,2,1,0]),
-            Permutation::<4>([0,1,2,3]),
+            Permutation::<4>([1, 3, 0, 2]),
+            Permutation::<4>([3, 2, 1, 0]),
+            Permutation::<4>([0, 1, 2, 3]),
         ];
         for &p in &perms {
             assert_eq!(p.invert().invert(), p);

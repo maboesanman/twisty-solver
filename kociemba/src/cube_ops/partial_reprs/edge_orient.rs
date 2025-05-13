@@ -1,8 +1,6 @@
-use crate::cube_ops::{coords::EdgeOrientRawCoord, cube_move::CubeMove};
+use crate::cube_ops::coords::EdgeOrientRawCoord;
 
 use super::edge_perm::EdgePerm;
-
-
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EdgeOrient(pub [u8; 12]);
@@ -83,7 +81,7 @@ impl EdgeOrient {
         let mut i = 1;
         while i < 12 {
             if self.0[i] != other.0[i] {
-                return false
+                return false;
             }
             i += 1;
         }

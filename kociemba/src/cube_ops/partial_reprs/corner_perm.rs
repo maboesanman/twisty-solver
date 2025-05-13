@@ -1,5 +1,4 @@
-use crate::{cube_ops::{coords::CornerPermRawCoord, cube_move::{CubeMove, DominoMove}}, permutation_math::permutation::Permutation};
-
+use crate::{cube_ops::coords::CornerPermRawCoord, permutation_math::permutation::Permutation};
 
 /// The slot representation for corner permutation.
 /// While `Permutation<N>` represents an element of the permutation group, this represents

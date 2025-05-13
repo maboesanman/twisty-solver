@@ -1,4 +1,4 @@
-use crate::{cube_ops::{coords::EdgeGroupRawCoord, cube_move::CubeMove}, permutation_math::grouping::EdgeCombination};
+use crate::{cube_ops::coords::EdgeGroupRawCoord, permutation_math::grouping::EdgeCombination};
 
 use super::edge_perm::EdgePerm;
 

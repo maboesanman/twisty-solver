@@ -1,5 +1,5 @@
-use paste::paste;
 use super::permutation::Permutation;
+use paste::paste;
 
 const FACTORIALS_U8: [u8; 6] = {
     let mut f = [1u8; 6];
@@ -148,7 +148,7 @@ macro_rules! permutation_coord {
                 } else {
                     use rand::{Rng, SeedableRng};
                     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
-                
+
                     // the domain is too big, sample randomly
                     for _ in 0..1000 {
                         let i = rng.random_range(0..[<FACTORIALS_ $n>][$n]);
@@ -181,7 +181,6 @@ pub trait LehmerRank {
     fn from_coord(code: Self::Code) -> Self;
 }
 
-
 permutation_coord!(1, u8, true);
 permutation_coord!(2, u8, true);
 permutation_coord!(3, u8, true);
@@ -203,7 +202,7 @@ permutation_coord!(18, u64, false);
 permutation_coord!(19, u64, false);
 permutation_coord!(20, u64, false);
 
-  /// Macro to implement LehmerRank for a single (N,Code,rank_fn,unrank_fn).
+/// Macro to implement LehmerRank for a single (N,Code,rank_fn,unrank_fn).
 macro_rules! impl_lehmer_rank {
     (
         $N:expr,                // the const‐generic N
@@ -220,7 +219,7 @@ macro_rules! impl_lehmer_rank {
 
             #[inline(always)]
             pub const fn const_from_coord(coord: $Code) -> Self {
-                debug_assert!(coord < $FACTORIALS[$N], "Coord must be < {}!", $N);
+                debug_assert!(coord < $FACTORIALS[$N]);
                 unsafe { Permutation::const_from_array_unchecked($unrank_fn(coord)) }
             }
         }
@@ -241,23 +240,143 @@ macro_rules! impl_lehmer_rank {
     };
 }
 
-impl_lehmer_rank!(1, u8, permutation_coord_1, permutation_coord_1_inverse, FACTORIALS_U8);
-impl_lehmer_rank!(2, u8, permutation_coord_2, permutation_coord_2_inverse, FACTORIALS_U8);
-impl_lehmer_rank!(3, u8, permutation_coord_3, permutation_coord_3_inverse, FACTORIALS_U8);
-impl_lehmer_rank!(4, u8, permutation_coord_4, permutation_coord_4_inverse, FACTORIALS_U8);
-impl_lehmer_rank!(5, u8, permutation_coord_5, permutation_coord_5_inverse, FACTORIALS_U8);
-impl_lehmer_rank!(6, u16, permutation_coord_6, permutation_coord_6_inverse, FACTORIALS_U16);
-impl_lehmer_rank!(7, u16, permutation_coord_7, permutation_coord_7_inverse, FACTORIALS_U16);
-impl_lehmer_rank!(8, u16, permutation_coord_8, permutation_coord_8_inverse, FACTORIALS_U16);
-impl_lehmer_rank!(9, u32, permutation_coord_9, permutation_coord_9_inverse, FACTORIALS_U32);
-impl_lehmer_rank!(10, u32, permutation_coord_10, permutation_coord_10_inverse, FACTORIALS_U32);
-impl_lehmer_rank!(11, u32, permutation_coord_11, permutation_coord_11_inverse, FACTORIALS_U32);
-impl_lehmer_rank!(12, u32, permutation_coord_12, permutation_coord_12_inverse, FACTORIALS_U32);
-impl_lehmer_rank!(13, u64, permutation_coord_13, permutation_coord_13_inverse, FACTORIALS_U64);
-impl_lehmer_rank!(14, u64, permutation_coord_14, permutation_coord_14_inverse, FACTORIALS_U64);
-impl_lehmer_rank!(15, u64, permutation_coord_15, permutation_coord_15_inverse, FACTORIALS_U64);
-impl_lehmer_rank!(16, u64, permutation_coord_16, permutation_coord_16_inverse, FACTORIALS_U64);
-impl_lehmer_rank!(17, u64, permutation_coord_17, permutation_coord_17_inverse, FACTORIALS_U64);
-impl_lehmer_rank!(18, u64, permutation_coord_18, permutation_coord_18_inverse, FACTORIALS_U64);
-impl_lehmer_rank!(19, u64, permutation_coord_19, permutation_coord_19_inverse, FACTORIALS_U64);
-impl_lehmer_rank!(20, u64, permutation_coord_20, permutation_coord_20_inverse, FACTORIALS_U64);
+impl_lehmer_rank!(
+    1,
+    u8,
+    permutation_coord_1,
+    permutation_coord_1_inverse,
+    FACTORIALS_U8
+);
+impl_lehmer_rank!(
+    2,
+    u8,
+    permutation_coord_2,
+    permutation_coord_2_inverse,
+    FACTORIALS_U8
+);
+impl_lehmer_rank!(
+    3,
+    u8,
+    permutation_coord_3,
+    permutation_coord_3_inverse,
+    FACTORIALS_U8
+);
+impl_lehmer_rank!(
+    4,
+    u8,
+    permutation_coord_4,
+    permutation_coord_4_inverse,
+    FACTORIALS_U8
+);
+impl_lehmer_rank!(
+    5,
+    u8,
+    permutation_coord_5,
+    permutation_coord_5_inverse,
+    FACTORIALS_U8
+);
+impl_lehmer_rank!(
+    6,
+    u16,
+    permutation_coord_6,
+    permutation_coord_6_inverse,
+    FACTORIALS_U16
+);
+impl_lehmer_rank!(
+    7,
+    u16,
+    permutation_coord_7,
+    permutation_coord_7_inverse,
+    FACTORIALS_U16
+);
+impl_lehmer_rank!(
+    8,
+    u16,
+    permutation_coord_8,
+    permutation_coord_8_inverse,
+    FACTORIALS_U16
+);
+impl_lehmer_rank!(
+    9,
+    u32,
+    permutation_coord_9,
+    permutation_coord_9_inverse,
+    FACTORIALS_U32
+);
+impl_lehmer_rank!(
+    10,
+    u32,
+    permutation_coord_10,
+    permutation_coord_10_inverse,
+    FACTORIALS_U32
+);
+impl_lehmer_rank!(
+    11,
+    u32,
+    permutation_coord_11,
+    permutation_coord_11_inverse,
+    FACTORIALS_U32
+);
+impl_lehmer_rank!(
+    12,
+    u32,
+    permutation_coord_12,
+    permutation_coord_12_inverse,
+    FACTORIALS_U32
+);
+impl_lehmer_rank!(
+    13,
+    u64,
+    permutation_coord_13,
+    permutation_coord_13_inverse,
+    FACTORIALS_U64
+);
+impl_lehmer_rank!(
+    14,
+    u64,
+    permutation_coord_14,
+    permutation_coord_14_inverse,
+    FACTORIALS_U64
+);
+impl_lehmer_rank!(
+    15,
+    u64,
+    permutation_coord_15,
+    permutation_coord_15_inverse,
+    FACTORIALS_U64
+);
+impl_lehmer_rank!(
+    16,
+    u64,
+    permutation_coord_16,
+    permutation_coord_16_inverse,
+    FACTORIALS_U64
+);
+impl_lehmer_rank!(
+    17,
+    u64,
+    permutation_coord_17,
+    permutation_coord_17_inverse,
+    FACTORIALS_U64
+);
+impl_lehmer_rank!(
+    18,
+    u64,
+    permutation_coord_18,
+    permutation_coord_18_inverse,
+    FACTORIALS_U64
+);
+impl_lehmer_rank!(
+    19,
+    u64,
+    permutation_coord_19,
+    permutation_coord_19_inverse,
+    FACTORIALS_U64
+);
+impl_lehmer_rank!(
+    20,
+    u64,
+    permutation_coord_20,
+    permutation_coord_20_inverse,
+    FACTORIALS_U64
+);

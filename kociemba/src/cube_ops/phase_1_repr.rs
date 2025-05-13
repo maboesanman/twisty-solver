@@ -1,6 +1,14 @@
 use std::marker::PhantomData;
 
-use super::{coords::{CornerOrientRawCoord, CornerPermRawCoord, CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupOrientSymCoord, UDEdgePermRawCoord}, cube_sym::DominoSymmetry, partial_reprs::edge_perm::EdgePerm, repr_cube::ReprCube};
+use super::{
+    coords::{
+        CornerOrientRawCoord, CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupOrientSymCoord,
+        UDEdgePermRawCoord,
+    },
+    cube_sym::DominoSymmetry,
+    partial_reprs::edge_perm::EdgePerm,
+    repr_cube::ReprCube,
+};
 
 struct TwoPhaseTables<'a> {
     phantom: PhantomData<&'a [u8]>,

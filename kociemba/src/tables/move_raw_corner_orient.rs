@@ -19,7 +19,7 @@ pub struct MoveRawCornerOrientTable(Mmap);
 impl MoveRawCornerOrientTable {
     fn chunks(&self) -> &[[CornerOrientRawCoord; 33]] {
         let buffer = as_u16_slice(&self.0);
-        unsafe { 
+        unsafe {
             let slice: &[[u16; 33]] = buffer.as_chunks_unchecked();
             core::slice::from_raw_parts(
                 slice.as_ptr() as *const [CornerOrientRawCoord; 33],
@@ -32,7 +32,11 @@ impl MoveRawCornerOrientTable {
         &self.chunks()[coord.0 as usize]
     }
 
-    pub fn apply_cube_move(&self, coord: CornerOrientRawCoord, mv: CubeMove) -> CornerOrientRawCoord {
+    pub fn apply_cube_move(
+        &self,
+        coord: CornerOrientRawCoord,
+        mv: CubeMove,
+    ) -> CornerOrientRawCoord {
         self.chunk(coord)[mv.into_index()]
     }
 
@@ -77,11 +81,17 @@ fn test() -> Result<()> {
         let orient = CornerOrient::from_coord(coord);
 
         for mv in CubeMove::all_iter() {
-            assert_eq!(table.apply_cube_move(coord, mv), orient.apply_cube_move(mv).into_coord());
+            assert_eq!(
+                table.apply_cube_move(coord, mv),
+                orient.apply_cube_move(mv).into_coord()
+            );
         }
 
         for sym in DominoSymmetry::all_iter() {
-            assert_eq!(table.domino_conjugate(coord, sym), orient.domino_conjugate(sym).into_coord());
+            assert_eq!(
+                table.domino_conjugate(coord, sym),
+                orient.domino_conjugate(sym).into_coord()
+            );
         }
     }
 

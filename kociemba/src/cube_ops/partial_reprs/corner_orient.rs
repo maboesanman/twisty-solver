@@ -1,9 +1,6 @@
-use crate::cube_ops::{coords::CornerOrientRawCoord, cube_move::{CubeMove, DominoMove}};
+use crate::cube_ops::coords::CornerOrientRawCoord;
 
 use super::corner_perm::CornerPerm;
-
-
-
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CornerOrient(pub [u8; 8]);
@@ -104,7 +101,7 @@ impl CornerOrient {
         let mut i = 1;
         while i < 8 {
             if self.0[i] != other.0[i] {
-                return false
+                return false;
             }
             i += 1;
         }

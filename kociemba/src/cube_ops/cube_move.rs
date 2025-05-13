@@ -1,30 +1,63 @@
-use crate::{cube_ops::partial_reprs::e_edge_perm::EEdgePerm, permutation_math::permutation::Permutation};
+use crate::{
+    cube_ops::partial_reprs::e_edge_perm::EEdgePerm, permutation_math::permutation::Permutation,
+};
 
-use super::{partial_reprs::{corner_orient::CornerOrient, corner_perm::CornerPerm, edge_group::EdgeGroup, edge_group_orient::EdgeGroupOrient, edge_orient::EdgeOrient, edge_perm::EdgePerm, ud_edge_perm::UDEdgePerm}, repr_cube::ReprCube};
+use super::{
+    partial_reprs::{
+        corner_orient::CornerOrient, corner_perm::CornerPerm, edge_group::EdgeGroup,
+        edge_group_orient::EdgeGroupOrient, edge_orient::EdgeOrient, edge_perm::EdgePerm,
+        ud_edge_perm::UDEdgePerm,
+    },
+    repr_cube::ReprCube,
+};
 
-pub const U_CORNER_PERM: CornerPerm = CornerPerm(Permutation::const_from_array([2, 0, 3, 1, 4, 5, 6, 7]));
-pub const U_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([2, 3, 1, 0, 4, 5, 6, 7, 8, 9, 10, 11]));
+pub const U_CORNER_PERM: CornerPerm =
+    CornerPerm(Permutation::const_from_array([2, 0, 3, 1, 4, 5, 6, 7]));
+pub const U_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([
+    2, 3, 1, 0, 4, 5, 6, 7, 8, 9, 10, 11,
+]));
 
-pub const D_CORNER_PERM: CornerPerm = CornerPerm(Permutation::const_from_array([0, 1, 2, 3, 5, 7, 4, 6]));
-pub const D_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([0, 1, 2, 3, 7, 6, 4, 5, 8, 9, 10, 11]));
+pub const D_CORNER_PERM: CornerPerm =
+    CornerPerm(Permutation::const_from_array([0, 1, 2, 3, 5, 7, 4, 6]));
+pub const D_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([
+    0, 1, 2, 3, 7, 6, 4, 5, 8, 9, 10, 11,
+]));
 
-pub const F_CORNER_PERM: CornerPerm = CornerPerm(Permutation::const_from_array([1, 5, 2, 3, 0, 4, 6, 7]));
-pub const F_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([9, 1, 2, 3, 8, 5, 6, 7, 0, 4, 10, 11]));
-pub const F_CORNER_ORIENT_CORRECT: CornerOrient = CornerOrient::const_from_array([1, 2, 0, 0, 2, 1, 0, 0]);
-pub const F_EDGE_ORIENT_CORRECT: EdgeOrient = EdgeOrient::const_from_array([1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0]);
+pub const F_CORNER_PERM: CornerPerm =
+    CornerPerm(Permutation::const_from_array([1, 5, 2, 3, 0, 4, 6, 7]));
+pub const F_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([
+    9, 1, 2, 3, 8, 5, 6, 7, 0, 4, 10, 11,
+]));
+pub const F_CORNER_ORIENT_CORRECT: CornerOrient =
+    CornerOrient::const_from_array([1, 2, 0, 0, 2, 1, 0, 0]);
+pub const F_EDGE_ORIENT_CORRECT: EdgeOrient =
+    EdgeOrient::const_from_array([1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0]);
 
-pub const B_CORNER_PERM: CornerPerm = CornerPerm(Permutation::const_from_array([0, 1, 6, 2, 4, 5, 7, 3]));
-pub const B_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([0, 10, 2, 3, 4, 11, 6, 7, 8, 9, 5, 1]));
-pub const B_CORNER_ORIENT_CORRECT: CornerOrient = CornerOrient::const_from_array([0, 0, 2, 1, 0, 0, 1, 2]);
-pub const B_EDGE_ORIENT_CORRECT: EdgeOrient = EdgeOrient::const_from_array([0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1]);
+pub const B_CORNER_PERM: CornerPerm =
+    CornerPerm(Permutation::const_from_array([0, 1, 6, 2, 4, 5, 7, 3]));
+pub const B_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([
+    0, 10, 2, 3, 4, 11, 6, 7, 8, 9, 5, 1,
+]));
+pub const B_CORNER_ORIENT_CORRECT: CornerOrient =
+    CornerOrient::const_from_array([0, 0, 2, 1, 0, 0, 1, 2]);
+pub const B_EDGE_ORIENT_CORRECT: EdgeOrient =
+    EdgeOrient::const_from_array([0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1]);
 
-pub const R_CORNER_PERM: CornerPerm = CornerPerm(Permutation::const_from_array([4, 1, 0, 3, 6, 5, 2, 7]));
-pub const R_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([0, 1, 8, 3, 4, 5, 10, 7, 6, 9, 2, 11]));
-pub const R_CORNER_ORIENT_CORRECT: CornerOrient = CornerOrient::const_from_array([2, 0, 1, 0, 1, 0, 2, 0]);
+pub const R_CORNER_PERM: CornerPerm =
+    CornerPerm(Permutation::const_from_array([4, 1, 0, 3, 6, 5, 2, 7]));
+pub const R_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([
+    0, 1, 8, 3, 4, 5, 10, 7, 6, 9, 2, 11,
+]));
+pub const R_CORNER_ORIENT_CORRECT: CornerOrient =
+    CornerOrient::const_from_array([2, 0, 1, 0, 1, 0, 2, 0]);
 
-pub const L_CORNER_PERM: CornerPerm = CornerPerm(Permutation::const_from_array([0, 3, 2, 7, 4, 1, 6, 5]));
-pub const L_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([0, 1, 2, 11, 4, 5, 6, 9, 8, 3, 10, 7]));
-pub const L_CORNER_ORIENT_CORRECT: CornerOrient = CornerOrient::const_from_array([0, 1, 0, 2, 0, 2, 0, 1]);
+pub const L_CORNER_PERM: CornerPerm =
+    CornerPerm(Permutation::const_from_array([0, 3, 2, 7, 4, 1, 6, 5]));
+pub const L_EDGE_PERM: EdgePerm = EdgePerm(Permutation::const_from_array([
+    0, 1, 2, 11, 4, 5, 6, 9, 8, 3, 10, 7,
+]));
+pub const L_CORNER_ORIENT_CORRECT: CornerOrient =
+    CornerOrient::const_from_array([0, 1, 0, 2, 0, 2, 0, 1]);
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -94,7 +127,7 @@ impl CubeMove {
             let mut val = [EdgeOrient::SOLVED; 18];
             let mut i = 0;
             while i < 18 {
-                let mv: CubeMove = unsafe { core::mem::transmute(i as u8)};
+                let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
                 val[i] = match mv {
                     CubeMove::F1 => F_EDGE_ORIENT_CORRECT,
                     CubeMove::F3 => F_EDGE_ORIENT_CORRECT,
@@ -115,7 +148,7 @@ impl CubeMove {
             let mut val = [CornerOrient::SOLVED; 18];
             let mut i = 0;
             while i < 18 {
-                let mv: CubeMove = unsafe { core::mem::transmute(i as u8)};
+                let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
                 val[i] = match mv {
                     CubeMove::F1 | CubeMove::F3 => F_CORNER_ORIENT_CORRECT,
                     CubeMove::B1 | CubeMove::B3 => B_CORNER_ORIENT_CORRECT,
@@ -136,7 +169,7 @@ impl CubeMove {
             let mut val = [EdgePerm::SOLVED; 18];
             let mut i = 0;
             while i < 18 {
-                let mv: CubeMove = unsafe { core::mem::transmute(i as u8)};
+                let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
                 val[i] = match mv {
                     CubeMove::U1 => U_EDGE_PERM,
                     CubeMove::U2 => U_EDGE_PERM.then(U_EDGE_PERM),
@@ -170,7 +203,7 @@ impl CubeMove {
             let mut val = [CornerPerm::SOLVED; 18];
             let mut i = 0;
             while i < 18 {
-                let mv: CubeMove = unsafe { core::mem::transmute(i as u8)};
+                let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
                 val[i] = match mv {
                     CubeMove::U1 => U_CORNER_PERM,
                     CubeMove::U2 => U_CORNER_PERM.then(U_CORNER_PERM),
@@ -251,7 +284,7 @@ impl DominoMove {
             let mut val = [CornerPerm::SOLVED; 10];
             let mut i = 0;
             while i < 10 {
-                let mv: DominoMove = unsafe { core::mem::transmute(i as u8)};
+                let mv: DominoMove = unsafe { core::mem::transmute(i as u8) };
                 val[i] = match mv {
                     DominoMove::U1 => U_CORNER_PERM,
                     DominoMove::U2 => U_CORNER_PERM.then(U_CORNER_PERM),
@@ -277,21 +310,27 @@ impl DominoMove {
             let mut val = [UDEdgePerm::SOLVED; 10];
             let mut i = 0;
             while i < 10 {
-                let mv: DominoMove = unsafe { core::mem::transmute(i as u8)};
+                let mv: DominoMove = unsafe { core::mem::transmute(i as u8) };
                 val[i] = match match mv {
                     DominoMove::U1 => U_EDGE_PERM.into_grouped(),
                     DominoMove::U2 => U_EDGE_PERM.then(U_EDGE_PERM).into_grouped(),
-                    DominoMove::U3 => U_EDGE_PERM.then(U_EDGE_PERM).then(U_EDGE_PERM).into_grouped(),
+                    DominoMove::U3 => U_EDGE_PERM
+                        .then(U_EDGE_PERM)
+                        .then(U_EDGE_PERM)
+                        .into_grouped(),
                     DominoMove::D1 => D_EDGE_PERM.into_grouped(),
                     DominoMove::D2 => D_EDGE_PERM.then(D_EDGE_PERM).into_grouped(),
-                    DominoMove::D3 => D_EDGE_PERM.then(D_EDGE_PERM).then(D_EDGE_PERM).into_grouped(),
+                    DominoMove::D3 => D_EDGE_PERM
+                        .then(D_EDGE_PERM)
+                        .then(D_EDGE_PERM)
+                        .into_grouped(),
                     DominoMove::F2 => F_EDGE_PERM.then(F_EDGE_PERM).into_grouped(),
                     DominoMove::B2 => B_EDGE_PERM.then(B_EDGE_PERM).into_grouped(),
                     DominoMove::R2 => R_EDGE_PERM.then(R_EDGE_PERM).into_grouped(),
                     DominoMove::L2 => L_EDGE_PERM.then(L_EDGE_PERM).into_grouped(),
                 } {
                     Ok((val, _)) => val,
-                    Err(_) => panic!()
+                    Err(_) => panic!(),
                 };
                 i += 1;
             }
@@ -306,21 +345,27 @@ impl DominoMove {
             let mut val = [EEdgePerm::SOLVED; 10];
             let mut i = 0;
             while i < 10 {
-                let mv: DominoMove = unsafe { core::mem::transmute(i as u8)};
+                let mv: DominoMove = unsafe { core::mem::transmute(i as u8) };
                 val[i] = match match mv {
                     DominoMove::U1 => U_EDGE_PERM.into_grouped(),
                     DominoMove::U2 => U_EDGE_PERM.then(U_EDGE_PERM).into_grouped(),
-                    DominoMove::U3 => U_EDGE_PERM.then(U_EDGE_PERM).then(U_EDGE_PERM).into_grouped(),
+                    DominoMove::U3 => U_EDGE_PERM
+                        .then(U_EDGE_PERM)
+                        .then(U_EDGE_PERM)
+                        .into_grouped(),
                     DominoMove::D1 => D_EDGE_PERM.into_grouped(),
                     DominoMove::D2 => D_EDGE_PERM.then(D_EDGE_PERM).into_grouped(),
-                    DominoMove::D3 => D_EDGE_PERM.then(D_EDGE_PERM).then(D_EDGE_PERM).into_grouped(),
+                    DominoMove::D3 => D_EDGE_PERM
+                        .then(D_EDGE_PERM)
+                        .then(D_EDGE_PERM)
+                        .into_grouped(),
                     DominoMove::F2 => F_EDGE_PERM.then(F_EDGE_PERM).into_grouped(),
                     DominoMove::B2 => B_EDGE_PERM.then(B_EDGE_PERM).into_grouped(),
                     DominoMove::R2 => R_EDGE_PERM.then(R_EDGE_PERM).into_grouped(),
                     DominoMove::L2 => L_EDGE_PERM.then(L_EDGE_PERM).into_grouped(),
                 } {
                     Ok((_, val)) => val,
-                    Err(_) => panic!()
+                    Err(_) => panic!(),
                 };
                 i += 1;
             }
@@ -330,7 +375,6 @@ impl DominoMove {
         TABLE[self.into_index()]
     }
 }
-
 
 impl CornerPerm {
     pub const fn apply_cube_move(self, mv: CubeMove) -> Self {
@@ -350,13 +394,15 @@ impl EdgePerm {
 
 impl CornerOrient {
     pub const fn apply_cube_move(self, mv: CubeMove) -> Self {
-        self.permute(mv.into_corner_perm()).correct(mv.into_corner_orient())
+        self.permute(mv.into_corner_perm())
+            .correct(mv.into_corner_orient())
     }
 }
 
 impl EdgeOrient {
     pub const fn apply_cube_move(self, mv: CubeMove) -> Self {
-        self.permute(mv.into_edge_perm()).correct(mv.into_edge_orient())
+        self.permute(mv.into_edge_perm())
+            .correct(mv.into_edge_orient())
     }
 }
 
@@ -394,4 +440,3 @@ impl ReprCube {
         }
     }
 }
-

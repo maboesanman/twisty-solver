@@ -1,12 +1,12 @@
 use super::permutation::Permutation;
 
-
-
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct EdgeCombination(pub [bool; 12]);
 
 impl EdgeCombination {
-    pub const SOLVED: Self = Self([false, false, false, false, false, false, false, false, true, true, true, true, ]);
+    pub const SOLVED: Self = Self([
+        false, false, false, false, false, false, false, false, true, true, true, true,
+    ]);
 
     const fn is_valid(array: [bool; 12]) -> bool {
         let mut seen = 0;
@@ -54,7 +54,7 @@ impl EdgeCombination {
         let mut sum = 0;
         let mut k = 3;
         let mut n = 11;
-    
+
         loop {
             if !self.0[n] {
                 sum += COMBINATIONS[n][k]
@@ -63,13 +63,13 @@ impl EdgeCombination {
             } else {
                 k -= 1;
             }
-    
+
             if n == 0 {
                 break;
             }
             n -= 1;
         }
-    
+
         sum
     }
 
@@ -91,7 +91,7 @@ impl EdgeCombination {
                 k -= 1;
             }
         }
-    
+
         Self(buf)
     }
 }

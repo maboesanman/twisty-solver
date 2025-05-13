@@ -18,5 +18,5 @@ pub mod tables;
 // // pub mod search;
 // pub mod repr_phase_1;
 
-pub mod permutation_math;
 pub mod cube_ops;
+pub mod permutation_math;
