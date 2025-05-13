@@ -1,20 +1,23 @@
-use std::{collections::{HashMap, HashSet}, fmt::Debug};
+use std::fmt::Debug;
 
 use rand::distr::{Distribution, StandardUniform};
 
 use crate::{
-    coords::{CornerOrientCoord, EdgeGroupCoord, EdgeOrientCoord, Phase1EdgeSymCoord}, moves::{Move, Phase2Move}, permutation_coord::{
+    coords::{RawCornerOrientCoord, RawEdgeGroupCoord, RawEdgeOrientCoord}, moves::{Move, Phase2Move}, permutation_coord::{
         is_odd, is_perm, permutation_coord_12_inverse, permutation_coord_8_inverse
-    }, symmetries::SubGroupTransform, tables::{move_table_raw_corner_orient::CornerOrientMoveTable, move_table_sym_phase_1_edge::Phase1EdgeSymMoveTable, sym_lookup_phase_1_edge::Phase1EdgeSymLookupTable}
+    }, permutation_math::permutation::Permutation, symmetries::SubGroupTransform
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct ReprCube {
-    pub corner_perm: [u8; 8],
-    pub edge_perm: [u8; 12],
-    pub corner_orient: [u8; 8],
-    pub edge_orient: [u8; 12],
+    pub corner_perm: Permutation<8>,
+    pub edge_perm: Permutation<12>,
+    pub corner_orient: CornerOrient,
+    pub edge_orient: EdgeOrient,
 }
+
+
+
 
 impl Default for ReprCube {
     fn default() -> Self {
@@ -33,8 +36,8 @@ macro_rules! cube {
     };
 
     // 2) “up to 2” and “up prime” on each face:
-    (@mv U)  => { crate::repr_cubie::U1 };
-    (@mv U2) => { crate::repr_cubie::U2 };
+    (@mv U)  => { $crate::repr_cubie::U1 };
+    (@mv U2) => { $crate::repr_cubie::U2 };
     (@mv Up) => { crate::repr_cubie::U3 };
 
     (@mv D)  => { crate::repr_cubie::D1 };
@@ -59,67 +62,91 @@ macro_rules! cube {
 }
 
 pub const SOLVED_CUBE: ReprCube = ReprCube {
-    corner_perm: [0, 1, 2, 3, 4, 5, 6, 7],
-    edge_perm: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-    corner_orient: [0, 0, 0, 0, 0, 0, 0, 0],
-    edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    corner_perm: Permutation::IDENTITY,
+    edge_perm: Permutation::IDENTITY,
+    corner_orient: CornerOrient([0; 8]),
+    edge_orient: EdgeOrient([0; 12]),
 };
 
+pub const U_CORNER_PERM: Permutation<8> = Permutation::const_from_array([2, 0, 3, 1, 4, 5, 6, 7]);
+pub const U_EDGE_PERM: Permutation<12> = Permutation::const_from_array([2, 3, 1, 0, 4, 5, 6, 7, 8, 9, 10, 11]);
+
 pub const U1: ReprCube = ReprCube {
-    corner_perm: [2, 0, 3, 1, 4, 5, 6, 7],
-    edge_perm: [2, 3, 1, 0, 4, 5, 6, 7, 8, 9, 10, 11],
-    corner_orient: [0, 0, 0, 0, 0, 0, 0, 0],
-    edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    corner_perm: U_CORNER_PERM,
+    edge_perm: U_EDGE_PERM,
+    corner_orient: CornerOrient([0; 8]),
+    edge_orient: EdgeOrient([0; 12]),
 };
 
 pub const U2: ReprCube = U1.then(U1);
 pub const U3: ReprCube = U2.then(U1);
 
+pub const D_CORNER_PERM: Permutation<8> = Permutation::const_from_array([0, 1, 2, 3, 5, 7, 4, 6]);
+pub const D_EDGE_PERM: Permutation<12> = Permutation::const_from_array([0, 1, 2, 3, 7, 6, 4, 5, 8, 9, 10, 11]);
+
 pub const D1: ReprCube = ReprCube {
-    corner_perm: [0, 1, 2, 3, 5, 7, 4, 6],
-    edge_perm: [0, 1, 2, 3, 7, 6, 4, 5, 8, 9, 10, 11],
-    corner_orient: [0, 0, 0, 0, 0, 0, 0, 0],
-    edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    corner_perm: D_CORNER_PERM,
+    edge_perm: D_EDGE_PERM,
+    corner_orient: CornerOrient([0; 8]),
+    edge_orient: EdgeOrient([0; 12]),
 };
 
 pub const D2: ReprCube = D1.then(D1);
 pub const D3: ReprCube = D2.then(D1);
 
+pub const F_CORNER_PERM: Permutation<8> = Permutation::const_from_array([1, 5, 2, 3, 0, 4, 6, 7]);
+pub const F_EDGE_PERM: Permutation<12> = Permutation::const_from_array([9, 1, 2, 3, 8, 5, 6, 7, 0, 4, 10, 11]);
+pub const F_CORNER_ORIENT_CORRECT: CornerOrient = CornerOrient([1, 2, 0, 0, 2, 1, 0, 0]);
+pub const F_EDGE_ORIENT_CORRECT: EdgeOrient = EdgeOrient([1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0]);
+
 pub const F1: ReprCube = ReprCube {
-    corner_perm: [1, 5, 2, 3, 0, 4, 6, 7],
-    edge_perm: [9, 1, 2, 3, 8, 5, 6, 7, 0, 4, 10, 11],
-    corner_orient: [1, 2, 0, 0, 2, 1, 0, 0],
-    edge_orient: [1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0],
+    corner_perm: F_CORNER_PERM,
+    edge_perm: F_EDGE_PERM,
+    corner_orient: F_CORNER_ORIENT_CORRECT,
+    edge_orient: F_EDGE_ORIENT_CORRECT,
 };
 
 pub const F2: ReprCube = F1.then(F1);
 pub const F3: ReprCube = F2.then(F1);
 
+pub const B_CORNER_PERM: Permutation<8> = Permutation::const_from_array([0, 1, 6, 2, 4, 5, 7, 3]);
+pub const B_EDGE_PERM: Permutation<12> = Permutation::const_from_array([0, 10, 2, 3, 4, 11, 6, 7, 8, 9, 5, 1]);
+pub const B_CORNER_ORIENT_CORRECT: CornerOrient = CornerOrient([0, 0, 2, 1, 0, 0, 1, 2]);
+pub const B_EDGE_ORIENT_CORRECT: EdgeOrient = EdgeOrient([0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1]);
+
 pub const B1: ReprCube = ReprCube {
-    corner_perm: [0, 1, 6, 2, 4, 5, 7, 3],
-    edge_perm: [0, 10, 2, 3, 4, 11, 6, 7, 8, 9, 5, 1],
-    corner_orient: [0, 0, 2, 1, 0, 0, 1, 2],
-    edge_orient: [0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1],
+    corner_perm: B_CORNER_PERM,
+    edge_perm: B_EDGE_PERM,
+    corner_orient: B_CORNER_ORIENT_CORRECT,
+    edge_orient: B_EDGE_ORIENT_CORRECT,
 };
 
 pub const B2: ReprCube = B1.then(B1);
 pub const B3: ReprCube = B2.then(B1);
 
+pub const R_CORNER_PERM: Permutation<8> = Permutation::const_from_array([4, 1, 0, 3, 6, 5, 2, 7]);
+pub const R_EDGE_PERM: Permutation<12> = Permutation::const_from_array([0, 1, 8, 3, 4, 5, 10, 7, 6, 9, 2, 11]);
+pub const R_CORNER_ORIENT_CORRECT: CornerOrient = CornerOrient([2, 0, 1, 0, 1, 0, 2, 0]);
+
 pub const R1: ReprCube = ReprCube {
-    corner_perm: [4, 1, 0, 3, 6, 5, 2, 7],
-    edge_perm: [0, 1, 8, 3, 4, 5, 10, 7, 6, 9, 2, 11],
-    corner_orient: [2, 0, 1, 0, 1, 0, 2, 0],
-    edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    corner_perm: R_CORNER_PERM,
+    edge_perm: R_EDGE_PERM,
+    corner_orient: R_CORNER_ORIENT_CORRECT,
+    edge_orient: EdgeOrient::SOLVED,
 };
 
 pub const R2: ReprCube = R1.then(R1);
 pub const R3: ReprCube = R2.then(R1);
 
+pub const L_CORNER_PERM: Permutation<8> = Permutation::const_from_array([0, 3, 2, 7, 4, 1, 6, 5]);
+pub const L_EDGE_PERM: Permutation<12> = Permutation::const_from_array([0, 1, 2, 11, 4, 5, 6, 9, 8, 3, 10, 7]);
+pub const L_CORNER_ORIENT_CORRECT: CornerOrient = CornerOrient([0, 1, 0, 2, 0, 2, 0, 1]);
+
 pub const L1: ReprCube = ReprCube {
-    corner_perm: [0, 3, 2, 7, 4, 1, 6, 5],
-    edge_perm: [0, 1, 2, 11, 4, 5, 6, 9, 8, 3, 10, 7],
-    corner_orient: [0, 1, 0, 2, 0, 2, 0, 1],
-    edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    corner_perm: L_CORNER_PERM,
+    edge_perm: L_EDGE_PERM,
+    corner_orient: L_CORNER_ORIENT_CORRECT,
+    edge_orient: EdgeOrient::SOLVED,
 };
 
 pub const L2: ReprCube = L1.then(L1);
@@ -128,18 +155,18 @@ pub const L3: ReprCube = L2.then(L1);
 // const S_URF3_1: ReprCube = cube![R Lp F Bp U Dp R Lp];
 // const S_URF3_2: ReprCube = S_URF3_1.then(S_URF3_1);
 
-const S_F2: ReprCube = cube![R2 L2 F Bp U2 D2 F Bp];
-const S_U4_1: ReprCube = ReprCube {
-    corner_perm: [2, 0, 3, 1, 6, 4, 7, 5],
-    edge_perm: [2, 3, 1, 0, 6, 7, 5, 4, 10, 8, 11, 9],
-    corner_orient: [0, 0, 0, 0, 0, 0, 0, 0],
-    edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-};
+// const S_F2: ReprCube = cube![R2 L2 F Bp U2 D2 F Bp];
+// const S_U4_1: ReprCube = ReprCube {
+//     corner_perm: Permutation::const_from_array([2, 0, 3, 1, 6, 4, 7, 5]),
+//     edge_perm: Permutation::const_from_array([2, 3, 1, 0, 6, 7, 5, 4, 10, 8, 11, 9]),
+//     corner_orient: [0, 0, 0, 0, 0, 0, 0, 0],
+//     edge_orient: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+// };
 
-const S_U4_2: ReprCube = S_U4_1.then(S_U4_1);
-const S_U4_3: ReprCube = S_U4_2.then(S_U4_1);
+// const S_U4_2: ReprCube = S_U4_1.then(S_U4_1);
+// const S_U4_3: ReprCube = S_U4_2.then(S_U4_1);
 
-const S_LR2_PARTIAL: ReprCube = cube![U D R2 F2 Up Dp R2 F2 U R2 L2 F2 R2 L2 F2 U L2 F2];
+// const S_LR2_PARTIAL: ReprCube = cube![U D R2 F2 Up Dp R2 F2 U R2 L2 F2 R2 L2 F2 U L2 F2];
 
 impl From<Move> for ReprCube {
     fn from(value: Move) -> Self {
@@ -189,7 +216,7 @@ impl TryFrom<ReprCube> for Move {
             L1 => Move::L1,
             L2 => Move::L2,
             L3 => Move::L3,
-            _ => return Err(value)
+            _ => return Err(value),
         })
     }
 }
@@ -209,7 +236,7 @@ impl TryFrom<ReprCube> for Phase2Move {
             B2 => Phase2Move::B2,
             R2 => Phase2Move::R2,
             L2 => Phase2Move::L2,
-            _ => return Err(value)
+            _ => return Err(value),
         })
     }
 }
@@ -233,80 +260,28 @@ impl From<Phase2Move> for ReprCube {
 
 impl ReprCube {
     pub const fn const_eq(self, other: Self) -> bool {
-        let mut i = 0;
-        while i < 8 {
-            if self.corner_orient[i] != other.corner_orient[i] {
-                return false
-            }
-            if self.corner_perm[i] != other.corner_perm[i] {
-                return false
-            }
-            i += 1;
-        }
-        while i < 12 {
-            if self.edge_orient[i] != other.edge_orient[i] {
-                return false
-            }
-            if self.edge_perm[i] != other.edge_perm[i] {
-                return false
-            }
-            i += 1;
-        }
-        true
-    }
+        // let mut i = 0;
+        // while i < 8 {
+        //     if self.corner_orient[i] != other.corner_orient[i] {
+        //         return false;
+        //     }
+        //     if self.corner_perm[i] != other.corner_perm[i] {
+        //         return false;
+        //     }
+        //     i += 1;
+        // }
+        // while i < 12 {
+        //     if self.edge_orient[i] != other.edge_orient[i] {
+        //         return false;
+        //     }
+        //     if self.edge_perm[i] != other.edge_perm[i] {
+        //         return false;
+        //     }
+        //     i += 1;
+        // }
+        // true
 
-    const fn apply_corner_permutation(self, permutation: [u8; 8]) -> Self {
-        let mut new = Self {
-            corner_perm: [0; 8],
-            corner_orient: [0; 8],
-            edge_orient: self.edge_orient,
-            edge_perm: self.edge_perm,
-        };
-        let mut i = 0;
-        while i < 8 {
-            new.corner_perm[i] = self.corner_perm[permutation[i] as usize];
-            new.corner_orient[i] = self.corner_orient[permutation[i] as usize];
-            i += 1;
-        }
-
-        new
-    }
-
-    const fn apply_edge_permutation(self, permutation: [u8; 12]) -> Self {
-        let mut new = Self {
-            edge_perm: [0; 12],
-            edge_orient: [0; 12],
-            corner_orient: self.corner_orient,
-            corner_perm: self.corner_perm,
-        };
-        let mut i = 0;
-        while i < 12 {
-            new.edge_perm[i] = self.edge_perm[permutation[i] as usize];
-            new.edge_orient[i] = self.edge_orient[permutation[i] as usize];
-            i += 1;
-        }
-
-        new
-    }
-
-    const fn apply_corner_orientation(mut self, orientation: [u8; 8]) -> Self {
-        let mut i = 0;
-        while i < 8 {
-            self.corner_orient[i] = (self.corner_orient[i] + orientation[i]) % 3;
-            i += 1;
-        }
-
-        self
-    }
-
-    const fn apply_edge_orientation(mut self, orientation: [u8; 12]) -> Self {
-        let mut i = 0;
-        while i < 12 {
-            self.edge_orient[i] = (self.edge_orient[i] + orientation[i]) % 2;
-            i += 1;
-        }
-
-        self
+        todo!()
     }
 
     /// determine if the cube can be reached from
@@ -337,15 +312,7 @@ impl ReprCube {
             return false;
         }
 
-        if !is_perm(&self.edge_perm) {
-            return false;
-        }
-
-        if !is_perm(&self.corner_perm) {
-            return false;
-        }
-
-        if is_odd(&self.edge_perm) != is_odd(&self.corner_perm) {
+        if self.edge_perm.is_odd() != self.corner_perm.is_odd() {
             return false;
         }
 
@@ -358,10 +325,10 @@ impl ReprCube {
 
     /// concatenate two cubes, as transformations from the solved cube.
     pub const fn then(self, other: Self) -> Self {
-        self.apply_corner_permutation(other.corner_perm)
-            .apply_corner_orientation(other.corner_orient)
-            .apply_edge_permutation(other.edge_perm)
-            .apply_edge_orientation(other.edge_orient)
+        Self {
+            corner_perm: self.corner_perm.then(other.corner_perm);
+            self.
+        }
     }
 
     /// conjugate by one of the subgroup transforms, generated by
@@ -489,11 +456,18 @@ impl ReprCube {
             )
     }
 
-    pub fn into_phase_1_raw_coords(self) -> (CornerOrientCoord, EdgeOrientCoord, EdgeGroupCoord) {
-        (CornerOrientCoord::from_cubie(self), EdgeOrientCoord::from_cubie(self), EdgeGroupCoord::from_cubie(self))
+    pub fn into_phase_1_raw_coords(
+        self,
+    ) -> (RawCornerOrientCoord, RawEdgeOrientCoord, RawEdgeGroupCoord) {
+        (
+            RawCornerOrientCoord::from_cubie(self),
+            RawEdgeOrientCoord::from_cubie(self),
+            RawEdgeGroupCoord::from_cubie(self),
+        )
     }
 
-    pub fn pretty_print(self) { //-> [[&'static str; 9]; 6] {
+    pub fn pretty_print(self) {
+        //-> [[&'static str; 9]; 6] {
         const COLOR_CHARS: [&str; 6] = [
             "\x1b[47m  \x1b[0m", // W (U)
             "\x1b[43m  \x1b[0m", // Y (D)
@@ -511,7 +485,7 @@ impl ReprCube {
         //     "O ", // O
         //     "Y ", // Y
         // ];
-    
+
         const CORNER_FACELETS: [[(usize, usize); 3]; 8] = [
             [(0, 8), (4, 0), (2, 2)], // UFR
             [(0, 6), (2, 0), (5, 2)], // UFL
@@ -522,7 +496,7 @@ impl ReprCube {
             [(1, 8), (4, 8), (3, 6)], // DBR
             [(1, 6), (3, 8), (5, 6)], // DBL
         ];
-    
+
         const EDGE_FACELETS: [[(usize, usize); 2]; 12] = [
             [(0, 7), (2, 1)], // UF
             [(0, 1), (3, 1)], // UB
@@ -537,10 +511,10 @@ impl ReprCube {
             [(3, 3), (4, 5)], // BR
             [(3, 5), (5, 3)], // BL
         ];
-    
+
         // start with “blank” faces (or you could fill with e.g. '·')
         let mut faces = [["· "; 9]; 6];
-    
+
         // Place corners
         for (slot, &piece) in self.corner_perm.iter().enumerate() {
             let ori = self.corner_orient[slot] as usize;
@@ -563,12 +537,12 @@ impl ReprCube {
                 faces[slot.0][slot.1] = COLOR_CHARS[color_i];
             }
         }
-    
+
         // // Place edges
         // for (slot, &piece) in self.edge_perm.iter().enumerate() {
         //     let ori = (self.edge_orient[slot] % 2) as usize;
         //     let facelets = EDGE_FACELETS[piece as usize];
-    
+
         //     for j in 0..2 {
         //         let src_face = facelets[j].0;
         //         let (dst_face, dst_pos) = facelets[(j + ori) % 2];
@@ -580,22 +554,25 @@ impl ReprCube {
         for (i, c) in COLOR_CHARS.into_iter().enumerate() {
             faces[i][4] = c;
         }
-    
+
         // faces
 
         const EMPTY_FACE: [&str; 9] = ["  "; 9];
 
         let spaced_faces = [
-            EMPTY_FACE, faces[0], EMPTY_FACE, EMPTY_FACE,
-            faces[5], faces[2], faces[4], faces[3],
+            EMPTY_FACE, faces[0], EMPTY_FACE, EMPTY_FACE, faces[5], faces[2], faces[4], faces[3],
             EMPTY_FACE, faces[1], EMPTY_FACE, EMPTY_FACE,
         ];
-        
+
         for inter_face_row in 0..3 {
             for intra_face_row in 0..3 {
                 for inter_face_col in 0..4 {
                     for intra_face_col in 0..3 {
-                        print!("{}", spaced_faces[inter_face_row * 4 + inter_face_col][intra_face_row * 3 + intra_face_col]);
+                        print!(
+                            "{}",
+                            spaced_faces[inter_face_row * 4 + inter_face_col]
+                                [intra_face_row * 3 + intra_face_col]
+                        );
                     }
                 }
                 println!()
@@ -725,13 +702,13 @@ fn test_random_moves() {
             for _ in 0..20 {
                 let mv: Move = rng.sample(StandardUniform);
                 let mv = mv.into();
-    
+
                 cubea = cubea.then(mv);
                 cubeb = cubeb.then(mv.conjugate_by_subgroup_transform(t));
             }
-    
+
             cubea = cubea.conjugate_by_subgroup_transform(t);
-    
+
             assert_eq!(cubea, cubeb);
         }
     }
@@ -1142,10 +1119,13 @@ fn test_long_apply() {
 fn different_cubes() {
     let cube = cube![U R];
 
-    let mut set = HashSet::new();
+    let mut set = std::collections::HashSet::new();
     for t1 in SubGroupTransform::all_iter() {
         for t2 in SubGroupTransform::all_iter() {
-            set.insert(cube.conjugate_by_subgroup_transform(t1).conjugate_by_subgroup_transform(t2));
+            set.insert(
+                cube.conjugate_by_subgroup_transform(t1)
+                    .conjugate_by_subgroup_transform(t2),
+            );
         }
     }
 
@@ -1164,6 +1144,9 @@ fn print_cube() {
 
     cube![Rp Dp R D Rp Dp R D Up Dp Rp D R Dp Rp D R U].pretty_print();
     cube![R U Rp U R U2 Rp].pretty_print();
+
+    // manually inspect cube afterwards to see if it matches. (it does)
+    cube![U R F D L B U2 R2 F2 D2 L2 B2 Up Rp Fp Dp Lp Bp].pretty_print();
 }
 
 #[test]

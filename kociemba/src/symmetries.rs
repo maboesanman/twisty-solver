@@ -47,7 +47,7 @@ const TRANSFORM_COMPOSE_LOOKUP: [u8; 256] = {
             let i = ((t1 << 4) + t2) as usize;
             let mut t3 = 0;
             while t3 < 16 {
-                let conj_3= reference_cube.conjugate_by_subgroup_transform(SubGroupTransform(t3));
+                let conj_3 = reference_cube.conjugate_by_subgroup_transform(SubGroupTransform(t3));
                 if conj_2.const_eq(conj_3) {
                     output[i] = t3;
                 }

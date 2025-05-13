@@ -1,7 +1,5 @@
 use paste::paste;
 
-use crate::symmetries::SubGroupTransform;
-
 macro_rules! permutation_coord {
     ($n:expr, $t:ty, $dense:expr) => {
         paste! {
@@ -121,7 +119,7 @@ macro_rules! permutation_coord {
                         assert_eq!([<permutation_coord_ $n _parity>](&s), i);
                     }
                 } else {
-                    
+
                 }
             }
         }
@@ -246,9 +244,10 @@ pub const fn is_perm<const N: usize>(arr: &[u8; N]) -> bool {
     true
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Perm12Slots([u8; 6]);
 
-const SORTED_PERM_12: Perm12Slots = Perm12Slots([
+pub const SORTED_PERM_12: Perm12Slots = Perm12Slots([
     0b0000_0001,
     0b0010_0011,
     0b0100_0101,
@@ -258,47 +257,52 @@ const SORTED_PERM_12: Perm12Slots = Perm12Slots([
 ]);
 
 impl Perm12Slots {
-    
     /// Unpack 6 bytes → 12 nibbles (0..11)
-    fn unpack12(self) -> [u8; 12] {
+    pub const fn unpack12(self) -> [u8; 12] {
         let mut out = [0u8; 12];
-        for i in 0..6 {
+        let mut i = 0;
+        while i < 6 {
             let byte = self.0[i];
-            out[2*i    ] = byte & 0x0F;       // low nibble
-            out[2*i + 1] = (byte >> 4) & 0x0F; // high nibble
+            out[2 * i] = byte & 0x0F; // low nibble
+            out[2 * i + 1] = (byte >> 4) & 0x0F; // high nibble
+            i += 1;
         }
         out
     }
-    
+
     /// Pack 12 nibbles (each <16) → 6 bytes
-    fn pack12(nibs: [u8; 12]) -> Self {
+    pub const fn pack12(nibs: [u8; 12]) -> Self {
         let mut out = [0u8; 6];
-        for i in 0..6 {
-            let lo = nibs[2*i] & 0x0F;
-            let hi = nibs[2*i + 1] & 0x0F;
+        let mut i = 0;
+        while i < 6 {
+            let lo = nibs[2 * i] & 0x0F;
+            let hi = nibs[2 * i + 1] & 0x0F;
             out[i] = lo | (hi << 4);
+            i += 1;
         }
         Self(out)
     }
 
-    pub fn then(self, other: Self) -> Self {
+    pub const fn then(self, other: Self) -> Self {
         let a = self.unpack12();
         let b = other.unpack12();
         let mut c = [0u8; 12];
-        for i in 0..12 {
-            // first apply A (“self”), then B (“other”)
-            let idx = a[i] as usize;
-            c[i] = b[idx];
+        let mut i = 0;
+        while i < 12 {
+            c[i] = a[b[i] as usize];
+            i += 1;
         }
         Self::pack12(c)
     }
 
-    pub fn inverse(self) -> Self {
+    pub const fn inverse(self) -> Self {
         let p = self.unpack12();
         let mut inv = [0u8; 12];
-        for i in 0..12 {
+        let mut i = 0;
+        while i < 12 {
             let v = p[i] as usize;
             inv[v] = i as u8;
+            i += 1;
         }
         Self::pack12(inv)
     }
@@ -306,9 +310,7 @@ impl Perm12Slots {
 
 pub struct Perm8Slots([u8; 3]);
 
-const SORTED_PERM_8: Perm8Slots = Perm8Slots([
-    0b000_001_01, 0b0_011_100_1, 0b01_110_111,
-]);
+const SORTED_PERM_8: Perm8Slots = Perm8Slots([0b000_001_01, 0b0_011_100_1, 0b01_110_111]);
 
 impl Perm8Slots {
     pub fn then(self, other: Self) -> Self {
@@ -333,7 +335,6 @@ impl Perm4Slots {
         todo!()
     }
 }
-
 
 #[test]
 fn edge_grouping_test() {
