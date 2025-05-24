@@ -150,7 +150,7 @@ const EDGE_ORIENT_CORRECT: [EdgeOrient; 48] = {
 pub struct CubeSymmetry(pub u8);
 
 /// only the 4 low bits of the transform described above. we omit the S_URF3 element and its consequent symmetries
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[repr(transparent)]
 pub struct DominoSymmetry(pub u8);
 
@@ -325,9 +325,8 @@ impl EdgeGroupOrient {
                 }
                 i += 1;
             }
+            orient = orient.correct(S_U4_1_EDGE_ORIENT_CORRECT);
         }
-
-        orient = orient.correct(EDGE_ORIENT_CORRECT[sym.0 as usize]);
 
         EdgeGroupOrient(new_group, orient)
     }
@@ -387,7 +386,7 @@ impl DominoMove {
 #[test]
 fn print_all_domino_conjugations() {
     println!("{EDGE_ORIENT_CORRECT:?}");
-    let cube = cube![R U Rp Up];
+    let cube = cube![R U];
 
     for sym in DominoSymmetry::all_iter() {
         cube.domino_conjugate(sym).pretty_print();
@@ -435,4 +434,14 @@ fn test_long_apply() {
         c2 = c2.then(c);
     }
     assert_eq!(count, 1260);
+}
+
+#[test]
+fn basic_sequence() {
+    let cube = cube![R U D2 U L F B L];
+
+    for sym in DominoSymmetry::all_iter() {
+        cube.domino_conjugate(sym).pretty_print();
+        println!()
+    }
 }

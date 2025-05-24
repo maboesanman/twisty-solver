@@ -50,6 +50,24 @@ impl EdgeCombination {
         self
     }
 
+    pub const fn into_arbitrary_perm(self) -> Permutation<12> {
+        let mut i = 0;
+        let mut j = 0;
+        let mut out = [0; 12];
+
+        while i + j < 12 {
+            if self.0[(i + j) as usize] {
+                out[(i + j) as usize] = 8 + j;
+                j += 1;
+            } else {
+                out[(i + j) as usize] = i;
+                i += 1;
+            }
+        }
+
+        Permutation(out)
+    }
+
     pub const fn into_coord(self) -> u16 {
         let mut sum = 0;
         let mut k = 3;

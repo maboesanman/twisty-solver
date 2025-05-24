@@ -16,7 +16,7 @@ use crate::{
 use super::table_loader::{as_u32_slice_mut, load_table};
 
 const TABLE_SIZE_BYTES: usize = 64430 * 4;
-const FILE_CHECKSUM: u32 = 69644725;
+const FILE_CHECKSUM: u32 = 4005177882;
 
 pub struct LookupSymEdgeGroupOrientTable(Mmap);
 
@@ -55,6 +55,7 @@ impl LookupSymEdgeGroupOrientTable {
         });
 
         for (i, rep) in collect_unique_sorted_parallel(reps).enumerate() {
+            println!("{:?}: {:?}", i, rep.0);
             buffer[i] = rep.0
         }
     }
@@ -69,7 +70,7 @@ impl LookupSymEdgeGroupOrientTable {
 
 #[test]
 fn test() -> Result<()> {
-    let _ = LookupSymEdgeGroupOrientTable::load("phase_1_edge_sym_lookup_table.dat")?;
+    let _ = LookupSymEdgeGroupOrientTable::load("edge_group_orient_sym_lookup_table.dat")?;
 
     // (0..(2048 * 495u32)).into_par_iter()
     //     .for_each(|i| {

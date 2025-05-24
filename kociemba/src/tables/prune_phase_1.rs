@@ -1,5 +1,6 @@
 use rand::distr::Distribution;
 use rayon::prelude::*;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use std::path::Path;
@@ -7,11 +8,11 @@ use std::path::Path;
 use anyhow::Result;
 use memmap2::Mmap;
 
-use crate::coords::{RawCornerOrientCoord, SymEdgeGroupFlipCoord};
-use crate::moves::Move;
+use crate::cube_ops::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
+use crate::cube_ops::phase_1_repr::Phase1InitRepr;
 
 use super::move_raw_corner_orient::MoveRawCornerOrientTable;
-use super::move_sym_edge_group_flip::MoveSymEdgeGroupFlipTable;
+use super::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
 const TABLE_SIZE_BYTES: usize = (64430 * 2187) / 4 + 1;
@@ -20,8 +21,8 @@ const FILE_CHECKSUM: u32 = 204444714;
 struct WorkingTable<'a>(&'a [AtomicU8]);
 
 impl<'a> WorkingTable<'a> {
-    fn visited(&self, coords: (SymEdgeGroupFlipCoord, RawCornerOrientCoord)) -> bool {
-        let i = coords.0.inner() as usize * 2187 + coords.1.inner() as usize;
+    fn visited(&self, coords: Phase1InitRepr) -> bool {
+        let i = coords.into_index();
 
         let j = i % 4;
         let i = i / 4;
@@ -35,8 +36,8 @@ impl<'a> WorkingTable<'a> {
     }
 
     /// write to the table. returns true if write was successful and the moves from here should be handled.
-    fn write(&self, coords: (SymEdgeGroupFlipCoord, RawCornerOrientCoord), val: u8) -> bool {
-        let i = coords.0.inner() as usize * 2187 + coords.1.inner() as usize;
+    fn write(&self, coords: Phase1InitRepr, val: u8) -> bool {
+        let i = coords.into_index();
 
         let j = i % 4;
         let i = i / 4;
@@ -67,8 +68,8 @@ impl<'a> WorkingTable<'a> {
 pub struct PrunePhase1Table(Mmap);
 
 impl PrunePhase1Table {
-    pub fn get_value(&self, coords: (SymEdgeGroupFlipCoord, RawCornerOrientCoord)) -> u8 {
-        let i = coords.0.inner() as usize * 2187 + coords.1.inner() as usize;
+    pub fn get_value(&self, coords: Phase1InitRepr) -> u8 {
+        let i = coords.into_index();
 
         let j = i % 4;
         let i = i / 4;
@@ -82,29 +83,30 @@ impl PrunePhase1Table {
 
     fn generate(
         buffer: &mut [u8],
-        edge_table: &MoveSymEdgeGroupFlipTable,
+        edge_table: &MoveSymEdgeGroupOrientTable,
         corner_table: &MoveRawCornerOrientTable,
     ) {
         let atom = unsafe { as_atomic_u8_slice(buffer) };
         let working = WorkingTable(atom);
 
         // initial state
-        let root = (0.into(), 0.into());
+        let root = Phase1InitRepr::SOLVED;
+
         working.write(root, 0);
         let mut frontier = vec![root];
         let mut level = 0u8; // real level, not mod-3
 
         while !frontier.is_empty() {
-            // let unvisited = atom.len() - frontier.len();
-            // let use_bottom_up =
-            //     frontier.len() * /* degree of graph */ 18 > unvisited; // cheap heuristic
+            println!("atom: {:?} frontier: {:?}", atom.len(), frontier.len());
+            let unvisited = 64430 * 2187 - frontier.len();
+            let use_bottom_up =
+                frontier.len() * /* degree of graph */ 18 > unvisited; // cheap heuristic
 
-            let next: Vec<_> = {
-                //if !use_bottom_up {
+            let next = if !use_bottom_up {
                 /* ---------- top-down ---------- */
                 frontier
-                    .iter()
-                    .flat_map(|&v| neighbors(v, edge_table, corner_table))
+                    .par_iter()
+                    .flat_map(|&v| v.adjacent(edge_table, corner_table).par_bridge())
                     .filter_map(|nbr| {
                         if working.write(nbr, level + 1) {
                             Some(nbr)
@@ -113,25 +115,23 @@ impl PrunePhase1Table {
                         }
                     })
                     .collect()
+            } else {
+                /* ---------- bottom-up ---------- */
+                (0..(64430*2187)).into_par_iter()
+                    .map(|i| Phase1InitRepr::from_index(i))
+                    .filter_map(|v| {
+                        if working.visited(v) {
+                            return None;                // already discovered
+                        }
+                        for n in v.adjacent(edge_table, corner_table) {
+                            if working.visited(n) {
+                                return Some(v)
+                            }
+                        }
+                        None
+                    })
+                    .collect()
             };
-            // } else {
-            //     /* ---------- bottom-up ---------- */
-            //     itertools::iproduct!(0..64430, 0..2187)
-            //         .par_bridge()
-            //         .map(|(i, j)| (Phase1EdgeSymCoord::from(i), CornerOrientCoord::from(j)))
-            //         .filter_map(|v| {
-            //             if working.visited(v) {
-            //                 return None;                // already discovered
-            //             }
-            //             for n in neighbors(v, edge_table, corner_table) {
-            //                 if working.visited(n) {
-
-            //                 }
-            //             }
-            //             None
-            //         })
-            //         .collect()
-            // };
 
             frontier = next;
             level += 1;
@@ -143,7 +143,7 @@ impl PrunePhase1Table {
 
     pub fn load<P: AsRef<Path>>(
         path: P,
-        edge_table: &MoveSymEdgeGroupFlipTable,
+        edge_table: &MoveSymEdgeGroupOrientTable,
         corner_table: &MoveRawCornerOrientTable,
     ) -> Result<Self> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
@@ -151,18 +151,6 @@ impl PrunePhase1Table {
         })
         .map(Self)
     }
-}
-
-fn neighbors(
-    coords: (SymEdgeGroupFlipCoord, RawCornerOrientCoord),
-    edge_table: &MoveSymEdgeGroupFlipTable,
-    corner_table: &MoveRawCornerOrientTable,
-) -> impl Iterator<Item = (SymEdgeGroupFlipCoord, RawCornerOrientCoord)> {
-    Move::all_iter().map(move |mv| {
-        let (new_sym_coord, transform) = edge_table.apply_move(coords.0, mv);
-        let new_raw_coord = corner_table.apply_move_and_transform(coords.1, mv, transform);
-        (new_sym_coord, new_raw_coord)
-    })
 }
 
 // #[test]

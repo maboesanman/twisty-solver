@@ -21,3 +21,12 @@ impl EdgeGroup {
         Self(self.0.permute(perm.0))
     }
 }
+
+#[test]
+fn test() {
+    for i in 0..495 {
+        let coord = EdgeGroupRawCoord(i as u16);
+        let group_orient = EdgeGroup::from_coord(coord);
+        assert_eq!(coord, group_orient.into_coord())
+    }
+}

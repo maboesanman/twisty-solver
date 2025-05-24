@@ -22,6 +22,7 @@ const FILE_CHECKSUM: u32 = 3661454509;
 
 pub struct MoveSymEdgeGroupOrientTable(Mmap);
 
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 struct Entry {
     pub sym_coord: EdgeGroupOrientSymCoord,
@@ -41,7 +42,7 @@ impl MoveSymEdgeGroupOrientTable {
         &self.chunks()[coord.0 as usize]
     }
 
-    pub fn apply_move(
+    pub fn apply_cube_move(
         &self,
         coord: EdgeGroupOrientSymCoord,
         mv: CubeMove,
@@ -51,8 +52,8 @@ impl MoveSymEdgeGroupOrientTable {
     }
 
     fn generate(buffer: &mut [u8], sym_lookup_table: &LookupSymEdgeGroupOrientTable) {
-        let buffer = as_u32_slice_mut(buffer);
         assert_eq!(buffer.len(), TABLE_SIZE_BYTES);
+        let buffer = as_u32_slice_mut(buffer);
 
         buffer
             .par_chunks_mut(18)
@@ -86,6 +87,19 @@ impl MoveSymEdgeGroupOrientTable {
         })
         .map(Self)
     }
+}
+
+#[test]
+fn test() -> anyhow::Result<()> {
+    let phase_1_lookup_edge_sym_table = LookupSymEdgeGroupOrientTable::load(
+            "edge_group_orient_sym_lookup_table.dat",
+        )?;
+    let phase_1_move_edge_sym_table = MoveSymEdgeGroupOrientTable::load(
+        "edge_group_orient_sym_move_table.dat",
+        &phase_1_lookup_edge_sym_table,
+    )?;
+
+    Ok(())
 }
 
 // #[test]

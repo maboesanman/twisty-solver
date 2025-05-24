@@ -52,7 +52,7 @@ impl EdgeOrient {
         let mut edge_orient = [0; 12];
 
         let mut sum = 0;
-        let mut i = 7;
+        let mut i = 11;
         while i > 0 {
             i -= 1;
             let value = (coord.0 % 2) as u8;
@@ -61,7 +61,7 @@ impl EdgeOrient {
             coord.0 /= 2;
         }
 
-        edge_orient[7] = ((2 - (sum % 2)) % 2) as u8;
+        edge_orient[11] = ((2 - (sum % 2)) % 2) as u8;
 
         Self(edge_orient)
     }
@@ -69,8 +69,8 @@ impl EdgeOrient {
     pub const fn into_coord(self) -> EdgeOrientRawCoord {
         let mut total = 0u16;
         let mut i = 0;
-        while i < 7 {
-            total = total * 3 + self.0[i] as u16;
+        while i < 11 {
+            total = total * 2 + self.0[i] as u16;
             i += 1;
         }
 
@@ -86,5 +86,15 @@ impl EdgeOrient {
             i += 1;
         }
         true
+    }
+}
+
+
+#[test]
+fn test() {
+    for i in 0..2048 {
+        let coord = EdgeOrientRawCoord(i as u16);
+        let group_orient = EdgeOrient::from_coord(coord);
+        assert_eq!(coord, group_orient.into_coord())
     }
 }

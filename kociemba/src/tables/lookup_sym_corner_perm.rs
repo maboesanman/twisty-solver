@@ -69,7 +69,7 @@ impl LookupSymCornerPermTable {
 #[test]
 fn test() -> Result<()> {
     // let corner_table = MoveRawCornerPermTable::load("corner_perm_move_table.dat")?;
-    let _ = LookupSymCornerPermTable::load("phase_2_corner_sym_lookup_table.dat")?;
+    let _ = LookupSymCornerPermTable::load("corner_perm_sym_lookup_table.dat")?;
 
     Ok(())
 }

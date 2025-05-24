@@ -1,7 +1,7 @@
 use rayon::prelude::*;
 use std::{
     cmp::Reverse,
-    collections::{BTreeSet, BinaryHeap},
+    collections::{BTreeSet, BinaryHeap, HashSet},
     fs::OpenOptions,
     path::Path,
 };
@@ -219,15 +219,15 @@ pub fn as_u32_slice_mut(bytes: &mut [u8]) -> &mut [u32] {
 //     });
 // }
 
-// /// # Safety
-// /// * `data` must not be accessed again through the old `[u8]` view
-// /// * all further writes / reads **must** use atomic methods
-// pub unsafe fn as_atomic_u8_slice(data: &mut [u8]) -> &[std::sync::atomic::AtomicU8] {
-//     debug_assert_eq!(core::mem::size_of::<std::sync::atomic::AtomicU8>(), 1); // true on every platform
-//     let len = data.len();
-//     let ptr = data.as_mut_ptr() as *const std::sync::atomic::AtomicU8;
-//     unsafe { core::slice::from_raw_parts(ptr, len) }
-// }
+/// # Safety
+/// * `data` must not be accessed again through the old `[u8]` view
+/// * all further writes / reads **must** use atomic methods
+pub unsafe fn as_atomic_u8_slice(data: &mut [u8]) -> &[std::sync::atomic::AtomicU8] {
+    debug_assert_eq!(core::mem::size_of::<std::sync::atomic::AtomicU8>(), 1); // true on every platform
+    let len = data.len();
+    let ptr = data.as_mut_ptr() as *const std::sync::atomic::AtomicU8;
+    unsafe { core::slice::from_raw_parts(ptr, len) }
+}
 
 pub fn collect_unique_sorted_parallel<T, I>(par_iter: I) -> impl Iterator<Item = T>
 where
@@ -266,8 +266,12 @@ impl<T: Send + Sync + Eq + std::hash::Hash + Ord> UniqueSorted<T> {
     }
 
     fn pop(&mut self) -> Option<T> {
-        let (Reverse(candidate), i) = self.heap.pop()?;
-        self.heap.push((Reverse(self.sets.get_mut(i)?.next()?), i));
+        let (Reverse(candidate), idx) = self.heap.pop()?;
+
+        if let Some(next_item) = self.sets[idx].next() {
+            self.heap.push((Reverse(next_item), idx));
+        }
+
         Some(candidate)
     }
 }
