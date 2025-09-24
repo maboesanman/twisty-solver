@@ -45,7 +45,7 @@ impl LookupSymEdgeGroupOrientTable {
 
     fn generate(buffer: &mut [u8]) {
         let buffer = as_u32_slice_mut(buffer);
-        let reps = (0..(2048 * 495u32)).into_par_iter().map(|i| {
+        let reps = (0u32..(2048 * 495)).into_par_iter().map(|i| {
             let raw_coord = EdgeGroupOrientRawCoord(i);
             let edge_group_orient = EdgeGroupOrient::from_coord(raw_coord);
             DominoSymmetry::all_iter()
@@ -55,9 +55,10 @@ impl LookupSymEdgeGroupOrientTable {
         });
 
         for (i, rep) in collect_unique_sorted_parallel(reps).enumerate() {
-            println!("{:?}: {:?}", i, rep.0);
             buffer[i] = rep.0
         }
+
+        debug_assert!(buffer.is_sorted())
     }
 
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
@@ -68,19 +69,35 @@ impl LookupSymEdgeGroupOrientTable {
     }
 }
 
-#[test]
-fn test() -> Result<()> {
-    let _ = LookupSymEdgeGroupOrientTable::load("edge_group_orient_sym_lookup_table.dat")?;
+#[cfg(test)]
+mod test {
 
-    // (0..(2048 * 495u32)).into_par_iter()
-    //     .for_each(|i| {
-    //         let orient = RawEdgeOrientCoord::from(i);
-    //         let group = RawEdgeGroupCoord::from(j);
-    //         let (sym_coord, transform) = table.get_sym_from_raw(&move_table, group, orient);
-    //         let rep_coord = table.get_raw_from_sym(sym_coord);
-    //         let recovered_raw_coord = move_table.conjugate_by_transform(group, orient, transform);
-    //         assert_eq!(rep_coord, recovered_raw_coord);
-    //     });
+    use super::*;
 
-    Ok(())
+    #[test]
+    fn loads() {
+        let _ =
+            LookupSymEdgeGroupOrientTable::load("edge_group_orient_sym_lookup_table.dat").unwrap();
+    }
+
+    #[test]
+    fn reversible() {
+        let table =
+            LookupSymEdgeGroupOrientTable::load("edge_group_orient_sym_lookup_table.dat").unwrap();
+
+        (0..64430).into_par_iter().for_each(|i| {
+            let sym_coord = EdgeGroupOrientSymCoord(i);
+            let rep_raw = table.get_raw_from_sym(sym_coord);
+            let rep_group_orient = EdgeGroupOrient::from_coord(rep_raw);
+
+            for sym_coord_again in DominoSymmetry::all_iter().map(|sym| {
+                let (rep, _rev_sym) =
+                    table.get_sym_from_raw(rep_group_orient.domino_conjugate(sym).into_coord());
+
+                rep
+            }) {
+                assert_eq!(sym_coord, sym_coord_again);
+            }
+        });
+    }
 }

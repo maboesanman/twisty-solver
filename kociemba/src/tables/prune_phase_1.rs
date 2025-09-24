@@ -1,7 +1,7 @@
 use rand::distr::Distribution;
 use rayon::prelude::*;
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{fence, AtomicU8, Ordering};
 
 use std::path::Path;
 
@@ -16,7 +16,7 @@ use super::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
 const TABLE_SIZE_BYTES: usize = (64430 * 2187) / 4 + 1;
-const FILE_CHECKSUM: u32 = 204444714;
+const FILE_CHECKSUM: u32 = 3247267664;
 
 struct WorkingTable<'a>(&'a [AtomicU8]);
 
@@ -35,8 +35,7 @@ impl<'a> WorkingTable<'a> {
         atomic.load(Ordering::Relaxed) & mask != 0
     }
 
-    /// write to the table. returns true if write was successful and the moves from here should be handled.
-    fn write(&self, coords: Phase1InitRepr, val: u8) -> bool {
+    fn visited_at_level_residue(&self, coords: Phase1InitRepr, level_residue: u8) -> bool {
         let i = coords.into_index();
 
         let j = i % 4;
@@ -46,7 +45,24 @@ impl<'a> WorkingTable<'a> {
 
         let shift = j * 2;
         let mask = 0b11 << shift;
-        let bits = (((val % 3) + 1) & 0b11) << shift;
+
+        let expected_residue = level_residue << shift;
+
+        atomic.load(Ordering::Relaxed) & mask == expected_residue
+    }
+
+    /// write to the table. returns true if write was successful and the moves from here should be handled.
+    fn write(&self, coords: Phase1InitRepr, level_residue: u8) -> bool {
+        let i = coords.into_index();
+
+        let j = i % 4;
+        let i = i / 4;
+
+        let atomic = &self.0[i];
+
+        let shift = j * 2;
+        let mask = 0b11 << shift;
+        let bits = level_residue << shift;
 
         // try once: if the slot is still 00, set it to `bits`, else bail
         atomic
@@ -92,23 +108,30 @@ impl PrunePhase1Table {
         // initial state
         let root = Phase1InitRepr::SOLVED;
 
-        working.write(root, 0);
+        working.write(root, 1);
+        
         let mut frontier = vec![root];
-        let mut level = 0u8; // real level, not mod-3
+        let mut frontier_level = 0u8; // real level, not mod-3
+        let mut total_visited = 1;
+        
 
         while !frontier.is_empty() {
-            println!("atom: {:?} frontier: {:?}", atom.len(), frontier.len());
-            let unvisited = 64430 * 2187 - frontier.len();
+            let frontier_residue = (frontier_level % 3) + 1;
+            let next_residue = ((frontier_level + 1) % 3) + 1;
+            println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
+            let unvisited = 64430 * 2187 - total_visited;
             let use_bottom_up =
                 frontier.len() * /* degree of graph */ 18 > unvisited; // cheap heuristic
+
+            let use_bottom_up = true;
 
             let next = if !use_bottom_up {
                 /* ---------- top-down ---------- */
                 frontier
                     .par_iter()
-                    .flat_map(|&v| v.adjacent(edge_table, corner_table).par_bridge())
-                    .filter_map(|nbr| {
-                        if working.write(nbr, level + 1) {
+                    .flat_map_iter(|&v| v.adjacent(edge_table, corner_table))
+                    .filter_map(|(nbr, _sym)| {
+                        if working.write(nbr, next_residue) {
                             Some(nbr)
                         } else {
                             None
@@ -123,9 +146,13 @@ impl PrunePhase1Table {
                         if working.visited(v) {
                             return None;                // already discovered
                         }
-                        for n in v.adjacent(edge_table, corner_table) {
-                            if working.visited(n) {
-                                return Some(v)
+                        for (nbr, _sym) in v.adjacent(edge_table, corner_table) {
+                            if working.visited_at_level_residue(nbr, frontier_residue) {
+                                if working.write(v, next_residue) {
+                                    return Some(v)
+                                } else {
+                                    return None
+                                }
                             }
                         }
                         None
@@ -134,11 +161,14 @@ impl PrunePhase1Table {
             };
 
             frontier = next;
-            level += 1;
+
+            fence(Ordering::SeqCst);
+            frontier_level += 1;
+            total_visited += frontier.len();
         }
 
         println!("{:?}", frontier.len());
-        println!("{level:?}");
+        println!("{frontier_level:?}");
     }
 
     pub fn load<P: AsRef<Path>>(
@@ -150,6 +180,33 @@ impl PrunePhase1Table {
             Self::generate(buf, edge_table, corner_table)
         })
         .map(Self)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::tables::{lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table};
+
+    #[test]
+    fn generate() {
+        let lookup_sym_edge_group_orient = LookupSymEdgeGroupOrientTable::load(
+            "edge_group_orient_sym_lookup_table.dat",
+        ).unwrap();
+
+        let move_sym_edge_group_orient = MoveSymEdgeGroupOrientTable::load(
+            "edge_group_orient_sym_move_table.dat",
+            &lookup_sym_edge_group_orient,
+        ).unwrap();
+
+        let move_raw_corner_orient = MoveRawCornerOrientTable::load("corner_orient_move_table.dat").unwrap();
+
+        let move_sym_edge_group_orient_ref = &move_sym_edge_group_orient;
+        let move_raw_corner_orient_ref = &move_raw_corner_orient;
+
+        let prune_phase_1 = PrunePhase1Table::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
+
+
+
     }
 }
 
@@ -211,3 +268,5 @@ impl PrunePhase1Table {
 
 //     Ok(())
 // }
+
+
