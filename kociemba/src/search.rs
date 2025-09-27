@@ -129,6 +129,41 @@ fn search_test_superflip() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn search_test_other() -> anyhow::Result<()> {
+    let lookup_sym_edge_group_orient = LookupSymEdgeGroupOrientTable::load(
+        "edge_group_orient_sym_lookup_table.dat",
+    ).unwrap();
+
+    let move_sym_edge_group_orient = MoveSymEdgeGroupOrientTable::load(
+        "edge_group_orient_sym_move_table.dat",
+        &lookup_sym_edge_group_orient,
+    ).unwrap();
+
+    let move_raw_corner_orient = MoveRawCornerOrientTable::load("corner_orient_move_table.dat").unwrap();
+
+    let move_sym_edge_group_orient_ref = &move_sym_edge_group_orient;
+    let move_raw_corner_orient_ref = &move_raw_corner_orient;
+
+    let prune_phase_1 = PrunePhase1Table::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
+
+
+
+    let moves = phase_1_solve(
+        cube![Fp B2 D2 L D R2 L F2 D Bp U Dp B L2 B2 L Fp Rp Fp Up F2 Up Dp Bp R2],
+        &lookup_sym_edge_group_orient,
+        &move_sym_edge_group_orient,
+        &move_raw_corner_orient,
+        &prune_phase_1,
+    );
+
+    for m in moves {
+        print!("{m} ");
+    }
+
+    Ok(())
+}
+
 // #[test]
 // fn search_test_random() -> anyhow::Result<()> {
 //     use rand::{Rng, SeedableRng};

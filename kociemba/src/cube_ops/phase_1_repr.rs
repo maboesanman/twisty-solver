@@ -41,7 +41,7 @@ impl Phase1InitRepr {
     ) -> Self {
         let corner_orient = cube.corner_orient.into_coord();
         let edge_group_orient =
-            EdgeGroupOrient(cube.edge_perm.into_grouping(), cube.edge_orient).into_coord();
+            EdgeGroupOrient(cube.edge_perm.split().0, cube.edge_orient).into_coord();
 
         let (edge_group_orient, sym) =
             lookup_sym_edge_group_orient.get_sym_from_raw(edge_group_orient);

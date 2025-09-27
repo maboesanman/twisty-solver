@@ -311,27 +311,24 @@ impl DominoMove {
             let mut i = 0;
             while i < 10 {
                 let mv: DominoMove = unsafe { core::mem::transmute(i as u8) };
-                val[i] = match match mv {
-                    DominoMove::U1 => U_EDGE_PERM.into_grouped(),
-                    DominoMove::U2 => U_EDGE_PERM.then(U_EDGE_PERM).into_grouped(),
+                val[i] = match mv {
+                    DominoMove::U1 => U_EDGE_PERM.split(),
+                    DominoMove::U2 => U_EDGE_PERM.then(U_EDGE_PERM).split(),
                     DominoMove::U3 => U_EDGE_PERM
                         .then(U_EDGE_PERM)
                         .then(U_EDGE_PERM)
-                        .into_grouped(),
-                    DominoMove::D1 => D_EDGE_PERM.into_grouped(),
-                    DominoMove::D2 => D_EDGE_PERM.then(D_EDGE_PERM).into_grouped(),
+                        .split(),
+                    DominoMove::D1 => D_EDGE_PERM.split(),
+                    DominoMove::D2 => D_EDGE_PERM.then(D_EDGE_PERM).split(),
                     DominoMove::D3 => D_EDGE_PERM
                         .then(D_EDGE_PERM)
                         .then(D_EDGE_PERM)
-                        .into_grouped(),
-                    DominoMove::F2 => F_EDGE_PERM.then(F_EDGE_PERM).into_grouped(),
-                    DominoMove::B2 => B_EDGE_PERM.then(B_EDGE_PERM).into_grouped(),
-                    DominoMove::R2 => R_EDGE_PERM.then(R_EDGE_PERM).into_grouped(),
-                    DominoMove::L2 => L_EDGE_PERM.then(L_EDGE_PERM).into_grouped(),
-                } {
-                    Ok((val, _)) => val,
-                    Err(_) => panic!(),
-                };
+                        .split(),
+                    DominoMove::F2 => F_EDGE_PERM.then(F_EDGE_PERM).split(),
+                    DominoMove::B2 => B_EDGE_PERM.then(B_EDGE_PERM).split(),
+                    DominoMove::R2 => R_EDGE_PERM.then(R_EDGE_PERM).split(),
+                    DominoMove::L2 => L_EDGE_PERM.then(L_EDGE_PERM).split(),
+                }.1;
                 i += 1;
             }
 
@@ -346,27 +343,24 @@ impl DominoMove {
             let mut i = 0;
             while i < 10 {
                 let mv: DominoMove = unsafe { core::mem::transmute(i as u8) };
-                val[i] = match match mv {
-                    DominoMove::U1 => U_EDGE_PERM.into_grouped(),
-                    DominoMove::U2 => U_EDGE_PERM.then(U_EDGE_PERM).into_grouped(),
+                val[i] = match mv {
+                    DominoMove::U1 => U_EDGE_PERM.split(),
+                    DominoMove::U2 => U_EDGE_PERM.then(U_EDGE_PERM).split(),
                     DominoMove::U3 => U_EDGE_PERM
                         .then(U_EDGE_PERM)
                         .then(U_EDGE_PERM)
-                        .into_grouped(),
-                    DominoMove::D1 => D_EDGE_PERM.into_grouped(),
-                    DominoMove::D2 => D_EDGE_PERM.then(D_EDGE_PERM).into_grouped(),
+                        .split(),
+                    DominoMove::D1 => D_EDGE_PERM.split(),
+                    DominoMove::D2 => D_EDGE_PERM.then(D_EDGE_PERM).split(),
                     DominoMove::D3 => D_EDGE_PERM
                         .then(D_EDGE_PERM)
                         .then(D_EDGE_PERM)
-                        .into_grouped(),
-                    DominoMove::F2 => F_EDGE_PERM.then(F_EDGE_PERM).into_grouped(),
-                    DominoMove::B2 => B_EDGE_PERM.then(B_EDGE_PERM).into_grouped(),
-                    DominoMove::R2 => R_EDGE_PERM.then(R_EDGE_PERM).into_grouped(),
-                    DominoMove::L2 => L_EDGE_PERM.then(L_EDGE_PERM).into_grouped(),
-                } {
-                    Ok((_, val)) => val,
-                    Err(_) => panic!(),
-                };
+                        .split(),
+                    DominoMove::F2 => F_EDGE_PERM.then(F_EDGE_PERM).split(),
+                    DominoMove::B2 => B_EDGE_PERM.then(B_EDGE_PERM).split(),
+                    DominoMove::R2 => R_EDGE_PERM.then(R_EDGE_PERM).split(),
+                    DominoMove::L2 => L_EDGE_PERM.then(L_EDGE_PERM).split(),
+                }.2;
                 i += 1;
             }
 

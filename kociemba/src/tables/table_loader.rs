@@ -6,7 +6,7 @@ use std::{
     path::Path,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use fs2::FileExt; // ← add `fs2 = "0.4"` to Cargo.toml
 use memmap2::{Mmap, MmapMut, MmapOptions};
 

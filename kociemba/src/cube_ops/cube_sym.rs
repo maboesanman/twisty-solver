@@ -344,7 +344,7 @@ impl ReprCube {
             corner_perm: self.corner_perm.domino_conjugate(sym),
             corner_orient: self.corner_orient.domino_conjugate(sym),
             edge_perm: self.edge_perm.domino_conjugate(sym),
-            edge_orient: EdgeGroupOrient(self.edge_perm.into_grouping(), self.edge_orient)
+            edge_orient: EdgeGroupOrient(self.edge_perm.split().0, self.edge_orient)
                 .domino_conjugate(sym)
                 .1,
         }
@@ -353,7 +353,7 @@ impl ReprCube {
 
 impl UDEdgePerm {
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
-        let perm = unsafe { EDGE_PERM_LOOKUP[sym.0 as usize].into_ud_perm_unchecked() };
+        let perm = EDGE_PERM_LOOKUP[sym.0 as usize].split().1;
         let inv_perm = perm.inverse();
         inv_perm.then(self).then(perm)
     }
@@ -361,7 +361,7 @@ impl UDEdgePerm {
 
 impl EEdgePerm {
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
-        let perm = unsafe { EDGE_PERM_LOOKUP[sym.0 as usize].into_e_perm_unchecked() };
+        let perm = EDGE_PERM_LOOKUP[sym.0 as usize].split().2;
         let inv_perm = perm.inverse();
         inv_perm.then(self).then(perm)
     }

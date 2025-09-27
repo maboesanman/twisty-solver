@@ -21,8 +21,9 @@ pub mod move_sym_edge_group_orient;
 
 // pub mod move_sym_corner_perm;
 
-pub mod kociemba_tables;
 pub mod prune_phase_1;
+
+pub mod grouped_edge_moves;
 
 mod table_loader;
 

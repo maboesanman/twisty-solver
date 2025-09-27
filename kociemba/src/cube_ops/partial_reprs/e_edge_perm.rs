@@ -2,7 +2,8 @@ use crate::{cube_ops::coords::EEdgePermRawCoord, permutation_math::permutation::
 
 /// The slot representation for corner permutation.
 /// While `Permutation<N>` represents an element of the permutation group, this represents
-/// a permutation when specifically applied to the cube's E edges, while the group coord is 0.
+/// a permutation when specifically applied to the cube's E edges,
+/// wherever they might be after the grouping has been applied.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(transparent)]
 pub struct EEdgePerm(pub Permutation<4>);

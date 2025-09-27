@@ -1,3 +1,8 @@
+use rand::distr::Distribution;
+use rand::distr::StandardUniform;
+use rand::seq::SliceRandom;
+
+
 /// A permutation, represented by which element of the identity permutation (0, 1, 2, 3, .., N-1)
 /// resides in the slot at each index, after the permutation is applied.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -156,6 +161,14 @@ impl<const N: usize> Permutation<N> {
             i += 1;
         }
         true
+    }
+}
+
+impl<const N: usize> Distribution<Permutation<N>> for StandardUniform {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Permutation<N> {
+        let mut out = Permutation::IDENTITY;
+        out.0.as_mut_slice().shuffle(rng);
+        out
     }
 }
 
