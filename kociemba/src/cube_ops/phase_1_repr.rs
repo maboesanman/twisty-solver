@@ -1,3 +1,4 @@
+use num_integer::Integer;
 use pathfinding::num_traits::Euclid;
 
 use crate::tables::{
@@ -91,7 +92,7 @@ impl Phase1InitRepr {
     }
 
     pub fn from_index(index: usize) -> Self {
-        let (edges, corners) = index.div_rem_euclid(&2187);
+        let (edges, corners) = index.div_rem(&2187);
         Self {
             edge_group_orient: EdgeGroupOrientSymCoord(edges as u16),
             corner_orient: CornerOrientRawCoord(corners as u16),

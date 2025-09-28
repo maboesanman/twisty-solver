@@ -98,16 +98,18 @@ impl EdgePerm {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
+    use std::collections::{BTreeMap, BTreeSet, HashSet};
+    use std::sync::Arc;
 
-    use crate::cube_ops::coords::EdgeGroupRawCoord;
-    use crate::cube_ops::cube_move::CubeMove;
+    use crate::cube_ops::coords::{EEdgePermRawCoord, EdgeGroupRawCoord, UDEdgePermRawCoord};
+    use crate::cube_ops::cube_move::{CubeMove, DominoMove};
     use crate::cube_ops::cube_sym::DominoSymmetry;
 
     use super::*;
     use rand::distr::StandardUniform;
     use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
+    use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
     #[test]
     fn basic_join_split() {
@@ -146,8 +148,13 @@ mod test {
             }
 
             for conj in DominoSymmetry::nontrivial_iter() {
-                let (_, ud, e) = joined.domino_conjugate(conj).split();
+                let (p, q) = joined.conjugate_perms(conj.into());
 
+                let (_, ud, e) = p.split();
+                ud_conj.insert(ud.into_coord());
+                e_conj.insert(e.into_coord());
+
+                let (_, ud, e) = q.split();
                 ud_conj.insert(ud.into_coord());
                 e_conj.insert(e.into_coord());
             }
@@ -163,4 +170,82 @@ mod test {
         println!("ud_combo: {}", ud_combo.count());
         println!("e_combo: {}", e_combo.count());
     }
+
+    #[test]
+    fn brute_force_method() {
+        let mut ud_cols: BTreeMap<Arc<[u16; 40320]>, u16> = BTreeMap::new();
+        let mut e_cols: BTreeMap<Arc<[u8; 24]>, u8> = BTreeMap::new();
+
+        // cube moves
+        for g in 0..495 {
+            let group = EdgeGroup::from_coord(EdgeGroupRawCoord(g));
+            for m in CubeMove::all_iter() {
+                let mut col: Box<[u16; 40320]> = vec![0u16; 40320]
+                    .into_boxed_slice()
+                    .try_into()
+                    .unwrap();
+
+                col.par_iter_mut().enumerate().for_each(|(ud, slot)| {
+                    let ud = UDEdgePerm::from_coord(UDEdgePermRawCoord(ud as u16));
+                    let full_edge_perm = EdgePerm::join(group, ud, EEdgePerm::SOLVED);
+                    let (_new_g, new_ud, _new_e) = full_edge_perm.apply_cube_move(m).split();
+
+                    *slot = new_ud.into_coord().0;
+                });
+
+                ud_cols.insert(col.into(), ud_cols.len() as u16);
+
+                let mut col: Box<[u8; 24]> = vec![0u8; 24]
+                    .into_boxed_slice()
+                    .try_into()
+                    .unwrap();
+
+                col.par_iter_mut().enumerate().for_each(|(e, slot)| {
+                    let e = EEdgePerm::from_coord(EEdgePermRawCoord(e as u8));
+                    let full_edge_perm = EdgePerm::join(group, UDEdgePerm::SOLVED, e);
+                    let (_new_g, _new_ud, new_e) = full_edge_perm.apply_cube_move(m).split();
+
+                    *slot = new_e.into_coord().0;
+                });
+
+                e_cols.insert(col.into(), e_cols.len() as u8);
+            }
+
+            for s in DominoSymmetry::nontrivial_iter() {
+                let mut col: Box<[u16; 40320]> = vec![0u16; 40320]
+                    .into_boxed_slice()
+                    .try_into()
+                    .unwrap();
+
+                col.par_iter_mut().enumerate().for_each(|(ud, slot)| {
+                    let ud = UDEdgePerm::from_coord(UDEdgePermRawCoord(ud as u16));
+                    let full_edge_perm = EdgePerm::join(group, ud, EEdgePerm::SOLVED);
+                    let (_new_g, new_ud, _new_e) = full_edge_perm.domino_conjugate(s).split();
+
+                    *slot = new_ud.into_coord().0;
+                });
+
+                ud_cols.insert(col.into(), ud_cols.len() as u16);
+
+                let mut col: Box<[u8; 24]> = vec![0u8; 24]
+                    .into_boxed_slice()
+                    .try_into()
+                    .unwrap();
+
+                col.par_iter_mut().enumerate().for_each(|(e, slot)| {
+                    let e = EEdgePerm::from_coord(EEdgePermRawCoord(e as u8));
+                    let full_edge_perm = EdgePerm::join(group, UDEdgePerm::SOLVED, e);
+                    let (_new_g, _new_ud, new_e) = full_edge_perm.domino_conjugate(s).split();
+
+                    *slot = new_e.into_coord().0;
+                });
+
+                e_cols.insert(col.into(), e_cols.len() as u8);
+            }
+        }
+
+        println!("{:?}", ud_cols.len());
+        println!("{:?}", e_cols.len());
+    }
 }
+

@@ -250,6 +250,26 @@ impl From<DominoMove> for CubeMove {
     }
 }
 
+impl TryFrom<CubeMove> for DominoMove {
+    type Error = CubeMove;
+
+    fn try_from(value: CubeMove) -> Result<Self, Self::Error> {
+        match value {
+            CubeMove::U1 => Ok(DominoMove::U1),
+            CubeMove::U2 => Ok(DominoMove::U2),
+            CubeMove::U3 => Ok(DominoMove::U3),
+            CubeMove::D1 => Ok(DominoMove::D1),
+            CubeMove::D2 => Ok(DominoMove::D2),
+            CubeMove::D3 => Ok(DominoMove::D3),
+            CubeMove::F2 => Ok(DominoMove::F2),
+            CubeMove::B2 => Ok(DominoMove::B2),
+            CubeMove::R2 => Ok(DominoMove::R2),
+            CubeMove::L2 => Ok(DominoMove::L2),
+            _ => Err(value)
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Clone, Copy)]
 #[allow(unused)]

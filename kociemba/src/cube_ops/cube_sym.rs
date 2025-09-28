@@ -276,9 +276,14 @@ impl DominoSymmetry {
 }
 
 impl CornerPerm {
-    pub const fn conjugate(self, sym: CubeSymmetry) -> Self {
+    pub const fn conjugate_perms(self, sym: CubeSymmetry) -> (Self, Self) {
         let perm = CORNER_PERM_LOOKUP[sym.0 as usize];
         let inv_perm = perm.inverse();
+        (perm, inv_perm)
+    }
+
+    pub const fn conjugate(self, sym: CubeSymmetry) -> Self {
+        let (perm, inv_perm) = self.conjugate_perms(sym);
         inv_perm.then(self).then(perm)
     }
 
@@ -288,9 +293,14 @@ impl CornerPerm {
 }
 
 impl EdgePerm {
-    pub const fn conjugate(self, sym: CubeSymmetry) -> Self {
+    pub const fn conjugate_perms(self, sym: CubeSymmetry) -> (Self, Self) {
         let perm = EDGE_PERM_LOOKUP[sym.0 as usize];
         let inv_perm = perm.inverse();
+        (perm, inv_perm)
+    }
+
+    pub const fn conjugate(self, sym: CubeSymmetry) -> Self {
+        let (perm, inv_perm) = self.conjugate_perms(sym);
         inv_perm.then(self).then(perm)
     }
 
