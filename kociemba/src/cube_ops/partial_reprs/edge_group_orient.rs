@@ -8,6 +8,12 @@ use super::{edge_group::EdgeGroup, edge_orient::EdgeOrient, edge_perm::EdgePerm}
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct EdgeGroupOrientRawCoord(pub u32);
 
+impl EdgeGroupOrientRawCoord {
+    pub fn split(self) -> (EdgeGroupRawCoord, EdgeOrientRawCoord) {
+        (EdgeGroupRawCoord((self.0 >> 11) as u16), EdgeOrientRawCoord((self.0 & 0b11111111111) as u16))
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EdgeGroupOrient(pub EdgeGroup, pub EdgeOrient);
 
