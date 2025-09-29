@@ -15,7 +15,7 @@
 // pub mod symmetries;
 pub mod tables;
 
-pub mod search;
+// pub mod search;
 // pub mod repr_phase_1;
 
 pub mod cube_ops;

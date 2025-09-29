@@ -8,7 +8,7 @@ use crate::{
     cube_ops::{
         coords::CornerPermSymCoord, cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::corner_perm::CornerPerm,
     },
-    tables::{lookup_sym_corner_perm::LookupSymCornerPermTable, table_loader::as_u32_slice_mut},
+    tables::{lookup_sym_corner_perm::LookupSymCornerPermTable, table_loader::{as_u16_slice, as_u16_slice_mut, as_u32_slice_mut}},
 };
 
 use super::{
@@ -16,27 +16,19 @@ use super::{
 };
 
 const TABLE_SIZE_BYTES: usize = (2768 * 18) * 2 * 2;
-const FILE_CHECKSUM: u32 = 3661454509;
+const FILE_CHECKSUM: u32 = 110890093;
 
 pub struct MoveSymCornerPermTable(Mmap);
 
-#[derive(Clone, Copy, Debug)]
-#[repr(C)]
-struct Entry {
-    pub sym_coord: CornerPermSymCoord,
-    pub sym_correct: DominoSymmetry,
-}
-
 impl MoveSymCornerPermTable {
-    fn chunks(&self) -> &[[Entry; 18]] {
-        let buffer = as_u32_slice(&self.0);
+    fn chunks(&self) -> &[[u16; 36]] {
+        let buffer = as_u16_slice(&self.0);
         unsafe {
-            let slice: &[[u32; 18]] = buffer.as_chunks_unchecked();
-            core::slice::from_raw_parts(slice.as_ptr() as *const [Entry; 18], slice.len())
+            buffer.as_chunks_unchecked()
         }
     }
 
-    fn chunk(&self, coord: CornerPermSymCoord) -> &[Entry; 18] {
+    fn chunk(&self, coord: CornerPermSymCoord) -> &[u16; 36] {
         &self.chunks()[coord.0 as usize]
     }
 
@@ -45,16 +37,18 @@ impl MoveSymCornerPermTable {
         coord: CornerPermSymCoord,
         mv: CubeMove,
     ) -> (CornerPermSymCoord, DominoSymmetry) {
-        let entry = &self.chunk(coord)[mv.into_index()];
-        (entry.sym_coord, entry.sym_correct)
+        (
+            CornerPermSymCoord(self.chunk(coord)[mv.into_index() * 2]),
+            DominoSymmetry(self.chunk(coord)[mv.into_index() * 2 + 1] as u8),
+        )
     }
 
     fn generate(buffer: &mut [u8], sym_lookup_table: &LookupSymCornerPermTable) {
         assert_eq!(buffer.len(), TABLE_SIZE_BYTES);
-        let buffer = as_u32_slice_mut(buffer);
+        let buffer = as_u16_slice_mut(buffer);
 
         buffer
-            .par_chunks_mut(18)
+            .par_chunks_mut(36)
             .enumerate()
             .for_each(|(i, store)| {
                 let sym_coord = CornerPermSymCoord(i as u16);
@@ -62,16 +56,11 @@ impl MoveSymCornerPermTable {
                 let group_orient = CornerPerm::from_coord(rep);
 
                 CubeMove::all_iter()
-                    .zip(store.iter_mut())
+                    .zip(store.as_chunks_mut::<2>().0)
                     .for_each(|(mv, slot)| {
                         let new_rep = group_orient.apply_cube_move(mv).into_coord();
                         let (sym_coord, sym_correct) = sym_lookup_table.get_sym_from_raw(new_rep);
-                        *slot = unsafe {
-                            core::mem::transmute(Entry {
-                                sym_coord,
-                                sym_correct,
-                            })
-                        };
+                        *slot = [sym_coord.0, sym_correct.0 as u16];
                     });
             })
     }

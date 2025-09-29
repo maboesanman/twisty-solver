@@ -3,7 +3,7 @@ use std::num::{NonZeroU32, NonZeroU64};
 use num_integer::Integer;
 use pathfinding::num_traits::Euclid;
 
-use crate::{cube_ops::{coords::{CornerOrientRawCoord, CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupOrientSymCoord, EdgeOrientRawCoord, UDEdgePermRawCoord}, cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::{edge_orient::EdgeOrient, edge_perm::EdgePerm}, repr_cube::ReprCube}, tables};
+use crate::{cube_ops::{coords::{CornerOrientRawCoord, CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupOrientSymCoord, EdgeOrientRawCoord, UDEdgePermRawCoord}, cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::{corner_perm, edge_orient::EdgeOrient, edge_perm::EdgePerm}, repr_cube::ReprCube}, tables};
 
 
 // AAAA_BBBBBBBBBBBB_CCCCCCCCCCCCCCCC___DDDDD_EEEEEEEEEEEEEEEEEEEEEEEEEEE
@@ -67,9 +67,17 @@ impl SymReducedPhase1Repr {
 
         Self(val)
     }
+
+    fn into_pruning_index(self) -> usize {
+        let corner = ((self.0 >> 48) & 0xFFF) as usize;
+        let edge = ((self.0 >> 32) & 0x0000_0000_0000_FFFF) as usize;
+        edge * 2187 + corner
+    }
 }
 
 impl SymReducedPhase2Repr {
+    pub const SOLVED: Self = { Self(0) };
+
     pub fn e_edge_perm_coord(self) -> EEdgePermRawCoord {
         EEdgePermRawCoord(((self.0 >> 27) & 0b11111) as u8)
     }
@@ -91,5 +99,84 @@ impl SymReducedPhase2Repr {
 
         Self(val)
     }
+
+    pub fn into_pruning_index(self) -> usize {
+        (self.0 & 0b_111_111_111_111_111_111_111_111_111) as usize
+    }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(C)]
+pub struct SymReducedPhase1PartialRepr {
+    edge_group_orient: EdgeGroupOrientSymCoord,
+    corner_orient: CornerOrientRawCoord,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(C)]
+pub struct SymReducedPhase2PartialRepr {
+    corner_perm: CornerPermSymCoord,
+    ud_edge_perm: UDEdgePermRawCoord,
+}
+
+
+impl SymReducedPhase1PartialRepr {
+    pub const SOLVED: Self = Self { edge_group_orient: EdgeGroupOrientSymCoord(0), corner_orient: CornerOrientRawCoord(0) };
+
+    pub fn get_corner_orient_coord(self) -> CornerOrientRawCoord {
+        self.corner_orient
+    }
+
+    pub fn get_edge_group_orient_sym_coord(self) -> EdgeGroupOrientSymCoord {
+        self.edge_group_orient
+    }
+
+    pub fn from_coords(
+        edge_group_orient: EdgeGroupOrientSymCoord,
+        corner_orient: CornerOrientRawCoord,
+    ) -> Self {
+        Self {
+            edge_group_orient,
+            corner_orient
+        }
+    }
+
+    pub fn from_pruning_index(index: usize) -> Self {
+        let (div, rem) = index.div_rem(&2187);
+        Self::from_coords(EdgeGroupOrientSymCoord(div as u16), CornerOrientRawCoord(rem as u16))
+    }
+
+    pub fn into_pruning_index(self) -> usize {
+        (self.edge_group_orient.0 as usize) * 2187 + (self.corner_orient.0 as usize)
+    }
+}
+
+impl SymReducedPhase2PartialRepr {
+    pub const SOLVED: Self = Self { corner_perm: CornerPermSymCoord(0), ud_edge_perm: UDEdgePermRawCoord(0) };
+
+    pub fn get_ud_edge_perm_coord(self) -> UDEdgePermRawCoord {
+        self.ud_edge_perm
+    }
+
+    pub fn get_corner_perm_sym_coord(self) -> CornerPermSymCoord {
+        self.corner_perm
+    }
+
+    pub fn from_coords(
+        corner_perm: CornerPermSymCoord,
+        ud_edge_perm: UDEdgePermRawCoord,
+    ) -> Self {
+        Self {
+            corner_perm, ud_edge_perm
+        }
+    }
+
+    pub fn from_pruning_index(index: usize) -> Self {
+        let (div, rem) = index.div_rem(&40320);
+        Self::from_coords(CornerPermSymCoord(div as u16), UDEdgePermRawCoord(rem as u16))
+    }
+
+    pub fn into_pruning_index(self) -> usize {
+        (self.corner_perm.0 as usize) * 40320 + (self.ud_edge_perm.0 as usize)
+    }
+}

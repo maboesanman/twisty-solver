@@ -9,20 +9,20 @@ use anyhow::Result;
 use memmap2::Mmap;
 
 use crate::cube_ops::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
-use crate::cube_ops::repr_coord::SymReducedPhase1PartialRepr;
+use crate::cube_ops::repr_coord::{SymReducedPhase1PartialRepr, SymReducedPhase2PartialRepr};
 use crate::tables::Tables;
 
 use super::move_raw_corner_orient::MoveRawCornerOrientTable;
 use super::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
-const TABLE_SIZE_BYTES: usize = (64430 * 2187) / 4 + 1;
-const FILE_CHECKSUM: u32 = 3247267664;
+const TABLE_SIZE_BYTES: usize = (2768 * 40320) / 4;
+const FILE_CHECKSUM: u32 = 2553198974;
 
 struct WorkingTable<'a>(&'a [AtomicU8]);
 
 impl<'a> WorkingTable<'a> {
-    fn visited(&self, coords: SymReducedPhase1PartialRepr) -> bool {
+    fn visited(&self, coords: SymReducedPhase2PartialRepr) -> bool {
         let i = coords.into_pruning_index();
 
         let j = i % 4;
@@ -36,7 +36,7 @@ impl<'a> WorkingTable<'a> {
         atomic.load(Ordering::Relaxed) & mask != 0
     }
 
-    fn visited_at_level_residue(&self, coords: SymReducedPhase1PartialRepr, level_residue: u8) -> bool {
+    fn visited_at_level_residue(&self, coords: SymReducedPhase2PartialRepr, level_residue: u8) -> bool {
         let i = coords.into_pruning_index();
 
         let j = i % 4;
@@ -53,7 +53,7 @@ impl<'a> WorkingTable<'a> {
     }
 
     /// write to the table. returns true if write was successful and the moves from here should be handled.
-    fn write(&self, coords: SymReducedPhase1PartialRepr, level_residue: u8) -> bool {
+    fn write(&self, coords: SymReducedPhase2PartialRepr, level_residue: u8) -> bool {
         let i = coords.into_pruning_index();
 
         let j = i % 4;
@@ -82,10 +82,10 @@ impl<'a> WorkingTable<'a> {
     }
 }
 
-pub struct PrunePhase1Table(Mmap);
+pub struct PrunePhase2Table(Mmap);
 
-impl PrunePhase1Table {
-    pub fn get_value(&self, coords: SymReducedPhase1PartialRepr) -> u8 {
+impl PrunePhase2Table {
+    pub fn get_value(&self, coords: SymReducedPhase2PartialRepr) -> u8 {
         let i = coords.into_pruning_index();
 
         let j = i % 4;
@@ -106,7 +106,7 @@ impl PrunePhase1Table {
         let working = WorkingTable(atom);
 
         // initial state
-        let root = SymReducedPhase1PartialRepr::SOLVED;
+        let root = SymReducedPhase2PartialRepr::SOLVED;
 
         working.write(root, 1);
         
@@ -119,9 +119,9 @@ impl PrunePhase1Table {
             let frontier_residue = (frontier_level % 3) + 1;
             let next_residue = ((frontier_level + 1) % 3) + 1;
             println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
-            let unvisited = 64430 * 2187 - total_visited;
+            let unvisited = 2768 * 40320 - total_visited;
             let use_bottom_up =
-                frontier.len() * /* degree of graph */ 18 > unvisited; // cheap heuristic
+                frontier.len() * /* degree of graph */ 10 > unvisited; // cheap heuristic
 
             let use_bottom_up = true;
 
@@ -129,7 +129,7 @@ impl PrunePhase1Table {
                 /* ---------- top-down ---------- */
                 frontier
                     .par_iter()
-                    .flat_map_iter(|&v| tables.phase_1_partial_adjacent(v))
+                    .flat_map_iter(|&v| tables.phase_2_partial_adjacent(v))
                     .filter_map(|nbr| {
                         if working.write(nbr, next_residue) {
                             Some(nbr)
@@ -140,13 +140,13 @@ impl PrunePhase1Table {
                     .collect()
             } else {
                 /* ---------- bottom-up ---------- */
-                (0..(64430*2187)).into_par_iter()
-                    .map(|i| SymReducedPhase1PartialRepr::from_pruning_index(i))
+                (0..(2768 * 40320)).into_par_iter()
+                    .map(|i| SymReducedPhase2PartialRepr::from_pruning_index(i))
                     .filter_map(|v| {
                         if working.visited(v) {
                             return None;                // already discovered
                         }
-                        for nbr in tables.phase_1_partial_adjacent(v) {
+                        for nbr in tables.phase_2_partial_adjacent(v) {
                             if working.visited_at_level_residue(nbr, frontier_residue) {
                                 if working.write(v, next_residue) {
                                     return Some(v)
@@ -184,7 +184,11 @@ impl PrunePhase1Table {
 
 // #[cfg(test)]
 // mod test {
-//     use crate::tables::{lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table};
+
+//     use crate::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
+
+//     use super::*;
+//     // use crate::tables::{lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable};
 
 //     #[test]
 //     fn generate() {
@@ -202,7 +206,7 @@ impl PrunePhase1Table {
 //         let move_sym_edge_group_orient_ref = &move_sym_edge_group_orient;
 //         let move_raw_corner_orient_ref = &move_raw_corner_orient;
 
-//         let prune_phase_1 = PrunePhase1Table::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
+//         let prune_phase_1 = PrunePhase2Table::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
 
 
 

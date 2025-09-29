@@ -15,7 +15,7 @@ use super::table_loader::{
 };
 
 const TABLE_SIZE_BYTES: usize = 2768 * 2;
-const FILE_CHECKSUM: u32 = 4289933358;
+const FILE_CHECKSUM: u32 = 2748406986;
 
 pub struct LookupSymCornerPermTable(Mmap);
 

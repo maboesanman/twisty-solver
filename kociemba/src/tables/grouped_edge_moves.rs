@@ -190,6 +190,37 @@ impl GroupedEdgeMovesTable {
         self.update_edge_perms_phase_2_shared(sub_i, ud_edge_perm, e_edge_perm)
     }
 
+    fn update_edge_perms_phase_2_partial_shared(
+        &self,
+        sub_i: usize,
+        ud_edge_perm: UDEdgePermRawCoord,
+    ) -> UDEdgePermRawCoord {
+        let ud = as_u16_slice(&self.ud_edge_perm_mult)[1123 * ud_edge_perm.0 as usize + sub_i];
+
+        UDEdgePermRawCoord(ud)
+    }
+
+    pub fn update_edge_perm_phase_2_partial_domino_move(
+        &self,
+        domino_move: DominoMove,
+        ud_edge_perm: UDEdgePermRawCoord,
+    ) -> UDEdgePermRawCoord {
+        let sub_i = CubeMove::from(domino_move).into_index();
+        self.update_edge_perms_phase_2_partial_shared(sub_i, ud_edge_perm)
+    }
+
+    pub fn update_edge_perm_phase_2_partial_domino_symmetry(
+        &self,
+        domino_symmetry: DominoSymmetry,
+        ud_edge_perm: UDEdgePermRawCoord,
+    ) -> UDEdgePermRawCoord {
+        let sub_i = match domino_symmetry.into_index().checked_sub(1) {
+            Some(i) => i + 18,
+            None => return ud_edge_perm,
+        };
+        self.update_edge_perms_phase_2_partial_shared(sub_i, ud_edge_perm)
+    }
+
     #[inline]
     fn get_restriction_table_index_ud(i: usize) -> usize {
         3 * (i >> 1) + 2 * (i & 1)
