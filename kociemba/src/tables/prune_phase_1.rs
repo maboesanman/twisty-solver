@@ -85,8 +85,8 @@ impl<'a> WorkingTable<'a> {
 pub struct PrunePhase1Table(Mmap);
 
 impl PrunePhase1Table {
-    pub fn get_value(&self, coords: SymReducedPhase1PartialRepr) -> u8 {
-        let i = coords.into_pruning_index();
+    pub fn get_value(&self, pruning_index: usize) -> u8 {
+        let i = pruning_index;
 
         let j = i % 4;
         let i = i / 4;

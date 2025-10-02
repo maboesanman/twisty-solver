@@ -71,33 +71,29 @@ impl LookupSymEdgeGroupOrientTable {
 
 #[cfg(test)]
 mod test {
+    use num_integer::Integer;
+
+    use crate::{cube_ops::coords::{EdgeGroupRawCoord, EdgeOrientRawCoord}, tables::Tables};
 
     use super::*;
 
     #[test]
-    fn loads() {
-        let _ =
-            LookupSymEdgeGroupOrientTable::load("edge_group_orient_sym_lookup_table.dat").unwrap();
-    }
+    fn test() -> Result<()> {
+        let tables = Tables::new("tables")?;
 
-    #[test]
-    fn reversible() {
-        let table =
-            LookupSymEdgeGroupOrientTable::load("edge_group_orient_sym_lookup_table.dat").unwrap();
+        let table = &tables.lookup_sym_edge_group_orient;
 
-        (0..64430).into_par_iter().for_each(|i| {
-            let sym_coord = EdgeGroupOrientSymCoord(i);
-            let rep_raw = table.get_raw_from_sym(sym_coord);
-            let rep_group_orient = EdgeGroupOrient::from_coord(rep_raw);
+        (0u32..(2048 * 495)).into_par_iter().for_each(|i| {
+            let raw_coord = EdgeGroupOrientRawCoord(i);
+            let edge_group_orient = EdgeGroupOrient::from_coord(raw_coord);
+            
+            let (sym_coord, sym) = table.get_sym_from_raw(raw_coord);
+            let updated_raw = edge_group_orient.domino_conjugate(sym).into_coord();
+            let rep_coord = table.get_raw_from_sym(sym_coord);
 
-            for sym_coord_again in DominoSymmetry::all_iter().map(|sym| {
-                let (rep, _rev_sym) =
-                    table.get_sym_from_raw(rep_group_orient.domino_conjugate(sym).into_coord());
-
-                rep
-            }) {
-                assert_eq!(sym_coord, sym_coord_again);
-            }
+            assert_eq!(rep_coord, updated_raw)
         });
+    
+        Ok(())
     }
 }

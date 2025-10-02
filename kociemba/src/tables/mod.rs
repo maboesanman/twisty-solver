@@ -10,15 +10,16 @@ use prune_phase_1::PrunePhase1Table;
 use crate::{
     cube_ops::{
         cube_move::{CubeMove, DominoMove},
-        partial_reprs::e_edge_perm,
+        partial_reprs::{e_edge_perm, edge_group_orient::EdgeGroupOrientRawCoord},
         repr_coord::{
             SymReducedPhase1PartialRepr, SymReducedPhase1Repr, SymReducedPhase2PartialRepr,
             SymReducedPhase2Repr,
         },
+        repr_cube::ReprCube,
     },
     tables::{
         grouped_edge_moves::GroupedEdgeMovesTable, move_sym_corner_perm::MoveSymCornerPermTable,
-        prune_phase_2::PrunePhase2Table,
+        prune_phase_2::PrunePhase2Table, prune_phase_2_corner_perm::PrunePhaseCornerTable,
     },
 };
 
@@ -32,23 +33,11 @@ pub mod move_sym_edge_group_orient;
 
 pub mod prune_phase_1;
 pub mod prune_phase_2;
+pub mod prune_phase_2_corner_perm;
 
 pub mod grouped_edge_moves;
 
 mod table_loader;
-
-pub struct Tables {
-    lookup_sym_edge_group_orient: LookupSymEdgeGroupOrientTable,
-    lookup_sym_corner_perm: LookupSymCornerPermTable,
-
-    move_raw_corner_orient: MoveRawCornerOrientTable,
-    move_sym_edge_group_orient: MoveSymEdgeGroupOrientTable,
-    move_sym_corner_perm: MoveSymCornerPermTable,
-    grouped_edge_moves: GroupedEdgeMovesTable,
-
-    prune_phase_1: MaybeUninit<PrunePhase1Table>,
-    prune_phase_2: MaybeUninit<PrunePhase2Table>,
-}
 
 const MOVE_RAW_CORNER_ORIENT_TABLE_NAME: &'static str = "move_raw_corner_orient_table.dat";
 const MOVE_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &'static str = "move_sym_edge_group_orient_table.dat";
@@ -62,6 +51,21 @@ const GROUPED_EDGE_MOVES_UD_TABLE_NAME: &'static str = "grouped_edge_moves_ud_ta
 const GROUPED_EDGE_MOVES_E_TABLE_NAME: &'static str = "grouped_edge_moves_e_table.dat";
 const MOVE_SYM_CORNER_PERM_TABLE_NAME: &'static str = "move_sym_corner_perm_table.dat";
 const PRUNE_PHASE_2_TABLE_NAME: &'static str = "prune_phase_2_table.dat";
+const PRUNE_PHASE_2_CORNER_PERM_TABLE_NAME: &'static str = "prune_phase_2_corner_perm_table.dat";
+
+pub struct Tables {
+    pub(crate) lookup_sym_edge_group_orient: LookupSymEdgeGroupOrientTable,
+    pub(crate) lookup_sym_corner_perm: LookupSymCornerPermTable,
+
+    pub(crate) move_raw_corner_orient: MoveRawCornerOrientTable,
+    pub(crate) move_sym_edge_group_orient: MoveSymEdgeGroupOrientTable,
+    pub(crate) move_sym_corner_perm: MoveSymCornerPermTable,
+    pub(crate) grouped_edge_moves: GroupedEdgeMovesTable,
+
+    pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
+    pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
+    // pub(crate) prune_phase_2_corner_perm: MaybeUninit<PrunePhaseCornerTable>,
+}
 
 impl Tables {
     pub fn new<P>(folder: P) -> anyhow::Result<Self>
@@ -103,14 +107,56 @@ impl Tables {
             lookup_sym_corner_perm,
             move_sym_corner_perm,
             prune_phase_2: MaybeUninit::uninit(),
+            // prune_phase_2_corner_perm: MaybeUninit::uninit(),
         };
 
-        *unsafe { working.prune_phase_1.assume_init_mut() } =
-            PrunePhase1Table::load(folder.join(PRUNE_PHASE_1_TABLE_NAME), &working)?;
-        *unsafe { working.prune_phase_2.assume_init_mut() } =
-            PrunePhase2Table::load(folder.join(PRUNE_PHASE_2_TABLE_NAME), &working)?;
+        working.prune_phase_1.write(PrunePhase1Table::load(folder.join(PRUNE_PHASE_1_TABLE_NAME), &working)?);
+        working.prune_phase_2.write(PrunePhase2Table::load(folder.join(PRUNE_PHASE_2_TABLE_NAME), &working)?);
+        // working.prune_phase_2_corner_perm.write(PrunePhaseCornerTable::load(folder.join(PRUNE_PHASE_2_CORNER_PERM_TABLE_NAME), &working)?);
 
         Ok(working)
+    }
+
+    pub fn sym_reduce_cube(&self, cube: ReprCube) -> SymReducedPhase1Repr {
+        let (edge_group, ud_edge_perm, e_edge_perm) = cube.edge_perm.split();
+        let edge_group_raw = edge_group.into_coord();
+        let ud_edge_perm_raw = ud_edge_perm.into_coord();
+        let e_edge_perm_raw = e_edge_perm.into_coord();
+        let edge_orient_raw = cube.edge_orient.into_coord();
+        let corner_orient_raw = cube.corner_orient.into_coord();
+
+        let (edge_group_orient, sym) =
+            self.lookup_sym_edge_group_orient
+                .get_sym_from_raw(EdgeGroupOrientRawCoord::join(
+                    edge_group_raw,
+                    edge_orient_raw,
+                ));
+        let (ud_edge_perm, e_edge_perm) =
+            self.grouped_edge_moves.update_edge_perms_domino_conjugate(
+                edge_group_raw,
+                sym,
+                ud_edge_perm_raw,
+                e_edge_perm_raw,
+            );
+        let corner_orient = self
+            .move_raw_corner_orient
+            .domino_conjugate(corner_orient_raw, sym);
+
+        let corner_perm_raw = cube.corner_perm.into_coord();
+        let (corner_perm, correction) = self
+            .lookup_sym_corner_perm
+            .get_sym_from_raw(corner_perm_raw);
+
+        let corner_perm_correction = correction.then(sym);
+
+        SymReducedPhase1Repr::from_coords(
+            corner_orient,
+            edge_group_orient,
+            e_edge_perm,
+            ud_edge_perm,
+            corner_perm,
+            corner_perm_correction,
+        )
     }
 
     pub fn phase_1_adjacent(
@@ -174,30 +220,6 @@ impl Tables {
                 new_corner_perm_correction,
             )
         })
-    }
-
-    pub fn phase_change(
-        &self,
-        cube: SymReducedPhase1Repr,
-    ) -> Result<SymReducedPhase2Repr, SymReducedPhase1Repr> {
-        if 0x0FFFFFFF00000000 & cube.0 == 0 {
-            let conj = cube.corner_perm_sym_correction().inverse();
-
-            let (ud_edge_perm, corner_perm) = cube.ud_edge_and_corner_perm_coords();
-            let e_edge_perm = cube.e_edge_perm_coord();
-
-            let (new_ud_edge_perm, new_e_edge_perm) = self
-                .grouped_edge_moves
-                .update_edge_perm_phase_2_domino_symmetry(conj, ud_edge_perm, e_edge_perm);
-
-            Ok(SymReducedPhase2Repr::from_coords(
-                new_e_edge_perm,
-                new_ud_edge_perm,
-                corner_perm,
-            ))
-        } else {
-            Err(cube)
-        }
     }
 
     pub fn phase_2_adjacent(
@@ -275,11 +297,72 @@ impl Tables {
             SymReducedPhase2PartialRepr::from_coords(new_corner_perm, new_ud_edge_perm)
         })
     }
+
+    pub fn phase_change(
+        &self,
+        cube: SymReducedPhase1Repr,
+    ) -> Result<SymReducedPhase2Repr, SymReducedPhase1Repr> {
+        if 0x0FFFFFFF00000000 & cube.0 == 0 {
+            let conj = cube.corner_perm_sym_correction().inverse();
+
+            let (ud_edge_perm, corner_perm) = cube.ud_edge_and_corner_perm_coords();
+            let e_edge_perm = cube.e_edge_perm_coord();
+
+            let (new_ud_edge_perm, new_e_edge_perm) = self
+                .grouped_edge_moves
+                .update_edge_perm_phase_2_domino_symmetry(conj, ud_edge_perm, e_edge_perm);
+
+            Ok(SymReducedPhase2Repr::from_coords(
+                new_e_edge_perm,
+                new_ud_edge_perm,
+                corner_perm,
+            ))
+        } else {
+            Err(cube)
+        }
+    }
+
+    pub fn phase_1_prune_dist_mod_3(&self, cube: SymReducedPhase1Repr) -> u8 {
+        unsafe { self.prune_phase_1.assume_init_ref() }.get_value(cube.into_pruning_index())
+    }
+
+    pub fn phase_2_prune_dist_mod_3(&self, cube: SymReducedPhase2Repr) -> u8 {
+        unsafe { self.prune_phase_2.assume_init_ref() }.get_value(cube.into_pruning_index())
+    }
 }
 
-#[test]
-fn gen_tables() -> anyhow::Result<()> {
-    let _ = Tables::new("tables")?;
+#[cfg(test)]
+mod test {
+use std::collections::HashSet;
 
-    Ok(())
+use rand::distr::{Distribution, StandardUniform};
+
+use super::*;
+    #[test]
+    fn gen_tables() -> anyhow::Result<()> {
+        let _ = Tables::new("tables")?;
+    
+        Ok(())
+    }
+    
+    #[test]
+    fn some_ops() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        use rand::{Rng, SeedableRng};
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(18);
+    
+    
+        for _ in 0..10 {
+            let cube: ReprCube = StandardUniform.sample(&mut rng);
+
+            let sym_reduced = tables.sym_reduce_cube(cube);
+            let sym_neighbors: HashSet<_> = tables.phase_1_adjacent(sym_reduced).into_iter().collect();
+
+            for mv in CubeMove::all_iter() {
+                assert!(sym_neighbors.contains(&tables.sym_reduce_cube(cube.apply_cube_move(mv))));
+            }
+        }
+
+        Ok(())
+    }
 }

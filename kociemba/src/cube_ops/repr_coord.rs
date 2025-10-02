@@ -68,7 +68,7 @@ impl SymReducedPhase1Repr {
         Self(val)
     }
 
-    fn into_pruning_index(self) -> usize {
+    pub fn into_pruning_index(self) -> usize {
         let corner = ((self.0 >> 48) & 0xFFF) as usize;
         let edge = ((self.0 >> 32) & 0x0000_0000_0000_FFFF) as usize;
         edge * 2187 + corner

@@ -4,7 +4,6 @@ use crate::{
     cube, cube_ops::{
         coords::{CornerOrientRawCoord, EdgeGroupRawCoord, EdgeOrientRawCoord},
         cube_move::CubeMove,
-        phase_1_repr::Phase1InitRepr,
         repr_cube::ReprCube,
     }, tables::{
         lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable,

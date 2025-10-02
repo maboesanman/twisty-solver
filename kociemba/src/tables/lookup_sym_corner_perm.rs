@@ -66,10 +66,31 @@ impl LookupSymCornerPermTable {
     }
 }
 
-#[test]
-fn test() -> Result<()> {
-    // let corner_table = MoveRawCornerPermTable::load("corner_perm_move_table.dat")?;
-    let _ = LookupSymCornerPermTable::load("corner_perm_sym_lookup_table.dat")?;
+#[cfg(test)]
+mod test {
+    use crate::tables::Tables;
 
-    Ok(())
+    use super::*;
+
+    #[test]
+    fn test() -> Result<()> {
+        let tables = Tables::new("tables")?;
+
+        let table = &tables.lookup_sym_corner_perm;
+
+        (0..40320).into_par_iter().for_each(|i| {
+            let raw_coord = CornerPermRawCoord(i);
+            let corner_perm = CornerPerm::from_coord(raw_coord);
+            
+            let (sym_coord, sym) = table.get_sym_from_raw(raw_coord);
+            let updated_raw = corner_perm.domino_conjugate(sym).into_coord();
+            let rep_coord = table.get_raw_from_sym(sym_coord);
+
+            assert_eq!(rep_coord, updated_raw)
+        });
+    
+        Ok(())
+    }
 }
+
+

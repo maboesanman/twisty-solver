@@ -12,6 +12,10 @@ impl EdgeGroupOrientRawCoord {
     pub fn split(self) -> (EdgeGroupRawCoord, EdgeOrientRawCoord) {
         (EdgeGroupRawCoord((self.0 >> 11) as u16), EdgeOrientRawCoord((self.0 & 0b11111111111) as u16))
     }
+
+    pub fn join(group: EdgeGroupRawCoord, orient: EdgeOrientRawCoord) -> Self {
+        Self(((group.0 as u32) << 11) & (orient.0 as u32))
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

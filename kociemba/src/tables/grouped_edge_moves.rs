@@ -10,7 +10,7 @@ use itertools::Itertools;
 use memmap2::Mmap;
 use rayon::prelude::*;
 
-use crate::cube_ops::{
+use crate::{cube_ops::{
     coords::{
         CornerPermRawCoord, CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupRawCoord,
         UDEdgePermRawCoord,
@@ -24,7 +24,7 @@ use crate::cube_ops::{
         edge_perm::EdgePerm,
         ud_edge_perm::{self, UDEdgePerm},
     },
-};
+}, tables::Tables};
 
 use super::table_loader::{
     as_u16_slice, as_u16_slice_mut, collect_unique_sorted_parallel, load_table,
@@ -50,46 +50,6 @@ impl RestrictedUDEdgePermCoord {
     }
     fn phase_2_from_domino_symmetry(mv: DominoSymmetry) -> Self {
         Self((mv.0) as u16)
-    }
-}
-
-// ud: 10.1 (1123)
-// e:   7.1 (135)
-
-//  16  8  8  16
-// [ud][e][e][ud]
-// ud(i) = 3 * (i >> 1) + 2 * (i & 1) <- index into u16 array
-// e(i) = 3 * i + (((!i) & 1) << 1) <- index into u8 array
-
-#[derive(Copy, Clone, Debug)]
-// only 11 bits. 1123 possible values
-#[repr(transparent)]
-struct RestrictedEEdgePermCoord(u8);
-
-impl RestrictedEEdgePermCoord {
-    fn phase_2_from_domino_move(mv: DominoMove) -> Self {
-        Self(mv as u8 + 9)
-    }
-    fn phase_2_from_domino_symmetry(mv: DominoSymmetry) -> Self {
-        Self(mv.0 + 9)
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-#[repr(transparent)]
-struct ReducedPermEntry(u16);
-
-impl ReducedPermEntry {
-    pub fn new(ud: RestrictedUDEdgePermCoord, e: RestrictedEEdgePermCoord) -> Self {
-        Self(((e.0 as u16) << 10) | ud.0)
-    }
-
-    pub fn get_ud(self) -> RestrictedUDEdgePermCoord {
-        RestrictedUDEdgePermCoord(self.0 & (0b0000001111111111))
-    }
-
-    pub fn get_e(self) -> RestrictedEEdgePermCoord {
-        RestrictedEEdgePermCoord((self.0 >> 10) as u8)
     }
 }
 
@@ -468,11 +428,9 @@ impl GroupedEdgeMovesTable {
 #[test]
 fn test() -> Result<()> {
     // let corner_table = MoveRawCornerPermTable::load("corner_perm_move_table.dat")?;
-    let _ = GroupedEdgeMovesTable::load(
-        "grouped_edge_move_restricted_table.dat",
-        "grouped_edge_move_ud_table.dat",
-        "grouped_edge_move_e_table.dat",
-    )?;
+    let tables = Tables::new("tables")?;
+
+    let table = &tables.grouped_edge_moves;
 
     Ok(())
 }
