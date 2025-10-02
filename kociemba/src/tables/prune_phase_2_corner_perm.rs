@@ -1,20 +1,16 @@
 use rand::distr::Distribution;
 use rayon::prelude::*;
-use std::collections::HashSet;
-use std::sync::atomic::{fence, AtomicU8, Ordering};
 
 use std::path::Path;
 
 use anyhow::Result;
 use memmap2::Mmap;
 
-use crate::cube_ops::coords::{CornerOrientRawCoord, CornerPermSymCoord, EdgeGroupOrientSymCoord, UDEdgePermRawCoord};
-use crate::cube_ops::repr_coord::{SymReducedPhase1PartialRepr, SymReducedPhase2PartialRepr, SymReducedPhase2Repr};
+use crate::cube_ops::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
+use crate::cube_ops::repr_coord::SymReducedPhase2PartialRepr;
 use crate::tables::Tables;
 
-use super::move_raw_corner_orient::MoveRawCornerOrientTable;
-use super::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
-use super::table_loader::{as_atomic_u8_slice, load_table};
+use super::table_loader::load_table;
 
 const TABLE_SIZE_BYTES: usize = 2768;
 const FILE_CHECKSUM: u32 = 2553198974;
@@ -39,7 +35,7 @@ impl<'a> WorkingTable<'a> {
         let i = coords.0 as usize;
 
         if i == 0 {
-            return false
+            return false;
         }
 
         let result = self.0[i] == 0;
@@ -58,38 +54,37 @@ impl PrunePhaseCornerTable {
         self.0[i]
     }
 
-    fn generate(
-        buffer: &mut [u8],
-        tables: &Tables,
-    ) {
+    fn generate(buffer: &mut [u8], tables: &Tables) {
         let mut working = WorkingTable(buffer);
 
         // initial state
         let root = SymReducedPhase2PartialRepr::SOLVED;
 
         working.write(root.get_corner_perm_sym_coord(), 1);
-        
+
         let mut frontier = vec![root.get_corner_perm_sym_coord()];
         let mut frontier_level = 0u8;
-        
 
         while !frontier.is_empty() {
             let next_level = frontier_level + 1;
             println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
-            
+
             /* ---------- bottom-up ---------- */
-            frontier = (0..2768).into_iter()
-                .map(|i| CornerPermSymCoord(i))
+            frontier = (0..2768)
+                .map(CornerPermSymCoord)
                 .filter_map(|v| {
                     if working.visited(v) {
-                        return None;                // already discovered
+                        return None; // already discovered
                     }
-                    for nbr in tables.phase_2_partial_adjacent(SymReducedPhase2PartialRepr::from_coords(v, UDEdgePermRawCoord(0))) {
-                        if working.visited_at_level(nbr.get_corner_perm_sym_coord(), frontier_level) {
+                    for nbr in tables.phase_2_partial_adjacent(
+                        SymReducedPhase2PartialRepr::from_coords(v, UDEdgePermRawCoord(0)),
+                    ) {
+                        if working.visited_at_level(nbr.get_corner_perm_sym_coord(), frontier_level)
+                        {
                             if working.write(v, next_level) {
-                                return Some(v)
+                                return Some(v);
                             } else {
-                                return None
+                                return None;
                             }
                         }
                     }
@@ -103,10 +98,7 @@ impl PrunePhaseCornerTable {
         println!("{frontier_level:?}");
     }
 
-    pub fn load<P: AsRef<Path>>(
-        path: P,
-        tables: &Tables,
-    ) -> Result<Self> {
+    pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, tables)
         })
@@ -139,8 +131,6 @@ impl PrunePhaseCornerTable {
 //         let move_raw_corner_orient_ref = &move_raw_corner_orient;
 
 //         let prune_phase_1 = PrunePhaseCornerTable::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
-
-
 
 //     }
 // }
@@ -203,5 +193,3 @@ impl PrunePhaseCornerTable {
 
 //     Ok(())
 // }
-
-

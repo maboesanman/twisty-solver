@@ -6,14 +6,16 @@ use rayon::prelude::*;
 
 use crate::{
     cube_ops::{
-        coords::CornerPermSymCoord, cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::corner_perm::CornerPerm,
+        coords::CornerPermSymCoord, cube_move::CubeMove, cube_sym::DominoSymmetry,
+        partial_reprs::corner_perm::CornerPerm,
     },
-    tables::{lookup_sym_corner_perm::LookupSymCornerPermTable, table_loader::{as_u16_slice, as_u16_slice_mut, as_u32_slice_mut}},
+    tables::{
+        lookup_sym_corner_perm::LookupSymCornerPermTable,
+        table_loader::{as_u16_slice, as_u16_slice_mut},
+    },
 };
 
-use super::{
-    table_loader::{as_u32_slice, load_table},
-};
+use super::table_loader::load_table;
 
 const TABLE_SIZE_BYTES: usize = (2768 * 18) * 2 * 2;
 const FILE_CHECKSUM: u32 = 110890093;
@@ -23,9 +25,7 @@ pub struct MoveSymCornerPermTable(Mmap);
 impl MoveSymCornerPermTable {
     fn chunks(&self) -> &[[u16; 36]] {
         let buffer = as_u16_slice(&self.0);
-        unsafe {
-            buffer.as_chunks_unchecked()
-        }
+        unsafe { buffer.as_chunks_unchecked() }
     }
 
     fn chunk(&self, coord: CornerPermSymCoord) -> &[u16; 36] {

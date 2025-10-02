@@ -1,19 +1,15 @@
 use rand::distr::Distribution;
 use rayon::prelude::*;
-use std::collections::HashSet;
-use std::sync::atomic::{fence, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering, fence};
 
 use std::path::Path;
 
 use anyhow::Result;
 use memmap2::Mmap;
 
-use crate::cube_ops::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
-use crate::cube_ops::repr_coord::{SymReducedPhase1PartialRepr, SymReducedPhase2PartialRepr};
+use crate::cube_ops::repr_coord::SymReducedPhase2PartialRepr;
 use crate::tables::Tables;
 
-use super::move_raw_corner_orient::MoveRawCornerOrientTable;
-use super::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
 const TABLE_SIZE_BYTES: usize = (2768 * 40320) / 4;
@@ -36,7 +32,11 @@ impl<'a> WorkingTable<'a> {
         atomic.load(Ordering::Relaxed) & mask != 0
     }
 
-    fn visited_at_level_residue(&self, coords: SymReducedPhase2PartialRepr, level_residue: u8) -> bool {
+    fn visited_at_level_residue(
+        &self,
+        coords: SymReducedPhase2PartialRepr,
+        level_residue: u8,
+    ) -> bool {
         let i = coords.into_pruning_index();
 
         let j = i % 4;
@@ -98,10 +98,7 @@ impl PrunePhase2Table {
         ((byte >> shift) & 0b11) - 1
     }
 
-    fn generate(
-        buffer: &mut [u8],
-        tables: &Tables,
-    ) {
+    fn generate(buffer: &mut [u8], tables: &Tables) {
         let atom = unsafe { as_atomic_u8_slice(buffer) };
         let working = WorkingTable(atom);
 
@@ -109,19 +106,17 @@ impl PrunePhase2Table {
         let root = SymReducedPhase2PartialRepr::SOLVED;
 
         working.write(root, 1);
-        
+
         let mut frontier = vec![root];
         let mut frontier_level = 0u8; // real level, not mod-3
         let mut total_visited = 1;
-        
 
         while !frontier.is_empty() {
             let frontier_residue = (frontier_level % 3) + 1;
             let next_residue = ((frontier_level + 1) % 3) + 1;
             println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
             let unvisited = 2768 * 40320 - total_visited;
-            let use_bottom_up =
-                frontier.len() * /* degree of graph */ 10 > unvisited; // cheap heuristic
+            let use_bottom_up = frontier.len() * /* degree of graph */ 10 > unvisited; // cheap heuristic
 
             let use_bottom_up = true;
 
@@ -140,18 +135,19 @@ impl PrunePhase2Table {
                     .collect()
             } else {
                 /* ---------- bottom-up ---------- */
-                (0..(2768 * 40320)).into_par_iter()
-                    .map(|i| SymReducedPhase2PartialRepr::from_pruning_index(i))
+                (0..(2768 * 40320))
+                    .into_par_iter()
+                    .map(SymReducedPhase2PartialRepr::from_pruning_index)
                     .filter_map(|v| {
                         if working.visited(v) {
-                            return None;                // already discovered
+                            return None; // already discovered
                         }
                         for nbr in tables.phase_2_partial_adjacent(v) {
                             if working.visited_at_level_residue(nbr, frontier_residue) {
                                 if working.write(v, next_residue) {
-                                    return Some(v)
+                                    return Some(v);
                                 } else {
-                                    return None
+                                    return None;
                                 }
                             }
                         }
@@ -171,10 +167,7 @@ impl PrunePhase2Table {
         // println!("{frontier_level:?}");
     }
 
-    pub fn load<P: AsRef<Path>>(
-        path: P,
-        tables: &Tables,
-    ) -> Result<Self> {
+    pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, tables)
         })
@@ -207,8 +200,6 @@ impl PrunePhase2Table {
 //         let move_raw_corner_orient_ref = &move_raw_corner_orient;
 
 //         let prune_phase_1 = PrunePhase2Table::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
-
-
 
 //     }
 // }
@@ -271,5 +262,3 @@ impl PrunePhase2Table {
 
 //     Ok(())
 // }
-
-

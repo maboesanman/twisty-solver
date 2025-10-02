@@ -81,16 +81,14 @@ mod test {
         (0..40320).into_par_iter().for_each(|i| {
             let raw_coord = CornerPermRawCoord(i);
             let corner_perm = CornerPerm::from_coord(raw_coord);
-            
+
             let (sym_coord, sym) = table.get_sym_from_raw(raw_coord);
             let updated_raw = corner_perm.domino_conjugate(sym).into_coord();
             let rep_coord = table.get_raw_from_sym(sym_coord);
 
             assert_eq!(rep_coord, updated_raw)
         });
-    
+
         Ok(())
     }
 }
-
-

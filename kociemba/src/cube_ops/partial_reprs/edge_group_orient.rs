@@ -1,6 +1,4 @@
-
-
-use crate::cube_ops::{coords::{EdgeGroupRawCoord, EdgeOrientRawCoord}};
+use crate::cube_ops::coords::{EdgeGroupRawCoord, EdgeOrientRawCoord};
 
 use super::{edge_group::EdgeGroup, edge_orient::EdgeOrient, edge_perm::EdgePerm};
 
@@ -10,7 +8,10 @@ pub struct EdgeGroupOrientRawCoord(pub u32);
 
 impl EdgeGroupOrientRawCoord {
     pub fn split(self) -> (EdgeGroupRawCoord, EdgeOrientRawCoord) {
-        (EdgeGroupRawCoord((self.0 >> 11) as u16), EdgeOrientRawCoord((self.0 & 0b11111111111) as u16))
+        (
+            EdgeGroupRawCoord((self.0 >> 11) as u16),
+            EdgeOrientRawCoord((self.0 & 0b11111111111) as u16),
+        )
     }
 
     pub fn join(group: EdgeGroupRawCoord, orient: EdgeOrientRawCoord) -> Self {
@@ -55,35 +56,39 @@ mod test {
 
     #[test]
     fn test() {
-        for i in 0..(2048*495) {
+        for i in 0..(2048 * 495) {
             let coord = EdgeGroupOrientRawCoord(i as u32);
             let group_orient = EdgeGroupOrient::from_coord(coord);
             assert_eq!(coord, group_orient.into_coord())
         }
     }
-    
+
     #[test]
     fn move_adjacency() {
-        (0..(2048*495)).into_par_iter().for_each(|i| {
+        (0..(2048 * 495)).into_par_iter().for_each(|i| {
             let coord = EdgeGroupOrientRawCoord(i as u32);
             let group_orient = EdgeGroupOrient::from_coord(coord);
-    
+
             for adj in CubeMove::all_iter().map(|mv| group_orient.apply_cube_move(mv)) {
-                assert!(CubeMove::all_iter().map(|mv| adj.apply_cube_move(mv)).any(|adj_adj| adj_adj == group_orient))
+                assert!(
+                    CubeMove::all_iter()
+                        .map(|mv| adj.apply_cube_move(mv))
+                        .any(|adj_adj| adj_adj == group_orient)
+                )
             }
         })
     }
-    
+
     #[test]
     fn conjugation_adjacency() {
-        (0..(2048*495)).into_par_iter().for_each(|i| {
+        (0..(2048 * 495)).into_par_iter().for_each(|i| {
             let coord = EdgeGroupOrientRawCoord(i as u32);
             let group_orient = EdgeGroupOrient::from_coord(coord);
-    
+
             let one_step: Vec<_> = DominoSymmetry::all_iter()
                 .map(|sym| group_orient.domino_conjugate(sym))
                 .collect();
-    
+
             for &elem in &one_step {
                 for sym in DominoSymmetry::nontrivial_iter() {
                     let two_step = elem.domino_conjugate(sym);
@@ -93,4 +98,3 @@ mod test {
         })
     }
 }
-

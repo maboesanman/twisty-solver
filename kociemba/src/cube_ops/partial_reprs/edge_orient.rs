@@ -89,7 +89,6 @@ impl EdgeOrient {
     }
 }
 
-
 #[test]
 fn test() {
     for i in 0..2048 {

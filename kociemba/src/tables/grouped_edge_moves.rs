@@ -1,34 +1,21 @@
-use std::{
-    cell::RefCell,
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-    path::Path,
-    sync::Arc,
-};
+use std::{cell::RefCell, collections::BTreeMap, path::Path, sync::Arc};
 
 use anyhow::Result;
 use itertools::Itertools;
 use memmap2::Mmap;
 use rayon::prelude::*;
 
-use crate::{cube_ops::{
-    coords::{
-        CornerPermRawCoord, CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupRawCoord,
-        UDEdgePermRawCoord,
-    },
+use crate::cube_ops::{
+    coords::{EEdgePermRawCoord, EdgeGroupRawCoord, UDEdgePermRawCoord},
     cube_move::{CubeMove, DominoMove},
     cube_sym::DominoSymmetry,
     partial_reprs::{
-        corner_perm::CornerPerm,
-        e_edge_perm::{self, EEdgePerm},
-        edge_group::EdgeGroup,
-        edge_perm::EdgePerm,
-        ud_edge_perm::{self, UDEdgePerm},
+        e_edge_perm::EEdgePerm, edge_group::EdgeGroup, edge_perm::EdgePerm,
+        ud_edge_perm::UDEdgePerm,
     },
-}, tables::Tables};
-
-use super::table_loader::{
-    as_u16_slice, as_u16_slice_mut, collect_unique_sorted_parallel, load_table,
 };
+
+use super::table_loader::{as_u16_slice, load_table};
 
 const RESTRICTED_TABLE_SIZE_BYTES: usize = 495 * 33 * 3 + 1; // group * move/nontrivial_domino_sym * size(reduced_perm_entry)
 const RESTRICTED_FILE_CHECKSUM: u32 = 1135746172;
@@ -36,7 +23,7 @@ const RESTRICTED_FILE_CHECKSUM: u32 = 1135746172;
 const UD_TABLE_SIZE_BYTES: usize = 40320 * 1123 * 2; // restricted_perm * ud_edge_perm * size(ud_edge_perm)
 const UD_FILE_CHECKSUM: u32 = 908484496;
 
-const E_TABLE_SIZE_BYTES: usize = 24 * 135 * 1; // e_perm * e_perm * size(e_perm)
+const E_TABLE_SIZE_BYTES: usize = 24 * 135; // e_perm * e_perm * size(e_perm)
 const E_FILE_CHECKSUM: u32 = 3668178995;
 
 #[derive(Copy, Clone, Debug)]
@@ -360,7 +347,7 @@ impl GroupedEdgeMovesTable {
         ud_set.into_par_iter().enumerate().for_each(|(i, col)| {
             let start_u16 = start_u16_addr as *mut u16;
             for (in_perm, out_perm) in col.iter().copied().enumerate() {
-                let table_i = (in_perm as usize) * stride + i;
+                let table_i = in_perm * stride + i;
                 unsafe { *start_u16.add(table_i) = out_perm };
             }
         });
@@ -374,7 +361,7 @@ impl GroupedEdgeMovesTable {
         e_set.into_par_iter().enumerate().for_each(|(i, col)| {
             let start_u8 = start_u8_addr as *mut u8;
             for (in_perm, out_perm) in col.iter().copied().enumerate() {
-                let table_i = (in_perm as usize) * stride + i;
+                let table_i = in_perm * stride + i;
                 unsafe { *start_u8.add(table_i) = out_perm };
             }
         });

@@ -3,14 +3,13 @@ use std::{fs::create_dir_all, mem::MaybeUninit, path::Path};
 use lookup_sym_corner_perm::LookupSymCornerPermTable;
 use lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
 use move_raw_corner_orient::MoveRawCornerOrientTable;
-use move_raw_corner_perm::MoveRawCornerPermTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 use prune_phase_1::PrunePhase1Table;
 
 use crate::{
     cube_ops::{
         cube_move::{CubeMove, DominoMove},
-        partial_reprs::{e_edge_perm, edge_group_orient::EdgeGroupOrientRawCoord},
+        partial_reprs::edge_group_orient::EdgeGroupOrientRawCoord,
         repr_coord::{
             SymReducedPhase1PartialRepr, SymReducedPhase1Repr, SymReducedPhase2PartialRepr,
             SymReducedPhase2Repr,
@@ -19,7 +18,7 @@ use crate::{
     },
     tables::{
         grouped_edge_moves::GroupedEdgeMovesTable, move_sym_corner_perm::MoveSymCornerPermTable,
-        prune_phase_2::PrunePhase2Table, prune_phase_2_corner_perm::PrunePhaseCornerTable,
+        prune_phase_2::PrunePhase2Table,
     },
 };
 
@@ -39,19 +38,17 @@ pub mod grouped_edge_moves;
 
 mod table_loader;
 
-const MOVE_RAW_CORNER_ORIENT_TABLE_NAME: &'static str = "move_raw_corner_orient_table.dat";
-const MOVE_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &'static str = "move_sym_edge_group_orient_table.dat";
-const LOOKUP_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &'static str =
-    "lookup_sym_edge_group_orient_table.dat";
-const LOOKUP_SYM_CORNER_PERM_TABLE_NAME: &'static str = "lookup_sym_corner_perm_table.dat";
-const PRUNE_PHASE_1_TABLE_NAME: &'static str = "prune_phase_1_table.dat";
-const GROUPED_EDGE_MOVES_RESTRICT_TABLE_NAME: &'static str =
-    "grouped_edge_moves_restrict_table.dat";
-const GROUPED_EDGE_MOVES_UD_TABLE_NAME: &'static str = "grouped_edge_moves_ud_table.dat";
-const GROUPED_EDGE_MOVES_E_TABLE_NAME: &'static str = "grouped_edge_moves_e_table.dat";
-const MOVE_SYM_CORNER_PERM_TABLE_NAME: &'static str = "move_sym_corner_perm_table.dat";
-const PRUNE_PHASE_2_TABLE_NAME: &'static str = "prune_phase_2_table.dat";
-const PRUNE_PHASE_2_CORNER_PERM_TABLE_NAME: &'static str = "prune_phase_2_corner_perm_table.dat";
+const MOVE_RAW_CORNER_ORIENT_TABLE_NAME: &str = "move_raw_corner_orient_table.dat";
+const MOVE_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &str = "move_sym_edge_group_orient_table.dat";
+const LOOKUP_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &str = "lookup_sym_edge_group_orient_table.dat";
+const LOOKUP_SYM_CORNER_PERM_TABLE_NAME: &str = "lookup_sym_corner_perm_table.dat";
+const PRUNE_PHASE_1_TABLE_NAME: &str = "prune_phase_1_table.dat";
+const GROUPED_EDGE_MOVES_RESTRICT_TABLE_NAME: &str = "grouped_edge_moves_restrict_table.dat";
+const GROUPED_EDGE_MOVES_UD_TABLE_NAME: &str = "grouped_edge_moves_ud_table.dat";
+const GROUPED_EDGE_MOVES_E_TABLE_NAME: &str = "grouped_edge_moves_e_table.dat";
+const MOVE_SYM_CORNER_PERM_TABLE_NAME: &str = "move_sym_corner_perm_table.dat";
+const PRUNE_PHASE_2_TABLE_NAME: &str = "prune_phase_2_table.dat";
+const PRUNE_PHASE_2_CORNER_PERM_TABLE_NAME: &str = "prune_phase_2_corner_perm_table.dat";
 
 pub struct Tables {
     pub(crate) lookup_sym_edge_group_orient: LookupSymEdgeGroupOrientTable,
@@ -110,8 +107,14 @@ impl Tables {
             // prune_phase_2_corner_perm: MaybeUninit::uninit(),
         };
 
-        working.prune_phase_1.write(PrunePhase1Table::load(folder.join(PRUNE_PHASE_1_TABLE_NAME), &working)?);
-        working.prune_phase_2.write(PrunePhase2Table::load(folder.join(PRUNE_PHASE_2_TABLE_NAME), &working)?);
+        working.prune_phase_1.write(PrunePhase1Table::load(
+            folder.join(PRUNE_PHASE_1_TABLE_NAME),
+            &working,
+        )?);
+        working.prune_phase_2.write(PrunePhase2Table::load(
+            folder.join(PRUNE_PHASE_2_TABLE_NAME),
+            &working,
+        )?);
         // working.prune_phase_2_corner_perm.write(PrunePhaseCornerTable::load(folder.join(PRUNE_PHASE_2_CORNER_PERM_TABLE_NAME), &working)?);
 
         Ok(working)
@@ -333,30 +336,30 @@ impl Tables {
 
 #[cfg(test)]
 mod test {
-use std::collections::HashSet;
+    use std::collections::HashSet;
 
-use rand::distr::{Distribution, StandardUniform};
+    use rand::distr::{Distribution, StandardUniform};
 
-use super::*;
+    use super::*;
     #[test]
     fn gen_tables() -> anyhow::Result<()> {
         let _ = Tables::new("tables")?;
-    
+
         Ok(())
     }
-    
+
     #[test]
     fn some_ops() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
         use rand::{Rng, SeedableRng};
         let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(18);
-    
-    
+
         for _ in 0..10 {
             let cube: ReprCube = StandardUniform.sample(&mut rng);
 
             let sym_reduced = tables.sym_reduce_cube(cube);
-            let sym_neighbors: HashSet<_> = tables.phase_1_adjacent(sym_reduced).into_iter().collect();
+            let sym_neighbors: HashSet<_> =
+                tables.phase_1_adjacent(sym_reduced).into_iter().collect();
 
             for mv in CubeMove::all_iter() {
                 assert!(sym_neighbors.contains(&tables.sym_reduce_cube(cube.apply_cube_move(mv))));

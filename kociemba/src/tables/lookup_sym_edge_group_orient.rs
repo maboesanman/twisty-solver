@@ -73,7 +73,10 @@ impl LookupSymEdgeGroupOrientTable {
 mod test {
     use num_integer::Integer;
 
-    use crate::{cube_ops::coords::{EdgeGroupRawCoord, EdgeOrientRawCoord}, tables::Tables};
+    use crate::{
+        cube_ops::coords::{EdgeGroupRawCoord, EdgeOrientRawCoord},
+        tables::Tables,
+    };
 
     use super::*;
 
@@ -86,14 +89,14 @@ mod test {
         (0u32..(2048 * 495)).into_par_iter().for_each(|i| {
             let raw_coord = EdgeGroupOrientRawCoord(i);
             let edge_group_orient = EdgeGroupOrient::from_coord(raw_coord);
-            
+
             let (sym_coord, sym) = table.get_sym_from_raw(raw_coord);
             let updated_raw = edge_group_orient.domino_conjugate(sym).into_coord();
             let rep_coord = table.get_raw_from_sym(sym_coord);
 
             assert_eq!(rep_coord, updated_raw)
         });
-    
+
         Ok(())
     }
 }

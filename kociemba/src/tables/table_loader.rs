@@ -1,12 +1,12 @@
 use rayon::prelude::*;
 use std::{
     cmp::Reverse,
-    collections::{BTreeSet, BinaryHeap, HashSet},
+    collections::{BTreeSet, BinaryHeap},
     fs::OpenOptions,
     path::Path,
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use fs2::FileExt; // ← add `fs2 = "0.4"` to Cargo.toml
 use memmap2::{Mmap, MmapMut, MmapOptions};
 
@@ -102,11 +102,11 @@ where
 
 pub fn as_u16_slice(bytes: &[u8]) -> &[u16] {
     // 1) length must be even
-    assert!(bytes.len() % 2 == 0, "length not a multiple of 2");
+    assert!(bytes.len().is_multiple_of(2), "length not a multiple of 2");
     // 2) pointer must be aligned
     let ptr = bytes.as_ptr();
     assert!(
-        ptr as usize % std::mem::align_of::<u16>() == 0,
+        (ptr as usize).is_multiple_of(std::mem::align_of::<u16>()),
         "pointer not aligned for u16"
     );
     // 3) reinterpret
@@ -138,11 +138,11 @@ pub fn as_u16_slice(bytes: &[u8]) -> &[u16] {
 
 pub fn as_u16_slice_mut(bytes: &mut [u8]) -> &mut [u16] {
     // 1) length must be even
-    debug_assert!(bytes.len() % 2 == 0, "length not a multiple of 2");
+    debug_assert!(bytes.len().is_multiple_of(2), "length not a multiple of 2");
     // 2) pointer must be aligned
     let ptr = bytes.as_ptr();
     debug_assert!(
-        ptr as usize % std::mem::align_of::<u16>() == 0,
+        (ptr as usize).is_multiple_of(std::mem::align_of::<u16>()),
         "pointer not aligned for u16"
     );
     // 3) reinterpret
@@ -152,11 +152,11 @@ pub fn as_u16_slice_mut(bytes: &mut [u8]) -> &mut [u16] {
 
 pub fn as_u32_slice(bytes: &[u8]) -> &[u32] {
     // 1) length must be even
-    debug_assert!(bytes.len() % 4 == 0, "length not a multiple of 2");
+    debug_assert!(bytes.len().is_multiple_of(4), "length not a multiple of 2");
     // 2) pointer must be aligned
     let ptr = bytes.as_ptr();
     debug_assert!(
-        ptr as usize % std::mem::align_of::<u32>() == 0,
+        (ptr as usize).is_multiple_of(std::mem::align_of::<u32>()),
         "pointer not aligned for u32"
     );
     // 3) reinterpret
@@ -166,11 +166,11 @@ pub fn as_u32_slice(bytes: &[u8]) -> &[u32] {
 
 pub fn as_u32_slice_mut(bytes: &mut [u8]) -> &mut [u32] {
     // 1) length must be even
-    debug_assert!(bytes.len() % 4 == 0, "length not a multiple of 2");
+    debug_assert!(bytes.len().is_multiple_of(4), "length not a multiple of 2");
     // 2) pointer must be aligned
     let ptr = bytes.as_ptr();
     debug_assert!(
-        ptr as usize % std::mem::align_of::<u32>() == 0,
+        (ptr as usize).is_multiple_of(std::mem::align_of::<u32>()),
         "pointer not aligned for u32"
     );
     // 3) reinterpret

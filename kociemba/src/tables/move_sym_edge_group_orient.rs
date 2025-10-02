@@ -9,12 +9,11 @@ use crate::{
         coords::EdgeGroupOrientSymCoord, cube_move::CubeMove, cube_sym::DominoSymmetry,
         partial_reprs::edge_group_orient::EdgeGroupOrient,
     },
-    tables::table_loader::{as_u16_slice, as_u16_slice_mut, as_u32_slice_mut},
+    tables::table_loader::{as_u16_slice, as_u16_slice_mut},
 };
 
 use super::{
-    lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable,
-    table_loader::{as_u32_slice, load_table},
+    lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, table_loader::load_table,
 };
 
 const TABLE_SIZE_BYTES: usize = (64430 * 18) * 2 * 2;
@@ -22,13 +21,10 @@ const FILE_CHECKSUM: u32 = 3661454509;
 
 pub struct MoveSymEdgeGroupOrientTable(Mmap);
 
-
 impl MoveSymEdgeGroupOrientTable {
     fn chunks(&self) -> &[[u16; 36]] {
         let buffer = as_u16_slice(&self.0);
-        unsafe {
-            buffer.as_chunks_unchecked()
-        }
+        unsafe { buffer.as_chunks_unchecked() }
     }
 
     fn chunk(&self, coord: EdgeGroupOrientSymCoord) -> &[u16; 36] {
@@ -81,9 +77,8 @@ impl MoveSymEdgeGroupOrientTable {
 
 #[test]
 fn test() -> anyhow::Result<()> {
-    let phase_1_lookup_edge_sym_table = LookupSymEdgeGroupOrientTable::load(
-            "edge_group_orient_sym_lookup_table.dat",
-        )?;
+    let phase_1_lookup_edge_sym_table =
+        LookupSymEdgeGroupOrientTable::load("edge_group_orient_sym_lookup_table.dat")?;
     let phase_1_move_edge_sym_table = MoveSymEdgeGroupOrientTable::load(
         "edge_group_orient_sym_move_table.dat",
         &phase_1_lookup_edge_sym_table,

@@ -2,7 +2,6 @@ use rand::distr::Distribution;
 use rand::distr::StandardUniform;
 use rand::seq::SliceRandom;
 
-
 /// A permutation, represented by which element of the identity permutation (0, 1, 2, 3, .., N-1)
 /// resides in the slot at each index, after the permutation is applied.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]

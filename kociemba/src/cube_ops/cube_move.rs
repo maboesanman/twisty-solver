@@ -265,7 +265,7 @@ impl TryFrom<CubeMove> for DominoMove {
             CubeMove::B2 => Ok(DominoMove::B2),
             CubeMove::R2 => Ok(DominoMove::R2),
             CubeMove::L2 => Ok(DominoMove::L2),
-            _ => Err(value)
+            _ => Err(value),
         }
     }
 }
@@ -334,21 +334,16 @@ impl DominoMove {
                 val[i] = match mv {
                     DominoMove::U1 => U_EDGE_PERM.split(),
                     DominoMove::U2 => U_EDGE_PERM.then(U_EDGE_PERM).split(),
-                    DominoMove::U3 => U_EDGE_PERM
-                        .then(U_EDGE_PERM)
-                        .then(U_EDGE_PERM)
-                        .split(),
+                    DominoMove::U3 => U_EDGE_PERM.then(U_EDGE_PERM).then(U_EDGE_PERM).split(),
                     DominoMove::D1 => D_EDGE_PERM.split(),
                     DominoMove::D2 => D_EDGE_PERM.then(D_EDGE_PERM).split(),
-                    DominoMove::D3 => D_EDGE_PERM
-                        .then(D_EDGE_PERM)
-                        .then(D_EDGE_PERM)
-                        .split(),
+                    DominoMove::D3 => D_EDGE_PERM.then(D_EDGE_PERM).then(D_EDGE_PERM).split(),
                     DominoMove::F2 => F_EDGE_PERM.then(F_EDGE_PERM).split(),
                     DominoMove::B2 => B_EDGE_PERM.then(B_EDGE_PERM).split(),
                     DominoMove::R2 => R_EDGE_PERM.then(R_EDGE_PERM).split(),
                     DominoMove::L2 => L_EDGE_PERM.then(L_EDGE_PERM).split(),
-                }.1;
+                }
+                .1;
                 i += 1;
             }
 
@@ -366,21 +361,16 @@ impl DominoMove {
                 val[i] = match mv {
                     DominoMove::U1 => U_EDGE_PERM.split(),
                     DominoMove::U2 => U_EDGE_PERM.then(U_EDGE_PERM).split(),
-                    DominoMove::U3 => U_EDGE_PERM
-                        .then(U_EDGE_PERM)
-                        .then(U_EDGE_PERM)
-                        .split(),
+                    DominoMove::U3 => U_EDGE_PERM.then(U_EDGE_PERM).then(U_EDGE_PERM).split(),
                     DominoMove::D1 => D_EDGE_PERM.split(),
                     DominoMove::D2 => D_EDGE_PERM.then(D_EDGE_PERM).split(),
-                    DominoMove::D3 => D_EDGE_PERM
-                        .then(D_EDGE_PERM)
-                        .then(D_EDGE_PERM)
-                        .split(),
+                    DominoMove::D3 => D_EDGE_PERM.then(D_EDGE_PERM).then(D_EDGE_PERM).split(),
                     DominoMove::F2 => F_EDGE_PERM.then(F_EDGE_PERM).split(),
                     DominoMove::B2 => B_EDGE_PERM.then(B_EDGE_PERM).split(),
                     DominoMove::R2 => R_EDGE_PERM.then(R_EDGE_PERM).split(),
                     DominoMove::L2 => L_EDGE_PERM.then(L_EDGE_PERM).split(),
-                }.2;
+                }
+                .2;
                 i += 1;
             }
 
