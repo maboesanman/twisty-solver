@@ -9,7 +9,11 @@ use prune_phase_1::PrunePhase1Table;
 use crate::{
     cube_ops::{
         cube_move::{CubeMove, DominoMove},
-        partial_reprs::edge_group_orient::EdgeGroupOrientRawCoord,
+        partial_reprs::{
+            corner_orient::CornerOrient, corner_perm::CornerPerm, e_edge_perm::EEdgePerm,
+            edge_group::EdgeGroup, edge_group_orient::EdgeGroupOrientRawCoord,
+            edge_orient::EdgeOrient, edge_perm::EdgePerm, ud_edge_perm::UDEdgePerm,
+        },
         repr_coord::{
             SymReducedPhase1PartialRepr, SymReducedPhase1Repr, SymReducedPhase2PartialRepr,
             SymReducedPhase2Repr,
@@ -17,8 +21,8 @@ use crate::{
         repr_cube::ReprCube,
     },
     tables::{
-        grouped_edge_moves::GroupedEdgeMovesTable, move_sym_corner_perm::MoveSymCornerPermTable,
-        prune_phase_2::PrunePhase2Table,
+        self, grouped_edge_moves::GroupedEdgeMovesTable,
+        move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_2::PrunePhase2Table,
     },
 };
 
@@ -162,6 +166,38 @@ impl Tables {
         )
     }
 
+    pub fn repr_cube_from_phase_1(&self, cube: SymReducedPhase1Repr) -> ReprCube {
+        let edge_group_orient_sym_coord = cube.get_edge_group_orient_sym_coord();
+        let corner_orient_raw_coord = cube.get_corner_orient_coord();
+        let (ud_edge_perm_raw_coord, corner_perm_sym_coord) = cube.ud_edge_and_corner_perm_coords();
+        let e_edge_perm_raw_coord = cube.e_edge_perm_coord();
+        let corner_perm_sym_correct = cube.corner_perm_sym_correction();
+        let corner_perm_rep_coord = self
+            .lookup_sym_corner_perm
+            .get_raw_from_sym(corner_perm_sym_coord);
+        let corner_perm =
+            CornerPerm::from_coord(corner_perm_rep_coord).domino_conjugate(corner_perm_sym_correct);
+
+        let edge_group_orient_raw_coord = self
+            .lookup_sym_edge_group_orient
+            .get_raw_from_sym(edge_group_orient_sym_coord);
+        let (edge_group_raw_coord, edge_orient_raw_coord) = edge_group_orient_raw_coord.split();
+        let corner_orient = CornerOrient::from_coord(corner_orient_raw_coord);
+        let edge_perm = EdgePerm::join(
+            EdgeGroup::from_coord(edge_group_raw_coord),
+            UDEdgePerm::from_coord(ud_edge_perm_raw_coord),
+            EEdgePerm::from_coord(e_edge_perm_raw_coord),
+        );
+        let edge_orient = EdgeOrient::from_coord(edge_orient_raw_coord);
+
+        ReprCube {
+            corner_perm,
+            corner_orient,
+            edge_perm,
+            edge_orient,
+        }
+    }
+
     pub fn phase_1_adjacent(
         &self,
         cube: SymReducedPhase1Repr,
@@ -198,7 +234,7 @@ impl Tables {
 
             let moved_edge_group_orient_raw = self
                 .lookup_sym_edge_group_orient
-                .get_raw_from_sym(edge_group_orient_sym);
+                .get_raw_from_sym(new_edge_group_orient);
 
             let moved_edge_group = moved_edge_group_orient_raw.split().0;
 
@@ -351,19 +387,74 @@ mod test {
     #[test]
     fn some_ops() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-        use rand::{Rng, SeedableRng};
+        use rand::SeedableRng;
         let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(18);
 
         for _ in 0..10 {
             let cube: ReprCube = StandardUniform.sample(&mut rng);
+            // cube.pretty_print();
 
             let sym_reduced = tables.sym_reduce_cube(cube);
             let sym_neighbors: HashSet<_> =
                 tables.phase_1_adjacent(sym_reduced).into_iter().collect();
 
+            for n in sym_neighbors.iter().copied() {
+                tables.repr_cube_from_phase_1(n).pretty_print();
+            }
+
             for mv in CubeMove::all_iter() {
                 assert!(sym_neighbors.contains(&tables.sym_reduce_cube(cube.apply_cube_move(mv))));
             }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn repr_phase_1_roundtrip_raw_reduce_raw() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        use rand::SeedableRng;
+        use rand::prelude::Distribution;
+
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(18);
+
+        // Try a decent batch to catch composition/inversion slip-ups
+        for _ in 0..10_000 {
+            // Sample a random raw cube
+            let cube: ReprCube = StandardUniform.sample(&mut rng);
+
+            // Reduce to phase-1, then reconstruct a raw representative
+            let reduced = tables.sym_reduce_cube(cube);
+            let roundtrip = tables.repr_cube_from_phase_1(reduced);
+
+            // Must be a perfect inverse on the nose
+            assert_eq!(roundtrip, cube);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn repr_phase_1_roundtrip_reduce_raw_reduce() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        use rand::SeedableRng;
+        use rand::prelude::Distribution;
+
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(19);
+
+        for _ in 0..10_000 {
+            // Start from a random raw cube and reduce once to get a valid phase-1 state.
+            let cube: ReprCube = StandardUniform.sample(&mut rng);
+            let reduced_a = tables.sym_reduce_cube(cube);
+
+            // Reconstruct a raw representative, then reduce again.
+            let raw_from_reduced = tables.repr_cube_from_phase_1(reduced_a);
+            let reduced_b = tables.sym_reduce_cube(raw_from_reduced);
+
+            // Reducing a reconstructed raw must land on the exact same reduced state
+            assert_eq!(reduced_b, reduced_a);
         }
 
         Ok(())

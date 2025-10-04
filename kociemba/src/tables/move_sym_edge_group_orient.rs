@@ -9,7 +9,7 @@ use crate::{
         coords::EdgeGroupOrientSymCoord, cube_move::CubeMove, cube_sym::DominoSymmetry,
         partial_reprs::edge_group_orient::EdgeGroupOrient,
     },
-    tables::table_loader::{as_u16_slice, as_u16_slice_mut},
+    tables::{table_loader::{as_u16_slice, as_u16_slice_mut}, Tables},
 };
 
 use super::{
@@ -75,45 +75,30 @@ impl MoveSymEdgeGroupOrientTable {
     }
 }
 
-#[test]
-fn test() -> anyhow::Result<()> {
-    let phase_1_lookup_edge_sym_table =
-        LookupSymEdgeGroupOrientTable::load("edge_group_orient_sym_lookup_table.dat")?;
-    let phase_1_move_edge_sym_table = MoveSymEdgeGroupOrientTable::load(
-        "edge_group_orient_sym_move_table.dat",
-        &phase_1_lookup_edge_sym_table,
-    )?;
 
-    Ok(())
+#[cfg(test)]
+mod test {
+    use crate::cube_ops::partial_reprs::edge_group_orient::EdgeGroupOrientRawCoord;
+
+    use super::*;
+    #[test]
+    fn test() -> anyhow::Result<()> {
+    
+        let tables = Tables::new("tables")?;
+
+        (0..64430).into_par_iter().for_each(|i| {
+            let sym_coord = EdgeGroupOrientSymCoord(i);
+
+            let rep_coord = tables.lookup_sym_edge_group_orient.get_raw_from_sym(sym_coord);
+            let rep_edge_group_orient = EdgeGroupOrient::from_coord(rep_coord);
+
+            for mv in CubeMove::all_iter() {
+                let (moved_sym, sym) = tables.move_sym_edge_group_orient.apply_cube_move(sym_coord, mv);
+                let moved = rep_edge_group_orient.apply_cube_move(mv).domino_conjugate(sym);
+                assert_eq!(moved.into_coord(), tables.lookup_sym_edge_group_orient.get_raw_from_sym(moved_sym));
+            }
+        });
+
+        Ok(())
+    }
 }
-
-// #[test]
-// fn test_inversion() -> anyhow::Result<()> {
-//     use rayon::prelude::*;
-//     let phase_1_move_edge_raw_table =
-//         crate::tables::move_raw_edge_group_flip::load("edge_group_and_orient_move_table.dat")?;
-//     let phase_1_lookup_edge_sym_table = crate::tables::lookup_sym_edge_group_flip::load(
-//         "phase_1_edge_sym_lookup_table.dat",
-//         &phase_1_move_edge_raw_table,
-//     )?;
-//     let phase_1_move_edge_sym_table = load(
-//         "phase_1_edge_sym_move_table.dat",
-//         &phase_1_lookup_edge_sym_table,
-//         &phase_1_move_edge_raw_table,
-//     )?;
-//     (0..64430u16).into_par_iter().for_each(|i| {
-//         let coord = SymEdgeGroupFlipCoord::from(i);
-
-//         for mv in Move::all_iter() {
-//             let move_cube = crate::repr_cubie::ReprCube::from(mv);
-//             let (next, transform1) = phase_1_move_edge_sym_table.apply_move(coord, mv);
-//             let inv_move_cube = Move::try_from(move_cube.conjugate_by_subgroup_transform(transform1).inverse()).unwrap();
-//             let (recovered,transform2) = phase_1_move_edge_sym_table.apply_move(next, inv_move_cube);
-
-//             assert_eq!(coord, recovered);
-//             assert_eq!(crate::repr_cubie::SOLVED_CUBE, crate::repr_cubie::SOLVED_CUBE.conjugate_by_subgroup_transform(transform1).conjugate_by_subgroup_transform(transform2));
-//         }
-//     });
-
-//     Ok(())
-// }

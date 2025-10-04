@@ -95,20 +95,10 @@ impl EdgePerm {
 
 #[cfg(test)]
 mod test {
-    use std::collections::{BTreeMap, BTreeSet, HashSet};
-    use std::sync::Arc;
-
-    use crate::cube_ops::coords::{EEdgePermRawCoord, EdgeGroupRawCoord, UDEdgePermRawCoord};
-    use crate::cube_ops::cube_move::{CubeMove, DominoMove};
-    use crate::cube_ops::cube_sym::DominoSymmetry;
-
     use super::*;
     use rand::distr::StandardUniform;
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
-    use rayon::iter::{
-        IndexedParallelIterator, IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator,
-    };
 
     #[test]
     fn basic_join_split() {

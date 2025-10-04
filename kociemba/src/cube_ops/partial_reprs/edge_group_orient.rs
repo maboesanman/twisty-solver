@@ -56,11 +56,11 @@ mod test {
 
     #[test]
     fn test() {
-        for i in 0..(2048 * 495) {
+        (0..(2048 * 495)).into_par_iter().for_each(|i| {
             let coord = EdgeGroupOrientRawCoord(i as u32);
             let group_orient = EdgeGroupOrient::from_coord(coord);
             assert_eq!(coord, group_orient.into_coord())
-        }
+        })
     }
 
     #[test]

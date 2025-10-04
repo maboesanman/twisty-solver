@@ -1,7 +1,6 @@
 use std::{cell::RefCell, collections::BTreeMap, path::Path, sync::Arc};
 
 use anyhow::Result;
-use itertools::Itertools;
 use memmap2::Mmap;
 use rayon::prelude::*;
 
@@ -25,20 +24,6 @@ const UD_FILE_CHECKSUM: u32 = 908484496;
 
 const E_TABLE_SIZE_BYTES: usize = 24 * 135; // e_perm * e_perm * size(e_perm)
 const E_FILE_CHECKSUM: u32 = 3668178995;
-
-#[derive(Copy, Clone, Debug)]
-// only 10 bits. 978 possible values
-#[repr(transparent)]
-struct RestrictedUDEdgePermCoord(u16);
-
-impl RestrictedUDEdgePermCoord {
-    fn phase_2_from_domino_move(mv: DominoMove) -> Self {
-        Self((mv as u8) as u16)
-    }
-    fn phase_2_from_domino_symmetry(mv: DominoSymmetry) -> Self {
-        Self((mv.0) as u16)
-    }
-}
 
 // 978 possible permutations on
 
@@ -412,12 +397,17 @@ impl GroupedEdgeMovesTable {
     }
 }
 
-#[test]
-fn test() -> Result<()> {
-    // let corner_table = MoveRawCornerPermTable::load("corner_perm_move_table.dat")?;
-    let tables = Tables::new("tables")?;
+#[cfg(test)]
+mod test {
+    use crate::tables::Tables;
 
-    let table = &tables.grouped_edge_moves;
-
-    Ok(())
+    use super::*;
+    #[test]
+    fn test() -> Result<()> {
+        let tables = Tables::new("tables")?;
+    
+        let _table = &tables.grouped_edge_moves;
+    
+        Ok(())
+    }
 }

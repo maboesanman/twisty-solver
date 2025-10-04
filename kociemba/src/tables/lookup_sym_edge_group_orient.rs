@@ -71,10 +71,7 @@ impl LookupSymEdgeGroupOrientTable {
 
 #[cfg(test)]
 mod test {
-    use num_integer::Integer;
-
     use crate::{
-        cube_ops::coords::{EdgeGroupRawCoord, EdgeOrientRawCoord},
         tables::Tables,
     };
 

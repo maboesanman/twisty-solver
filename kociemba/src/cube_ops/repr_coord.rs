@@ -5,7 +5,7 @@ use crate::cube_ops::{
         CornerOrientRawCoord, CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupOrientSymCoord,
         UDEdgePermRawCoord,
     },
-    cube_sym::DominoSymmetry,
+    cube_sym::DominoSymmetry, repr_cube::ReprCube,
 };
 
 // AAAA_BBBBBBBBBBBB_CCCCCCCCCCCCCCCC___DDDDD_EEEEEEEEEEEEEEEEEEEEEEEEEEE
@@ -20,7 +20,7 @@ use crate::cube_ops::{
 // notes:
 // B and C == 0 => phase 1 solved. at which point we can apply A inverse to D and truncate. to DE
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 #[repr(transparent)]
 pub struct SymReducedPhase1Repr(pub u64);
 

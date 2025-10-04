@@ -183,14 +183,6 @@ impl TryFrom<CubeSymmetry> for DominoSymmetry {
 }
 
 impl CubeSymmetry {
-    pub const fn then(self, _other: Self) -> Self {
-        unimplemented!()
-    }
-
-    pub const fn inverse(self) -> Self {
-        unimplemented!()
-    }
-
     pub fn all_iter() -> impl Iterator<Item = Self> {
         (0..48).map(Self)
     }
