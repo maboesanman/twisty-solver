@@ -6,9 +6,7 @@ use rayon::prelude::*;
 
 use crate::{
     cube_ops::{
-        coords::EdgeGroupOrientSymCoord,
-        cube_sym::DominoSymmetry,
-        partial_reprs::edge_group_orient::{EdgeGroupOrient, EdgeGroupOrientRawCoord},
+        combo_coords::EdgeGroupOrientComboCoord, coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord}, cube_sym::DominoSymmetry, partial_reprs::edge_group_orient::EdgeGroupOrient
     },
     tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
 };
@@ -21,26 +19,30 @@ const FILE_CHECKSUM: u32 = 4005177882;
 pub struct LookupSymEdgeGroupOrientTable(Mmap);
 
 impl LookupSymEdgeGroupOrientTable {
-    pub fn get_raw_from_sym(&self, sym_coord: EdgeGroupOrientSymCoord) -> EdgeGroupOrientRawCoord {
+    pub fn get_rep_from_sym(&self, sym_coord: EdgeGroupOrientSymCoord) -> EdgeGroupOrientRawCoord {
         let buffer = as_u32_slice(&self.0);
         EdgeGroupOrientRawCoord(buffer[sym_coord.0 as usize])
     }
 
-    pub fn get_sym_from_raw(
+    pub fn get_raw_from_combo(&self, combo_coord: EdgeGroupOrientComboCoord) -> EdgeGroupOrientRawCoord {
+        EdgeGroupOrient::from_coord(self.get_rep_from_sym(combo_coord.sym_coord)).domino_conjugate(combo_coord.domino_conjugation).into_coord()
+    }
+
+    pub fn get_combo_from_raw(
         &self,
         raw_coord: EdgeGroupOrientRawCoord,
-    ) -> (EdgeGroupOrientSymCoord, DominoSymmetry) {
+    ) -> EdgeGroupOrientComboCoord {
         let buffer = as_u32_slice(&self.0);
         let edge_group_orient = EdgeGroupOrient::from_coord(raw_coord);
-        let (rep_coord, sym) = DominoSymmetry::all_iter()
+        let (rep_coord, domino_conjugation) = DominoSymmetry::all_iter()
             .map(|sym| (edge_group_orient.domino_conjugate(sym).into_coord(), sym))
             .min_by_key(|x| x.0)
             .unwrap();
 
-        (
-            EdgeGroupOrientSymCoord(buffer.binary_search(&rep_coord.0).unwrap() as u16),
-            sym,
-        )
+        EdgeGroupOrientComboCoord {
+            sym_coord: EdgeGroupOrientSymCoord(buffer.binary_search(&rep_coord.0).unwrap() as u16),
+            domino_conjugation,
+        }
     }
 
     fn generate(buffer: &mut [u8]) {
@@ -71,9 +73,7 @@ impl LookupSymEdgeGroupOrientTable {
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        tables::Tables,
-    };
+    use crate::tables::Tables;
 
     use super::*;
 
@@ -84,14 +84,11 @@ mod test {
         let table = &tables.lookup_sym_edge_group_orient;
 
         (0u32..(2048 * 495)).into_par_iter().for_each(|i| {
-            let raw_coord = EdgeGroupOrientRawCoord(i);
-            let edge_group_orient = EdgeGroupOrient::from_coord(raw_coord);
+            let a = EdgeGroupOrientRawCoord(i);
+            let combo = table.get_combo_from_raw(a);
+            let b = table.get_raw_from_combo(combo);
 
-            let (sym_coord, sym) = table.get_sym_from_raw(raw_coord);
-            let updated_raw = edge_group_orient.domino_conjugate(sym).into_coord();
-            let rep_coord = table.get_raw_from_sym(sym_coord);
-
-            assert_eq!(rep_coord, updated_raw)
+            assert_eq!(a, b)
         });
 
         Ok(())

@@ -69,13 +69,13 @@ macro_rules! permutation_coord {
                 f
             };
 
-            const fn [<permutation_coord_ $n>](perm: &[u8; $n]) -> $t {
+            const fn [<permutation_coord_ $n>](perm: &Permutation<$n>) -> $t {
                 let mut sum = 0;
                 let mut i = 1;
                 while i < $n {
                     let mut j = 0;
                     while j < i {
-                        if perm[j] > perm[i] {
+                        if perm.0[j] > perm.0[i] {
                             sum += [<FACTORIALS_ $n>][i]
                         }
 
@@ -87,7 +87,7 @@ macro_rules! permutation_coord {
                 sum
             }
 
-            const fn [<permutation_coord_ $n _inverse>](mut coord: $t) -> [u8; $n] {
+            const fn [<permutation_coord_ $n _inverse>](mut coord: $t) -> Permutation<$n> {
                 let mut f = $n - 1;
                 let mut result = [<FIRST_PERM_ $n>];
                 let mut c = 0;
@@ -114,28 +114,26 @@ macro_rules! permutation_coord {
                     }
                 }
 
-                result
+                Permutation(result)
             }
 
-            // // ——— parity-interleaved rank: even perms→even codes, odd→odd
-            // const fn [<permutation_coord_ $n _parity>](perm: &[u8; $n]) -> $t {
-            //     let mut r = [<permutation_coord_ $n>](perm);
-            //     // is_odd returns bool, cast into integer 0/1
-            //     if (r & 1) != (is_odd(perm) as $t) {
-            //         r ^= 1;
-            //     }
-            //     r
-            // }
+            const fn [<permutation_coord_ $n _parity>](perm: &Permutation<$n>) -> $t {
+                let mut r = [<permutation_coord_ $n>](perm);
+                // is_odd returns bool, cast into integer 0/1
+                if (r & 1) != (perm.is_odd() as $t) {
+                    r ^= 1;
+                }
+                r
+            }
 
-            // // ——— parity-aware unrank: pick the branch whose parity matches code&1
-            // const fn [<permutation_coord_ $n _parity_inverse>](code: $t) -> [u8; $n] {
-            //     let p = [<permutation_coord_ $n _inverse>](code);
-            //     if (is_odd(&p) as $t) == (code & 1) {
-            //         p
-            //     } else {
-            //         [<permutation_coord_ $n _inverse>](code ^ 1)
-            //     }
-            // }
+            const fn [<permutation_coord_ $n _parity_inverse>](code: $t) -> Permutation<$n> {
+                let p = [<permutation_coord_ $n _inverse>](code);
+                if (p.is_odd() as $t) == (code & 1) {
+                    p
+                } else {
+                    [<permutation_coord_ $n _inverse>](code ^ 1)
+                }
+            }
 
             #[test]
             fn [<permutation_coord_ $n _test>]() {
@@ -158,24 +156,39 @@ macro_rules! permutation_coord {
                 }
             }
 
-            // #[test]
-            // fn [<permutation_coord_ $n _parity_test>]() {
-            //     if $dense {
-            //         // the domain is small enough so we just check the whole thing.
-            //         for i in 0..[<FACTORIALS_ $n>][$n] {
-            //             let s = [<permutation_coord_ $n _parity_inverse>](i);
-            //             assert_eq!(is_odd(&s) as $t, i % 2);
-            //             assert_eq!([<permutation_coord_ $n _parity>](&s), i);
-            //         }
-            //     } else {
+            #[test]
+            fn [<permutation_coord_ $n _parity_test>]() {
+                if $dense {
+                    // the domain is small enough so we just check the whole thing.
+                    for i in 0..[<FACTORIALS_ $n>][$n] {
+                        let s = [<permutation_coord_ $n _parity_inverse>](i);
+                        assert_eq!(s.is_odd() as $t, i % 2);
+                        assert_eq!([<permutation_coord_ $n _parity>](&s), i);
+                    }
+                } else {
+                    use rand::{Rng, SeedableRng};
+                    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
 
-            //     }
-            // }
+                    // the domain is too big, sample randomly
+                    for _ in 0..1000 {
+                        let i = rng.random_range(0..[<FACTORIALS_ $n>][$n]);
+                        let s = [<permutation_coord_ $n _parity_inverse>](i);
+                        assert_eq!(s.is_odd() as $t, i % 2);
+                        assert_eq!([<permutation_coord_ $n _parity>](&s), i);
+                    }
+                }
+            }
         }
     };
 }
 
 pub trait LehmerRank {
+    type Code;
+    fn into_coord(self) -> Self::Code;
+    fn from_coord(code: Self::Code) -> Self;
+}
+
+pub trait ParityPreservingRank {
     type Code;
     fn into_coord(self) -> Self::Code;
     fn from_coord(code: Self::Code) -> Self;
@@ -214,13 +227,13 @@ macro_rules! impl_lehmer_rank {
         impl Permutation<$N> {
             #[inline(always)]
             pub const fn const_into_coord(self) -> $Code {
-                $rank_fn(&self.const_into_array())
+                $rank_fn(&self)
             }
 
             #[inline(always)]
             pub const fn const_from_coord(coord: $Code) -> Self {
                 debug_assert!(coord < $FACTORIALS[$N]);
-                unsafe { Permutation::const_from_array_unchecked($unrank_fn(coord)) }
+                $unrank_fn(coord)
             }
         }
 
@@ -243,140 +256,140 @@ macro_rules! impl_lehmer_rank {
 impl_lehmer_rank!(
     1,
     u8,
-    permutation_coord_1,
-    permutation_coord_1_inverse,
+    permutation_coord_1_parity,
+    permutation_coord_1_parity_inverse,
     FACTORIALS_U8
 );
 impl_lehmer_rank!(
     2,
     u8,
-    permutation_coord_2,
-    permutation_coord_2_inverse,
+    permutation_coord_2_parity,
+    permutation_coord_2_parity_inverse,
     FACTORIALS_U8
 );
 impl_lehmer_rank!(
     3,
     u8,
-    permutation_coord_3,
-    permutation_coord_3_inverse,
+    permutation_coord_3_parity,
+    permutation_coord_3_parity_inverse,
     FACTORIALS_U8
 );
 impl_lehmer_rank!(
     4,
     u8,
-    permutation_coord_4,
-    permutation_coord_4_inverse,
+    permutation_coord_4_parity,
+    permutation_coord_4_parity_inverse,
     FACTORIALS_U8
 );
 impl_lehmer_rank!(
     5,
     u8,
-    permutation_coord_5,
-    permutation_coord_5_inverse,
+    permutation_coord_5_parity,
+    permutation_coord_5_parity_inverse,
     FACTORIALS_U8
 );
 impl_lehmer_rank!(
     6,
     u16,
-    permutation_coord_6,
-    permutation_coord_6_inverse,
+    permutation_coord_6_parity,
+    permutation_coord_6_parity_inverse,
     FACTORIALS_U16
 );
 impl_lehmer_rank!(
     7,
     u16,
-    permutation_coord_7,
-    permutation_coord_7_inverse,
+    permutation_coord_7_parity,
+    permutation_coord_7_parity_inverse,
     FACTORIALS_U16
 );
 impl_lehmer_rank!(
     8,
     u16,
-    permutation_coord_8,
-    permutation_coord_8_inverse,
+    permutation_coord_8_parity,
+    permutation_coord_8_parity_inverse,
     FACTORIALS_U16
 );
 impl_lehmer_rank!(
     9,
     u32,
-    permutation_coord_9,
-    permutation_coord_9_inverse,
+    permutation_coord_9_parity,
+    permutation_coord_9_parity_inverse,
     FACTORIALS_U32
 );
 impl_lehmer_rank!(
     10,
     u32,
-    permutation_coord_10,
-    permutation_coord_10_inverse,
+    permutation_coord_10_parity,
+    permutation_coord_10_parity_inverse,
     FACTORIALS_U32
 );
 impl_lehmer_rank!(
     11,
     u32,
-    permutation_coord_11,
-    permutation_coord_11_inverse,
+    permutation_coord_11_parity,
+    permutation_coord_11_parity_inverse,
     FACTORIALS_U32
 );
 impl_lehmer_rank!(
     12,
     u32,
-    permutation_coord_12,
-    permutation_coord_12_inverse,
+    permutation_coord_12_parity,
+    permutation_coord_12_parity_inverse,
     FACTORIALS_U32
 );
 impl_lehmer_rank!(
     13,
     u64,
-    permutation_coord_13,
-    permutation_coord_13_inverse,
+    permutation_coord_13_parity,
+    permutation_coord_13_parity_inverse,
     FACTORIALS_U64
 );
 impl_lehmer_rank!(
     14,
     u64,
-    permutation_coord_14,
-    permutation_coord_14_inverse,
+    permutation_coord_14_parity,
+    permutation_coord_14_parity_inverse,
     FACTORIALS_U64
 );
 impl_lehmer_rank!(
     15,
     u64,
-    permutation_coord_15,
-    permutation_coord_15_inverse,
+    permutation_coord_15_parity,
+    permutation_coord_15_parity_inverse,
     FACTORIALS_U64
 );
 impl_lehmer_rank!(
     16,
     u64,
-    permutation_coord_16,
-    permutation_coord_16_inverse,
+    permutation_coord_16_parity,
+    permutation_coord_16_parity_inverse,
     FACTORIALS_U64
 );
 impl_lehmer_rank!(
     17,
     u64,
-    permutation_coord_17,
-    permutation_coord_17_inverse,
+    permutation_coord_17_parity,
+    permutation_coord_17_parity_inverse,
     FACTORIALS_U64
 );
 impl_lehmer_rank!(
     18,
     u64,
-    permutation_coord_18,
-    permutation_coord_18_inverse,
+    permutation_coord_18_parity,
+    permutation_coord_18_parity_inverse,
     FACTORIALS_U64
 );
 impl_lehmer_rank!(
     19,
     u64,
-    permutation_coord_19,
-    permutation_coord_19_inverse,
+    permutation_coord_19_parity,
+    permutation_coord_19_parity_inverse,
     FACTORIALS_U64
 );
 impl_lehmer_rank!(
     20,
     u64,
-    permutation_coord_20,
-    permutation_coord_20_inverse,
+    permutation_coord_20_parity,
+    permutation_coord_20_parity_inverse,
     FACTORIALS_U64
 );

@@ -17,13 +17,13 @@ use crate::cube_ops::{
 use super::table_loader::{as_u16_slice, load_table};
 
 const RESTRICTED_TABLE_SIZE_BYTES: usize = 495 * 33 * 3 + 1; // group * move/nontrivial_domino_sym * size(reduced_perm_entry)
-const RESTRICTED_FILE_CHECKSUM: u32 = 1135746172;
+const RESTRICTED_FILE_CHECKSUM: u32 = 3914829553;
 
 const UD_TABLE_SIZE_BYTES: usize = 40320 * 1123 * 2; // restricted_perm * ud_edge_perm * size(ud_edge_perm)
-const UD_FILE_CHECKSUM: u32 = 908484496;
+const UD_FILE_CHECKSUM: u32 = 3649320987;
 
-const E_TABLE_SIZE_BYTES: usize = 24 * 135; // e_perm * e_perm * size(e_perm)
-const E_FILE_CHECKSUM: u32 = 3668178995;
+const E_TABLE_SIZE_BYTES: usize = 24 * 176; // e_perm * e_perm * size(e_perm)
+const E_FILE_CHECKSUM: u32 = 2017789719;
 
 // 978 possible permutations on
 
@@ -68,9 +68,12 @@ impl GroupedEdgeMovesTable {
         cube_move: CubeMove,
         ud_edge_perm: UDEdgePermRawCoord,
         e_edge_perm: EEdgePermRawCoord,
-    ) -> (UDEdgePermRawCoord, EEdgePermRawCoord) {
+    ) -> (EdgeGroupRawCoord, UDEdgePermRawCoord, EEdgePermRawCoord) {
         let sub_i = cube_move.into_index();
-        self.update_edge_perms_shared(grouping, sub_i, ud_edge_perm, e_edge_perm)
+        let (ud, e) = self.update_edge_perms_shared(grouping, sub_i, ud_edge_perm, e_edge_perm);
+
+        let g = EdgeGroup::from_coord(grouping).apply_cube_move(cube_move).into_coord();
+        (g, ud, e)
     }
 
     pub fn update_edge_perms_domino_conjugate(
@@ -79,12 +82,15 @@ impl GroupedEdgeMovesTable {
         domino_symmetry: DominoSymmetry,
         ud_edge_perm: UDEdgePermRawCoord,
         e_edge_perm: EEdgePermRawCoord,
-    ) -> (UDEdgePermRawCoord, EEdgePermRawCoord) {
+    ) -> (EdgeGroupRawCoord, UDEdgePermRawCoord, EEdgePermRawCoord) {
         let sub_i = match domino_symmetry.into_index().checked_sub(1) {
             Some(i) => i + 18,
-            None => return (ud_edge_perm, e_edge_perm),
+            None => return (grouping, ud_edge_perm, e_edge_perm),
         };
-        self.update_edge_perms_shared(grouping, sub_i, ud_edge_perm, e_edge_perm)
+        let (ud, e) = self.update_edge_perms_shared(grouping, sub_i, ud_edge_perm, e_edge_perm);
+
+        let g = EdgeGroup::from_coord(grouping).domino_conjugate(domino_symmetry).into_coord();
+        (g, ud, e)
     }
 
     fn update_edge_perms_phase_2_shared(
@@ -226,6 +232,8 @@ impl GroupedEdgeMovesTable {
             }
         }
 
+        assert_eq!(ud_cols.len(), 1123);
+
         (ud_cols, ud_vec)
     }
 
@@ -289,6 +297,8 @@ impl GroupedEdgeMovesTable {
                 .push(g * 33 + s.into_index() + 17);
             }
         }
+
+        assert_eq!(e_cols.len(), 176);
 
         (e_cols, e_vec)
     }
@@ -399,6 +409,8 @@ impl GroupedEdgeMovesTable {
 
 #[cfg(test)]
 mod test {
+    use rand::distr::StandardUniform;
+
     use crate::tables::Tables;
 
     use super::*;
@@ -408,6 +420,58 @@ mod test {
     
         let _table = &tables.grouped_edge_moves;
     
+        Ok(())
+    }
+
+    #[test]
+    fn moves_match_edge_perm() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        use rand::SeedableRng;
+        use rand::prelude::Distribution;
+
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(18);
+
+        for _ in 0..10_000 {
+            let perm = EdgePerm(StandardUniform.sample(&mut rng));
+            let (g, ud, e) = perm.split();
+            let (g, ud, e) = (g.into_coord(), ud.into_coord(), e.into_coord());
+
+            for mv in CubeMove::all_iter() {
+                let a = perm.apply_cube_move(mv);
+                let (g, ud, e) = tables.grouped_edge_moves.update_edge_perms_cube_move(g, mv, ud, e);
+                let b = EdgePerm::join(EdgeGroup::from_coord(g), UDEdgePerm::from_coord(ud), EEdgePerm::from_coord(e));
+
+                assert_eq!(a, b);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn conjugations_match_edge_perm() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        use rand::SeedableRng;
+        use rand::prelude::Distribution;
+
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(18);
+
+        for _ in 0..10_000 {
+            let perm = EdgePerm(StandardUniform.sample(&mut rng));
+            let (g, ud, e) = perm.split();
+            let (g, ud, e) = (g.into_coord(), ud.into_coord(), e.into_coord());
+
+            for sym in DominoSymmetry::all_iter() {
+                let a = perm.domino_conjugate(sym);
+                let (g, ud, e) = tables.grouped_edge_moves.update_edge_perms_domino_conjugate(g, sym, ud, e);
+                let b = EdgePerm::join(EdgeGroup::from_coord(g), UDEdgePerm::from_coord(ud), EEdgePerm::from_coord(e));
+
+                assert_eq!(a, b);
+            }
+        }
+
         Ok(())
     }
 }

@@ -5,6 +5,7 @@ use rand::seq::SliceRandom;
 /// A permutation, represented by which element of the identity permutation (0, 1, 2, 3, .., N-1)
 /// resides in the slot at each index, after the permutation is applied.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[repr(transparent)]
 pub struct Permutation<const N: usize>(pub [u8; N]);
 
 impl<const N: usize> Default for Permutation<N> {

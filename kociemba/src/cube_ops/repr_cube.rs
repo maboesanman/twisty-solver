@@ -11,7 +11,7 @@ use super::{
     },
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Ord, PartialOrd)]
 pub struct ReprCube {
     pub corner_perm: CornerPerm,
     pub corner_orient: CornerOrient,

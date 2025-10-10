@@ -1,5 +1,5 @@
 use crate::{
-    cube_ops::partial_reprs::e_edge_perm::EEdgePerm, permutation_math::permutation::Permutation,
+    cube_ops::{partial_reprs::e_edge_perm::EEdgePerm}, permutation_math::permutation::Permutation,
 };
 
 use super::{

@@ -18,7 +18,8 @@ use crate::{
 use super::table_loader::load_table;
 
 const TABLE_SIZE_BYTES: usize = (2768 * 18) * 2 * 2;
-const FILE_CHECKSUM: u32 = 110890093;
+// const FILE_CHECKSUM: u32 = 110890093;
+const FILE_CHECKSUM: u32 = 1623700549;
 
 pub struct MoveSymCornerPermTable(Mmap);
 

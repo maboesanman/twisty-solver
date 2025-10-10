@@ -2,7 +2,7 @@ use crate::cube_ops::coords::CornerOrientRawCoord;
 
 use super::corner_perm::CornerPerm;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Ord, PartialOrd)]
 pub struct CornerOrient(pub [u8; 8]);
 
 impl CornerOrient {

@@ -1,23 +1,6 @@
-use crate::cube_ops::coords::{EdgeGroupRawCoord, EdgeOrientRawCoord};
+use crate::cube_ops::coords::{EdgeGroupOrientRawCoord, EdgeGroupRawCoord, EdgeOrientRawCoord};
 
 use super::{edge_group::EdgeGroup, edge_orient::EdgeOrient, edge_perm::EdgePerm};
-
-// fits in 20 bits
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub struct EdgeGroupOrientRawCoord(pub u32);
-
-impl EdgeGroupOrientRawCoord {
-    pub fn split(self) -> (EdgeGroupRawCoord, EdgeOrientRawCoord) {
-        (
-            EdgeGroupRawCoord((self.0 >> 11) as u16),
-            EdgeOrientRawCoord((self.0 & 0b11111111111) as u16),
-        )
-    }
-
-    pub fn join(group: EdgeGroupRawCoord, orient: EdgeOrientRawCoord) -> Self {
-        Self(((group.0 as u32) << 11) & (orient.0 as u32))
-    }
-}
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EdgeGroupOrient(pub EdgeGroup, pub EdgeOrient);

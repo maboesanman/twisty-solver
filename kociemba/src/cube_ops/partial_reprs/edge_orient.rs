@@ -2,7 +2,7 @@ use crate::cube_ops::coords::EdgeOrientRawCoord;
 
 use super::edge_perm::EdgePerm;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Ord, PartialOrd)]
 pub struct EdgeOrient(pub [u8; 12]);
 
 impl EdgeOrient {

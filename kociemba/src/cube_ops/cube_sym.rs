@@ -155,6 +155,8 @@ pub struct CubeSymmetry(pub u8);
 pub struct DominoSymmetry(pub u8);
 
 impl DominoSymmetry {
+    pub const IDENTITY: Self = DominoSymmetry(0);
+
     pub const fn to_cube_symmetry(self) -> CubeSymmetry {
         CubeSymmetry(self.0)
     }
@@ -374,14 +376,54 @@ impl CubeMove {
         unimplemented!()
     }
 
-    pub const fn domino_conjugate(self, _sym: DominoSymmetry) -> Self {
-        todo!()
-    }
-}
+    pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
+        const TABLE: [CubeMove; 18 * 16] = const {
+            let mut move_reference = [CornerPerm::SOLVED; 18];
 
-impl DominoMove {
-    pub const fn domino_conjugate(self, _sym: DominoSymmetry) -> Self {
-        todo!()
+            let mut i = 0;
+            while i < 18 {
+                let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
+                move_reference[i] = mv.into_corner_perm();
+                i += 1;
+            }
+
+            let mut val = [CubeMove::U1; 18 * 16];
+            let mut i = 0;
+            while i < 18 {
+                let mut j = 0;
+                let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
+                while j < 16 {
+                    let sym: DominoSymmetry = unsafe { core::mem::transmute(j as u8) };
+                    val[i*16 + j] = {
+                        let perm = mv.into_corner_perm().domino_conjugate(sym);
+                        let mut k = 0;
+                        'k: while k < 18 {
+                            let mut l = 0;
+                            let mut equal = true;
+                            'l: while l < 8 {
+                                if move_reference[k].0.0[l] != perm.0.0[l] {
+                                    equal = false;
+                                    break 'l;
+                                }
+                                l += 1;
+                            }
+                            if equal {
+                                break 'k
+                            }
+                            
+                            k += 1;
+                        }
+
+                        unsafe { core::mem::transmute(k as u8)}
+                    };
+                    j += 1;
+                }
+                i += 1;
+            }
+
+            val
+        };
+        TABLE[self.into_index()*16 + (sym.0 as usize)]
     }
 }
 

@@ -1,6 +1,8 @@
 /// The raw coordinate for edge grouping.
 /// tracks the specific way the E Edges (FR, FL, BR, BL) are distributed around the cube.
 /// fits in 9 bits. (495 values)
+/// 
+/// parity of representative permutation is always 0
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(transparent)]
 pub struct EdgeGroupRawCoord(pub u16);
@@ -20,6 +22,8 @@ pub struct CornerOrientRawCoord(pub u16);
 /// The raw coordinate for corner permutation.
 /// tracks the permutation of the corners.
 /// fits in 16 bits. (40320 values)
+/// 
+/// parity of coord matches parity of permutation
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(transparent)]
 pub struct CornerPermRawCoord(pub u16);
@@ -27,6 +31,8 @@ pub struct CornerPermRawCoord(pub u16);
 /// The raw coordinate for ud-edge permutation, assuming the EdgeGroupRawCoord is 0.
 /// tracks the permutation of the edges in the U and D layers amongst themselves.
 /// fits in 16 bits. (40320 values)
+/// 
+/// parity of coord matches parity of permutation
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(transparent)]
 pub struct UDEdgePermRawCoord(pub u16);
@@ -34,9 +40,15 @@ pub struct UDEdgePermRawCoord(pub u16);
 /// The raw coordinate for e-edge permutation, assuming the EdgeGroupRawCoord is 0.
 /// tracks the permutation of the edges in the E layer amongst themselves.
 /// fits in 5 bits. (24 values)
+/// 
+/// parity of coord matches parity of permutation
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(transparent)]
 pub struct EEdgePermRawCoord(pub u8);
+
+// fits in 20 bits
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct EdgeGroupOrientRawCoord(pub u32);
 
 /// The sym coordinate for edge grouping and orientation, reduced by domino symmetries
 /// fits in 16 bits. (64430 values)
@@ -46,6 +58,8 @@ pub struct EdgeGroupOrientSymCoord(pub u16);
 
 /// The sym coordinate for corner permutation, reduced by domino symmetries
 /// fits in 12 bits. (2768 values)
+/// 
+/// parity of coord matches parity of permutation
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(transparent)]
 pub struct CornerPermSymCoord(pub u16);

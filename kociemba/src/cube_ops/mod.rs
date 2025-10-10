@@ -4,3 +4,4 @@ pub mod cube_sym;
 pub mod partial_reprs;
 pub mod repr_coord;
 pub mod repr_cube;
+pub mod combo_coords;

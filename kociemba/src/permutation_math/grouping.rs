@@ -50,7 +50,7 @@ impl EdgeCombination {
         self
     }
 
-    pub const fn into_arbitrary_perm(self) -> Permutation<12> {
+    pub const fn into_representative_even_perm(self) -> Permutation<12> {
         let mut i = 0;
         let mut j = 0;
         let mut out = [0; 12];
@@ -65,7 +65,19 @@ impl EdgeCombination {
             }
         }
 
-        Permutation(out)
+        let mut perm = Permutation(out);
+
+        if perm.is_odd() {
+            let mut i = 0;
+            while i < 12 {
+                if perm.0[i] > 9 {
+                    perm.0[i] ^= 1;
+                }
+                i += 1;
+            }
+        }
+
+        perm
     }
 
     pub const fn into_coord(self) -> u16 {
@@ -133,3 +145,28 @@ const COMBINATIONS: [[u16; 4]; 12] = {
 
     buf
 };
+
+
+#[test]
+fn count_parity()  {
+    // let tables = Tables::new("tables")?;
+
+    // let table = &tables.lookup_sym_corner_perm;
+
+    let mut even = 0;
+    let mut odd = 0;
+
+    (0..495).into_iter().for_each(|i| {
+        let combination = EdgeCombination::from_coord(i);
+        let perm = combination.into_representative_even_perm();
+
+        if perm.is_odd() {
+            odd += 1;
+        } else {
+            even += 1;
+        }
+    });
+
+    println!("even: {even}");
+    println!("odd: {odd}");
+}
