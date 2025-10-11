@@ -108,43 +108,6 @@ const EDGE_PERM_LOOKUP: [EdgePerm; 48] = {
     table
 };
 
-const EDGE_ORIENT_CORRECT: [EdgeOrient; 48] = {
-    let mut table = [EdgeOrient::SOLVED; 48];
-    let mut i = 0usize;
-    while i < 48 {
-        let a = i & 0b000001;
-        let b = (i & 0b000110) >> 1;
-        let c = (i & 0b001000) >> 3;
-        let d = (i & 0b110000) >> 4;
-
-        let mut j = 0;
-        while j < d {
-            table[i] = table[i].permute(S_URF3_1_EDGE_PERM);
-            table[i] = table[i].correct(S_URF3_1_EDGE_ORIENT_CORRECT);
-            j += 1;
-        }
-
-        if c == 1 {
-            table[i] = table[i].permute(S_F2_EDGE_PERM);
-        }
-
-        let mut j = 0;
-        while j < b {
-            table[i] = table[i].permute(S_U4_1_EDGE_PERM);
-            table[i] = table[i].correct(S_U4_1_EDGE_ORIENT_CORRECT);
-            j += 1;
-        }
-
-        if a == 1 {
-            table[i] = table[i].permute(S_LR_EDGE_PERM);
-        }
-
-        i += 1;
-    }
-
-    table
-};
-
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct CubeSymmetry(pub u8);
@@ -424,16 +387,6 @@ impl CubeMove {
             val
         };
         TABLE[self.into_index() * 16 + (sym.0 as usize)]
-    }
-}
-
-#[test]
-fn print_all_domino_conjugations() {
-    println!("{EDGE_ORIENT_CORRECT:?}");
-    let cube = cube![R U];
-
-    for sym in DominoSymmetry::all_iter() {
-        cube.domino_conjugate(sym).pretty_print();
     }
 }
 

@@ -73,28 +73,35 @@ impl MoveRawCornerOrientTable {
     }
 }
 
-#[test]
-fn test() -> Result<()> {
-    let tables = Tables::new("tables")?;
-    let table = tables.move_raw_corner_orient;
-    for i in 0..2187u16 {
-        let coord = CornerOrientRawCoord(i);
-        let orient = CornerOrient::from_coord(coord);
+#[cfg(test)]
+mod test {
+    use crate::tables::Tables;
 
-        for mv in CubeMove::all_iter() {
-            assert_eq!(
-                table.apply_cube_move(coord, mv),
-                orient.apply_cube_move(mv).into_coord()
-            );
-        }
+    use super::*;
 
-        for sym in DominoSymmetry::all_iter() {
-            assert_eq!(
-                table.domino_conjugate(coord, sym),
-                orient.domino_conjugate(sym).into_coord()
-            );
+    #[test]
+    fn test() -> Result<()> {
+        let tables = Tables::new("tables")?;
+        let table = tables.move_raw_corner_orient;
+        for i in 0..2187u16 {
+            let coord = CornerOrientRawCoord(i);
+            let orient = CornerOrient::from_coord(coord);
+    
+            for mv in CubeMove::all_iter() {
+                assert_eq!(
+                    table.apply_cube_move(coord, mv),
+                    orient.apply_cube_move(mv).into_coord()
+                );
+            }
+    
+            for sym in DominoSymmetry::all_iter() {
+                assert_eq!(
+                    table.domino_conjugate(coord, sym),
+                    orient.domino_conjugate(sym).into_coord()
+                );
+            }
         }
+    
+        Ok(())
     }
-
-    Ok(())
 }

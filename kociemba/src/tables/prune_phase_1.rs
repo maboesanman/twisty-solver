@@ -1,8 +1,6 @@
 use bitvec::field::BitField;
 use bitvec::view::BitView;
-use itertools::Itertools;
 use num_integer::Integer;
-use rand::distr::Distribution;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8, Ordering, fence};
@@ -265,7 +263,7 @@ impl PrunePhase1Table {
             let next_level = frontier_level + 1;
             println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
             let unvisited = TABLE_ENTRY_COUNT - total_visited;
-            let use_bottom_up = frontier.len() * /* degree of graph */ 18 > unvisited; // cheap heuristic
+            let _use_bottom_up = frontier.len() * /* degree of graph */ 18 > unvisited; // cheap heuristic
 
             let use_bottom_up = true;
 
@@ -350,7 +348,7 @@ mod test {
 
     #[test]
     fn generate() -> anyhow::Result<()> {
-        let tables = Tables::new("tables")?;
+        let _tables = Tables::new("tables")?;
 
         Ok(())
     }

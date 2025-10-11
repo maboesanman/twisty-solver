@@ -42,9 +42,6 @@ impl EdgeGroupOrientComboCoord {
 
 #[cfg(test)]
 mod test {
-    use std::{collections::HashMap, sync::atomic::AtomicU32};
-
-    use itertools::Itertools;
     use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 
     use crate::{cube_ops::partial_reprs::edge_group_orient::EdgeGroupOrient, tables::Tables};

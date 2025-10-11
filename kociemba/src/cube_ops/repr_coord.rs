@@ -443,12 +443,6 @@ mod tests {
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
-    fn random_cube() -> ReprCube {
-        use rand::distr::{Distribution, StandardUniform};
-        let mut rng = ChaCha8Rng::seed_from_u64(17);
-        Distribution::sample(&StandardUniform, &mut rng)
-    }
-
     #[test]
     fn phase1_move_equivalence() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
