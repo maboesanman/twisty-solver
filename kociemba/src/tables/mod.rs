@@ -5,22 +5,9 @@ use lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
 use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
-use crate::{
-    cube_ops::{
-        coords::EdgeGroupOrientRawCoord,
-        cube_move::{CubeMove, DominoMove},
-        partial_reprs::{
-            corner_orient::CornerOrient, corner_perm::CornerPerm, e_edge_perm::EEdgePerm,
-            edge_group::EdgeGroup, edge_orient::EdgeOrient, edge_perm::EdgePerm,
-            ud_edge_perm::UDEdgePerm,
-        },
-        repr_cube::ReprCube,
-    },
-    tables::{
-        self, grouped_edge_moves::GroupedEdgeMovesTable,
-        move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_1::PrunePhase1Table,
-        prune_phase_2::PrunePhase2Table,
-    },
+use crate::tables::{
+    grouped_edge_moves::GroupedEdgeMovesTable, move_sym_corner_perm::MoveSymCornerPermTable,
+    prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table,
 };
 
 pub mod lookup_sym_corner_perm;

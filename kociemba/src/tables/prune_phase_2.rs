@@ -1,11 +1,10 @@
 use bitvec::field::BitField;
-use bitvec::slice::BitSlice;
 use bitvec::view::BitView;
 use itertools::Itertools;
 use num_integer::Integer;
 use rand::distr::Distribution;
 use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8, Ordering, fence};
 
 use std::path::Path;
@@ -13,11 +12,9 @@ use std::path::Path;
 use anyhow::Result;
 use memmap2::Mmap;
 
-use crate::cube_ops::coords::{
-    CornerOrientRawCoord, CornerPermSymCoord, EEdgePermRawCoord, UDEdgePermRawCoord,
-};
+use crate::cube_ops::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
 use crate::cube_ops::corner_perm_combo_coord::CornerPermComboCoord;
-use crate::cube_ops::cube_move::{CubeMove, DominoMove};
+use crate::cube_ops::cube_move::DominoMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::tables::Tables;
 use crate::tables::lookup_sym_corner_perm::LookupSymCornerPermTable;
@@ -214,7 +211,7 @@ impl PrunePhase2Table {
         let atom = unsafe { as_atomic_u8_slice(&mut working_buffer) };
         let working = WorkingTable(atom);
 
-        let special_cases = vec![0, 1, 2];
+        let special_cases = [0, 1, 2];
 
         let mut shortcut_map = HashMap::new();
 

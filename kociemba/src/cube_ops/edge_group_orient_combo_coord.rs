@@ -1,5 +1,5 @@
 use crate::cube_ops::{
-    coords::{CornerPermSymCoord, EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
+    coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
     cube_move::CubeMove,
     cube_sym::DominoSymmetry,
 };

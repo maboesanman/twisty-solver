@@ -1,11 +1,10 @@
 use bitvec::field::BitField;
-use bitvec::slice::BitSlice;
 use bitvec::view::BitView;
 use itertools::Itertools;
 use num_integer::Integer;
 use rand::distr::Distribution;
 use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8, Ordering, fence};
 
 use std::path::Path;
@@ -246,7 +245,7 @@ impl PrunePhase1Table {
         let atom = unsafe { as_atomic_u8_slice(&mut working_buffer) };
         let working = WorkingTable(atom);
 
-        let special_cases = vec![0, 1, 2, 3, 12];
+        let special_cases = [0, 1, 2, 3, 12];
 
         let mut shortcut_map = HashMap::new();
 

@@ -10,8 +10,8 @@ use crate::{
         edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         partial_reprs::{
             corner_orient::CornerOrient, corner_perm::CornerPerm, e_edge_perm::EEdgePerm,
-            edge_group::EdgeGroup, edge_group_orient::EdgeGroupOrient, edge_orient::EdgeOrient,
-            edge_perm::EdgePerm, ud_edge_perm::UDEdgePerm,
+            edge_group::EdgeGroup, edge_orient::EdgeOrient, edge_perm::EdgePerm,
+            ud_edge_perm::UDEdgePerm,
         },
         repr_cube::ReprCube,
     },
