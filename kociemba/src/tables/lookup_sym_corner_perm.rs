@@ -106,10 +106,12 @@ impl LookupSymCornerPermTable {
     pub fn get_all_stabilizing_conjugations(
         sym_coord: CornerPermSymCoord,
     ) -> impl IntoIterator<Item = DominoSymmetry> {
-        let mask = STABILIZING_CONJUGATIONS.get(&sym_coord.0).copied().unwrap_or(1);
+        let mask = STABILIZING_CONJUGATIONS
+            .get(&sym_coord.0)
+            .copied()
+            .unwrap_or(1);
 
-        DominoSymmetry::all_iter()
-            .filter(move |sym| (mask >> sym.0) & 1 == 1)
+        DominoSymmetry::all_iter().filter(move |sym| (mask >> sym.0) & 1 == 1)
     }
 
     fn generate(buffer: &mut [u8]) {
@@ -224,15 +226,22 @@ mod test {
         // 444 of the 2768 sym coords have nontrivial stabilizing symmetries
         // there are 34 possible cardinalities
 
-        let nonzero_count: HashMap<_, _> = (0..2768).into_par_iter().map(|i| {
-            let sym = CornerPermSymCoord(i);
-            let rep = tables.lookup_sym_corner_perm.get_rep_from_sym(sym);
-            let perm = CornerPerm::from_coord(rep);
+        let nonzero_count: HashMap<_, _> = (0..2768)
+            .into_par_iter()
+            .map(|i| {
+                let sym = CornerPermSymCoord(i);
+                let rep = tables.lookup_sym_corner_perm.get_rep_from_sym(sym);
+                let perm = CornerPerm::from_coord(rep);
 
-            (sym.0, DominoSymmetry::all_iter().fold(0u16, |acc, sym| {
-                acc | ((perm == perm.domino_conjugate(sym)) as u16) << sym.0
-            }))
-        }).filter(|x| x.1 != 1).collect();
+                (
+                    sym.0,
+                    DominoSymmetry::all_iter().fold(0u16, |acc, sym| {
+                        acc | ((perm == perm.domino_conjugate(sym)) as u16) << sym.0
+                    }),
+                )
+            })
+            .filter(|x| x.1 != 1)
+            .collect();
 
         let mut reversed: HashMap<u16, Vec<u16>> = HashMap::new();
 
@@ -240,9 +249,14 @@ mod test {
             reversed.entry(v).or_default().push(k);
         }
 
-        let mut out_string = "static STABILIZING_CONJUGATIONS: phf::Map<u16, u16> = phf::phf_map! {\n".to_string();
+        let mut out_string =
+            "static STABILIZING_CONJUGATIONS: phf::Map<u16, u16> = phf::phf_map! {\n".to_string();
         for (k, v) in reversed {
-            out_string.push_str(&format!("    {} => {},\n", v.into_iter().map(|x| format!("{x}")).join(" | "), k));
+            out_string.push_str(&format!(
+                "    {} => {},\n",
+                v.into_iter().map(|x| format!("{x}")).join(" | "),
+                k
+            ));
         }
         out_string.push_str("};");
 

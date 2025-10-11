@@ -4,8 +4,6 @@ use crate::cube_ops::{
     cube_sym::DominoSymmetry,
 };
 
-
-
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CornerPermComboCoord {
     pub sym_coord: CornerPermSymCoord,
@@ -114,15 +112,22 @@ mod test {
         // 444 of the 2768 sym coords have nontrivial stabilizing symmetries
         // there are 34 possible cardinalities
 
-        let nonzero_count: HashMap<_, _> = (0..2768).into_par_iter().map(|i| {
-            let sym = CornerPermSymCoord(i);
-            let rep = tables.lookup_sym_corner_perm.get_rep_from_sym(sym);
-            let perm = CornerPerm::from_coord(rep);
+        let nonzero_count: HashMap<_, _> = (0..2768)
+            .into_par_iter()
+            .map(|i| {
+                let sym = CornerPermSymCoord(i);
+                let rep = tables.lookup_sym_corner_perm.get_rep_from_sym(sym);
+                let perm = CornerPerm::from_coord(rep);
 
-            (sym.0, DominoSymmetry::nontrivial_iter().fold(0u16, |acc, sym| {
-                (acc << 1) | ((perm == perm.domino_conjugate(sym)) as u16)
-            }))
-        }).filter(|x| x.1 != 0).collect();
+                (
+                    sym.0,
+                    DominoSymmetry::nontrivial_iter().fold(0u16, |acc, sym| {
+                        (acc << 1) | ((perm == perm.domino_conjugate(sym)) as u16)
+                    }),
+                )
+            })
+            .filter(|x| x.1 != 0)
+            .collect();
 
         let mut reversed: HashMap<u16, Vec<u16>> = HashMap::new();
 
@@ -136,9 +141,14 @@ mod test {
         //     2 | 6 | 7 => "multiplication",
         // };
 
-        let mut out_string = "static STABILIZING_CONJUGATIONS: Map<u16, u16> = phf_map! {\n".to_string();
+        let mut out_string =
+            "static STABILIZING_CONJUGATIONS: Map<u16, u16> = phf_map! {\n".to_string();
         for (k, v) in reversed {
-            out_string.push_str(&format!("    {} => {},\n", v.into_iter().map(|x| format!("{x}")).join(" | "), k));
+            out_string.push_str(&format!(
+                "    {} => {},\n",
+                v.into_iter().map(|x| format!("{x}")).join(" | "),
+                k
+            ));
         }
         out_string.push_str("};");
 

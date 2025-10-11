@@ -1,5 +1,11 @@
+use bitvec::field::BitField;
+use bitvec::slice::BitSlice;
+use bitvec::view::BitView;
+use itertools::Itertools;
+use num_integer::Integer;
 use rand::distr::Distribution;
 use rayon::prelude::*;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU8, Ordering, fence};
 
 use std::path::Path;
@@ -7,63 +13,47 @@ use std::path::Path;
 use anyhow::Result;
 use memmap2::Mmap;
 
-use crate::cube_ops::repr_coord::SymReducedPhase2PartialRepr;
+use crate::cube_ops::coords::{
+    CornerOrientRawCoord, CornerPermSymCoord, EEdgePermRawCoord, UDEdgePermRawCoord,
+};
+use crate::cube_ops::corner_perm_combo_coord::CornerPermComboCoord;
+use crate::cube_ops::cube_move::{CubeMove, DominoMove};
+use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::tables::Tables;
+use crate::tables::lookup_sym_corner_perm::LookupSymCornerPermTable;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
-const TABLE_SIZE_BYTES: usize = (2768 * 40320) / 4;
-const FILE_CHECKSUM: u32 = 2553198974;
+const TABLE_ENTRY_COUNT: usize = 2768 * 40320;
+const WORKING_TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT;
+const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
+const FILE_CHECKSUM: u32 = 796939987;
+
+static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {
+    241926 | 282257 | 12902505 => 1,
+    0 => 0,
+    7177047 | 11733190 | 12418671 | 12781540 | 32742948 | 83393416 | 83433727 | 83474062 | 106208046 | 110799952 => 2,
+};
 
 struct WorkingTable<'a>(&'a [AtomicU8]);
 
 impl<'a> WorkingTable<'a> {
-    fn visited(&self, coords: SymReducedPhase2PartialRepr) -> bool {
-        let i = coords.into_pruning_index();
-
-        let j = i % 4;
-        let i = i / 4;
-
+    fn visited(&self, i: usize) -> bool {
         let atomic = &self.0[i];
-
-        let shift = j * 2;
-        let mask = 0b11 << shift;
-
-        atomic.load(Ordering::Relaxed) & mask != 0
+        atomic.load(Ordering::Relaxed) != 0
     }
 
-    fn visited_at_level_residue(
-        &self,
-        coords: SymReducedPhase2PartialRepr,
-        level_residue: u8,
-    ) -> bool {
-        let i = coords.into_pruning_index();
-
-        let j = i % 4;
-        let i = i / 4;
-
+    fn visited_at_level(&self, i: usize, level: u8) -> bool {
         let atomic = &self.0[i];
+        let expected_residue = level + 1;
 
-        let shift = j * 2;
-        let mask = 0b11 << shift;
-
-        let expected_residue = level_residue << shift;
-
-        atomic.load(Ordering::Relaxed) & mask == expected_residue
+        atomic.load(Ordering::Relaxed) == expected_residue
     }
 
     /// write to the table. returns true if write was successful and the moves from here should be handled.
-    fn write(&self, coords: SymReducedPhase2PartialRepr, level_residue: u8) -> bool {
-        let i = coords.into_pruning_index();
-
-        let j = i % 4;
-        let i = i / 4;
-
+    fn write(&self, i: usize, level: u8) -> bool {
         let atomic = &self.0[i];
-
-        let shift = j * 2;
-        let mask = 0b11 << shift;
-        let bits = level_residue << shift;
+        let bits = level + 1;
 
         // try once: if the slot is still 00, set it to `bits`, else bail
         atomic
@@ -71,51 +61,179 @@ impl<'a> WorkingTable<'a> {
                 Ordering::AcqRel,  // on success: Acquire+Release
                 Ordering::Acquire, // on failure: Acquire
                 |old| {
-                    if old & mask != 0 {
+                    if old != 0 {
                         None // someone else already wrote non-zero
                     } else {
-                        Some(old | bits) // set the two bits
+                        Some(bits) // set the two bits
                     }
                 },
             )
             .is_ok()
     }
+
+    fn read(&self, i: usize) -> u8 {
+        let atomic = &self.0[i];
+        let value = atomic.load(Ordering::Relaxed);
+
+        value - 1
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct PartialPhase2 {
+    pub corner_perm_combo_coord: CornerPermComboCoord,
+    pub ud_edge_perm_raw_coord: UDEdgePermRawCoord,
+}
+
+impl PartialPhase2 {
+    pub fn from_index(index: usize) -> Self {
+        let (a, b) = index.div_rem(&40320);
+        Self {
+            corner_perm_combo_coord: CornerPermComboCoord {
+                sym_coord: CornerPermSymCoord(a as u16),
+                domino_conjugation: DominoSymmetry::IDENTITY,
+            },
+            ud_edge_perm_raw_coord: UDEdgePermRawCoord(b as u16),
+        }
+    }
+
+    pub fn into_index(self) -> usize {
+        debug_assert_eq!(
+            self.corner_perm_combo_coord.domino_conjugation,
+            DominoSymmetry::IDENTITY
+        );
+        let a = self.corner_perm_combo_coord.sym_coord.0;
+        let b = self.ud_edge_perm_raw_coord.0;
+
+        (a as usize) * 40320 + (b as usize)
+    }
+
+    pub fn apply_domino_move(self, tables: &Tables, domino_move: DominoMove) -> Self {
+        let corner_perm_combo_coord = self
+            .corner_perm_combo_coord
+            .apply_cube_move(tables, domino_move.into());
+
+        let ud_edge_perm_raw_coord = tables
+            .grouped_edge_moves
+            .update_edge_perm_phase_2_partial_domino_move(domino_move, self.ud_edge_perm_raw_coord);
+
+        Self {
+            corner_perm_combo_coord,
+            ud_edge_perm_raw_coord,
+        }
+    }
+
+    pub fn domino_conjugate(self, tables: &Tables, sym: DominoSymmetry) -> Self {
+        if sym == DominoSymmetry::IDENTITY {
+            return self;
+        }
+
+        let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
+
+        let ud_edge_perm_raw_coord = tables
+            .grouped_edge_moves
+            .update_edge_perm_phase_2_partial_domino_symmetry(sym, self.ud_edge_perm_raw_coord);
+
+        Self {
+            corner_perm_combo_coord,
+            ud_edge_perm_raw_coord,
+        }
+    }
+
+    pub fn normalize(self, tables: &Tables) -> impl IntoIterator<Item = Self> {
+        let rep = self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation);
+
+        LookupSymCornerPermTable::get_all_stabilizing_conjugations(
+            rep.corner_perm_combo_coord.sym_coord,
+        )
+        .into_iter()
+        .map(move |sym| PartialPhase2 {
+            corner_perm_combo_coord: rep.corner_perm_combo_coord,
+            ud_edge_perm_raw_coord: tables
+                .grouped_edge_moves
+                .update_edge_perm_phase_2_partial_domino_symmetry(sym, rep.ud_edge_perm_raw_coord),
+        })
+    }
+
+    pub fn single_normalize(self, tables: &Tables) -> Self {
+        self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation)
+    }
+}
+
+pub fn top_down_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
+    let start = PartialPhase2::from_index(index);
+
+    DominoMove::all_iter()
+        .flat_map(move |cube_move| start.apply_domino_move(tables, cube_move).normalize(tables))
+        .map(PartialPhase2::into_index)
+}
+
+pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
+    let start = PartialPhase2::from_index(index);
+
+    DominoMove::all_iter()
+        .map(move |cube_move| {
+            start
+                .apply_domino_move(tables, cube_move)
+                .single_normalize(tables)
+        })
+        .map(PartialPhase2::into_index)
 }
 
 pub struct PrunePhase2Table(Mmap);
 
 impl PrunePhase2Table {
-    pub fn get_value(&self, pruning_index: usize) -> u8 {
-        let i = pruning_index;
+    pub fn get_value(
+        &self,
+        corner_perm_combo_coord: CornerPermSymCoord,
+        ud_edge_perm_raw_coord: UDEdgePermRawCoord,
+    ) -> u8 {
+        let partial = PartialPhase2 {
+            corner_perm_combo_coord: CornerPermComboCoord {
+                sym_coord: corner_perm_combo_coord,
+                domino_conjugation: DominoSymmetry::IDENTITY,
+            },
+            ud_edge_perm_raw_coord,
+        };
+        let i = partial.into_index();
+        PRUNE_TABLE_SHORTCUTS
+            .get(&(i as u32))
+            .copied()
+            .unwrap_or_else(|| {
+                let bits = self.0.view_bits::<bitvec::order::Lsb0>();
 
-        let j = i % 4;
-        let i = i / 4;
-
-        let byte = self.0[i];
-
-        let shift = j * 2;
-
-        ((byte >> shift) & 0b11) - 1
+                let start = i * 3;
+                let chunk = &bits[start..start + 3];
+                4 + (chunk.load_le::<u8>() & 0b111)
+            })
     }
 
     fn generate(buffer: &mut [u8], tables: &Tables) {
-        let atom = unsafe { as_atomic_u8_slice(buffer) };
+        let mut working_buffer = vec![0u8; WORKING_TABLE_SIZE_BYTES];
+
+        let atom = unsafe { as_atomic_u8_slice(&mut working_buffer) };
         let working = WorkingTable(atom);
 
-        // initial state
-        let root = SymReducedPhase2PartialRepr::SOLVED;
+        let special_cases = vec![0, 1, 2];
 
-        working.write(root, 1);
+        let mut shortcut_map = HashMap::new();
+
+        // initial state
+        let root = 0;
+
+        working.write(root, 0);
 
         let mut frontier = vec![root];
         let mut frontier_level = 0u8; // real level, not mod-3
         let mut total_visited = 1;
 
         while !frontier.is_empty() {
-            let frontier_residue = (frontier_level % 3) + 1;
-            let next_residue = ((frontier_level + 1) % 3) + 1;
+            if special_cases.contains(&frontier_level) {
+                shortcut_map.insert(frontier_level, frontier.clone());
+            }
+            let next_level = frontier_level + 1;
             println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
-            let unvisited = 2768 * 40320 - total_visited;
+            let unvisited = TABLE_ENTRY_COUNT - total_visited;
             let use_bottom_up = frontier.len() * /* degree of graph */ 10 > unvisited; // cheap heuristic
 
             let use_bottom_up = true;
@@ -124,9 +242,9 @@ impl PrunePhase2Table {
                 /* ---------- top-down ---------- */
                 frontier
                     .par_iter()
-                    .flat_map_iter(|&v| tables.phase_2_partial_adjacent(v))
+                    .flat_map_iter(|&v| top_down_adjacent(v, tables))
                     .filter_map(|nbr| {
-                        if working.write(nbr, next_residue) {
+                        if working.write(nbr, next_level) {
                             Some(nbr)
                         } else {
                             None
@@ -135,16 +253,15 @@ impl PrunePhase2Table {
                     .collect()
             } else {
                 /* ---------- bottom-up ---------- */
-                (0..(2768 * 40320))
+                (0..TABLE_ENTRY_COUNT)
                     .into_par_iter()
-                    .map(SymReducedPhase2PartialRepr::from_pruning_index)
                     .filter_map(|v| {
                         if working.visited(v) {
                             return None; // already discovered
                         }
-                        for nbr in tables.phase_2_partial_adjacent(v) {
-                            if working.visited_at_level_residue(nbr, frontier_residue) {
-                                if working.write(v, next_residue) {
+                        for nbr in bottom_up_adjacent(v, tables) {
+                            if working.visited_at_level(nbr, frontier_level) {
+                                if working.write(v, next_level) {
                                     return Some(v);
                                 } else {
                                     return None;
@@ -163,8 +280,29 @@ impl PrunePhase2Table {
             total_visited += frontier.len();
         }
 
-        // println!("{:?}", frontier.len());
-        // println!("{frontier_level:?}");
+        // let mut out_string = "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
+        // for (k, v) in shortcut_map {
+        //     out_string.push_str(&format!("    {} => {},\n", v.into_iter().map(|x| format!("{x}")).join(" | "), k));
+        // }
+        // out_string.push_str("};");
+
+        // println!("{out_string}");
+
+        let bits = buffer.view_bits_mut::<bitvec::order::Lsb0>();
+
+        let mut set = |i: usize, val: u8| {
+            assert!(val < 16);
+            let start = i * 4;
+            bits[start..start + 4].store_le::<u8>(val);
+        };
+
+        for i in 0..TABLE_ENTRY_COUNT {
+            let x = working.read(i);
+            (set)(i, x.clamp(3, 18) - 3);
+        }
+
+        println!("{:?}", frontier.len());
+        println!("{frontier_level:?}");
     }
 
     pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {
@@ -175,90 +313,14 @@ impl PrunePhase2Table {
     }
 }
 
-// #[cfg(test)]
-// mod test {
+#[cfg(test)]
+mod test {
+    use super::*;
 
-//     use crate::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
+    #[test]
+    fn generate() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
 
-//     use super::*;
-//     // use crate::tables::{lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable};
-
-//     #[test]
-//     fn generate() {
-//         let lookup_sym_edge_group_orient = LookupSymEdgeGroupOrientTable::load(
-//             "edge_group_orient_sym_lookup_table.dat",
-//         ).unwrap();
-
-//         let move_sym_edge_group_orient = MoveSymEdgeGroupOrientTable::load(
-//             "edge_group_orient_sym_move_table.dat",
-//             &lookup_sym_edge_group_orient,
-//         ).unwrap();
-
-//         let move_raw_corner_orient = MoveRawCornerOrientTable::load("corner_orient_move_table.dat").unwrap();
-
-//         let move_sym_edge_group_orient_ref = &move_sym_edge_group_orient;
-//         let move_raw_corner_orient_ref = &move_raw_corner_orient;
-
-//         let prune_phase_1 = PrunePhase2Table::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
-
-//     }
-// }
-
-// #[test]
-// fn test_neighbors() -> anyhow::Result<()> {
-//     let phase_1_move_edge_raw_table =
-//         crate::tables::move_raw_edge_group_flip::load("edge_group_and_orient_move_table.dat")?;
-//     let phase_1_move_corner_raw_table =
-//         crate::tables::move_raw_corner_orient::load("corner_orient_move_table.dat")?;
-//     let phase_1_lookup_edge_sym_table = crate::tables::lookup_sym_edge_group_flip::load(
-//         "phase_1_edge_sym_lookup_table.dat",
-//         &phase_1_move_edge_raw_table,
-//     )?;
-//     let phase_1_move_edge_sym_table = crate::tables::move_sym_edge_group_flip::load(
-//         "phase_1_edge_sym_move_table.dat",
-//         &phase_1_lookup_edge_sym_table,
-//         &phase_1_move_edge_raw_table,
-//     )?;
-
-//     use rand::{Rng, SeedableRng};
-//     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
-
-//     'main: for _ in 0..1000 {
-//         let cube: crate::repr_cubie::ReprCube = rand::distr::StandardUniform.sample(&mut rng);
-
-//         let eo = crate::coords::RawEdgeOrientCoord::from_cubie(cube);
-//         let eg = crate::coords::RawEdgeGroupCoord::from_cubie(cube);
-//         let co = RawCornerOrientCoord::from_cubie(cube);
-
-//         let (sym_start, transform) =
-//             phase_1_lookup_edge_sym_table.get_sym_from_raw(&phase_1_move_edge_raw_table, eg, eo);
-
-//         let raw_start = phase_1_move_corner_raw_table.conjugate_by_transform(co, transform);
-
-//         let sym_neighbors: Vec<_> = neighbors((sym_start, raw_start), &phase_1_move_edge_sym_table, &phase_1_move_corner_raw_table).collect();
-
-//         let raw_then_sym: Vec<_> = Move::all_iter().map(|mv| cube.then(mv.into())).map(|cube| {
-//             let eo = crate::coords::RawEdgeOrientCoord::from_cubie(cube);
-//             let eg = crate::coords::RawEdgeGroupCoord::from_cubie(cube);
-//             let co = RawCornerOrientCoord::from_cubie(cube);
-
-//             let (sym_start, transform) =
-//                 phase_1_lookup_edge_sym_table.get_sym_from_raw(&phase_1_move_edge_raw_table, eg, eo);
-
-//             let raw_start = phase_1_move_corner_raw_table.conjugate_by_transform(co, transform);
-//             (sym_start, raw_start)
-//         }).collect();
-
-//         for a in sym_neighbors.iter() {
-//             if !raw_then_sym.contains(a) {
-//                 println!("sym_neighbors: {:?}", &itertools::Itertools::collect_vec(sym_neighbors.iter().map(|(a,b)|(a.inner(),b.inner()))));
-//                 println!("raw_neighbors: {:?}", &itertools::Itertools::collect_vec(raw_then_sym.iter().map(|(a,b)|(a.inner(),b.inner()))));
-//                 println!();
-//                 continue 'main;
-//             }
-//             assert!(raw_then_sym.contains(a))
-//         }
-//     }
-
-//     Ok(())
-// }
+        Ok(())
+    }
+}

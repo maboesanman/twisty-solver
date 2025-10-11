@@ -9,18 +9,13 @@ use crate::{
         cube_sym::DominoSymmetry,
         edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         partial_reprs::{
-            corner_orient::{CornerOrient},
-            corner_perm::CornerPerm,
-            e_edge_perm::{EEdgePerm},
-            edge_group::EdgeGroup,
-            edge_group_orient::{EdgeGroupOrient},
-            edge_orient::EdgeOrient,
-            edge_perm::{EdgePerm},
-            ud_edge_perm::UDEdgePerm,
+            corner_orient::CornerOrient, corner_perm::CornerPerm, e_edge_perm::EEdgePerm,
+            edge_group::EdgeGroup, edge_group_orient::EdgeGroupOrient, edge_orient::EdgeOrient,
+            edge_perm::EdgePerm, ud_edge_perm::UDEdgePerm,
         },
         repr_cube::ReprCube,
     },
-    tables::{Tables},
+    tables::Tables,
 };
 
 // there are 4 items:
@@ -99,13 +94,20 @@ impl SymReducedRepr {
 
         match self.0 {
             [0, 0, _, _] => {
-                let _phase_2_prune_index = (e, f);
+                let corner_perm_sym_coord = CornerPermSymCoord(e);
+                let ud_edge_perm_raw_coord = UDEdgePermRawCoord(f);
+                tables
+                    .get_prune_phase_2()
+                    .get_value(corner_perm_sym_coord, ud_edge_perm_raw_coord)
             }
             [_, _, _, _] => {
-                let _phase_1_prune_index = (a, c);
+                let edge_group_orient_sym_coord = EdgeGroupOrientSymCoord(a);
+                let corner_orient_raw_coord = CornerOrientRawCoord(c);
+                tables
+                    .get_prune_phase_1()
+                    .get_value(edge_group_orient_sym_coord, corner_orient_raw_coord)
             }
         }
-        todo!()
     }
 
     // 18 neighbors in phase 1,
@@ -234,19 +236,19 @@ impl Phase1Unpacked {
     pub fn normalize(self, tables: &Tables) -> Self {
         let val = self.domino_conjugate(
             tables,
-            self.edge_group_orient_combo_coord
-                .domino_conjugation,
+            self.edge_group_orient_combo_coord.domino_conjugation,
         );
 
         if val.corner_orient_raw_coord.0 == 0 && val.edge_group_orient_combo_coord.sym_coord.0 == 0
         {
-            let mut val = self.domino_conjugate(
-                tables,
-                self.corner_perm_combo_coord.domino_conjugation,
-            );
+            let mut val =
+                self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation);
 
             val.corner_orient_raw_coord = CornerOrientRawCoord(0);
-            val.edge_group_orient_combo_coord = EdgeGroupOrientComboCoord { domino_conjugation: DominoSymmetry::IDENTITY, sym_coord: EdgeGroupOrientSymCoord(0)};
+            val.edge_group_orient_combo_coord = EdgeGroupOrientComboCoord {
+                domino_conjugation: DominoSymmetry::IDENTITY,
+                sym_coord: EdgeGroupOrientSymCoord(0),
+            };
 
             val
         } else {
@@ -329,6 +331,14 @@ impl Phase1Unpacked {
             edge_orient,
         }
     }
+
+    pub fn prune_dist(self, tables: &Tables) -> u8 {
+        let norm = self.normalize(tables);
+        tables.get_prune_phase_1().get_value(
+            norm.edge_group_orient_combo_coord.sym_coord,
+            norm.corner_orient_raw_coord,
+        )
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
@@ -382,10 +392,7 @@ impl Phase2Unpacked {
     }
 
     pub fn normalize(self, tables: &Tables) -> Self {
-        self.domino_conjugate(
-            tables,
-            self.corner_perm_combo_coord.domino_conjugation.inverse(),
-        )
+        self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation)
     }
 
     pub fn pack(self, tables: &Tables) -> SymReducedRepr {
@@ -420,6 +427,14 @@ impl Phase2Unpacked {
             edge_orient: EdgeOrient::SOLVED,
         }
     }
+
+    pub fn prune_dist(self, tables: &Tables) -> u8 {
+        let norm = self.normalize(tables);
+        tables.get_prune_phase_2().get_value(
+            norm.corner_perm_combo_coord.sym_coord,
+            norm.ud_edge_perm_raw_coord,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -447,9 +462,7 @@ mod tests {
             for mv in CubeMove::all_iter() {
                 let cube_moved = cube.apply_cube_move(mv);
                 let phase1_moved = phase1.apply_cube_move(&tables, mv).into_cube(&tables);
-                assert_eq!(
-                    cube_moved, phase1_moved,
-                );
+                assert_eq!(cube_moved, phase1_moved,);
             }
         }
 
@@ -469,9 +482,7 @@ mod tests {
             for sym in DominoSymmetry::nontrivial_iter() {
                 let cube_conj = cube.domino_conjugate(sym);
                 let phase1_conj = phase1.domino_conjugate(&tables, sym).into_cube(&tables);
-                assert_eq!(
-                    cube_conj, phase1_conj,
-                );
+                assert_eq!(cube_conj, phase1_conj,);
             }
         }
 
@@ -496,7 +507,10 @@ mod tests {
             };
             let d = c.into_cube(&tables);
 
-            assert_eq!(phase1.edge_group_orient_combo_coord.domino_conjugation, DominoSymmetry::IDENTITY);
+            assert_eq!(
+                phase1.edge_group_orient_combo_coord.domino_conjugation,
+                DominoSymmetry::IDENTITY
+            );
 
             assert_eq!(a, d);
         }

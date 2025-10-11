@@ -4,10 +4,13 @@ use anyhow::Result;
 use memmap2::Mmap;
 use rayon::prelude::*;
 
-use crate::{cube_ops::{
-    coords::CornerOrientRawCoord, cube_move::CubeMove, cube_sym::DominoSymmetry,
-    partial_reprs::corner_orient::CornerOrient,
-}, tables::Tables};
+use crate::{
+    cube_ops::{
+        coords::CornerOrientRawCoord, cube_move::CubeMove, cube_sym::DominoSymmetry,
+        partial_reprs::corner_orient::CornerOrient,
+    },
+    tables::Tables,
+};
 
 use super::table_loader::{as_u16_slice, as_u16_slice_mut, load_table};
 
