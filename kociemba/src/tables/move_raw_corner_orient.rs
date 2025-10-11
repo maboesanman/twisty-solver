@@ -4,10 +4,10 @@ use anyhow::Result;
 use memmap2::Mmap;
 use rayon::prelude::*;
 
-use crate::cube_ops::{
+use crate::{cube_ops::{
     coords::CornerOrientRawCoord, cube_move::CubeMove, cube_sym::DominoSymmetry,
     partial_reprs::corner_orient::CornerOrient,
-};
+}, tables::Tables};
 
 use super::table_loader::{as_u16_slice, as_u16_slice_mut, load_table};
 
@@ -75,7 +75,8 @@ impl MoveRawCornerOrientTable {
 
 #[test]
 fn test() -> Result<()> {
-    let table = MoveRawCornerOrientTable::load("corner_orient_move_table.dat")?;
+    let tables = Tables::new("tables")?;
+    let table = tables.move_raw_corner_orient;
     for i in 0..2187u16 {
         let coord = CornerOrientRawCoord(i);
         let orient = CornerOrient::from_coord(coord);

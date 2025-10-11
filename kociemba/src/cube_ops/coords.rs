@@ -73,6 +73,6 @@ impl EdgeGroupOrientRawCoord {
     }
 
     pub fn join(group: EdgeGroupRawCoord, orient: EdgeOrientRawCoord) -> Self {
-        Self(((group.0 as u32) << 11) & (orient.0 as u32))
+        Self(((group.0 as u32) << 11) | (orient.0 as u32))
     }
 }

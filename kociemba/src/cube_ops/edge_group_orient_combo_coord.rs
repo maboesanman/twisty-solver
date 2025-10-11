@@ -42,22 +42,14 @@ impl EdgeGroupOrientComboCoord {
 
 #[cfg(test)]
 mod test {
-    use rand::distr::StandardUniform;
-    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+    use std::{collections::HashMap, sync::atomic::AtomicU32};
 
-    use crate::{
-        cube_ops::{
-            coords::EdgeGroupOrientRawCoord,
-            cube_move::CubeMove,
-            cube_sym::DominoSymmetry,
-            edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
-            partial_reprs::{
-                e_edge_perm::EEdgePerm, edge_group::EdgeGroup, edge_group_orient::EdgeGroupOrient,
-                edge_orient::EdgeOrient, edge_perm::EdgePerm, ud_edge_perm::UDEdgePerm,
-            },
-        },
-        tables::Tables,
-    };
+    use itertools::Itertools;
+    use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+
+    use crate::{cube_ops::partial_reprs::edge_group_orient::EdgeGroupOrient, tables::Tables};
+
+    use super::*;
 
     #[test]
     fn round_trip() -> anyhow::Result<()> {
@@ -117,8 +109,4 @@ mod test {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct CornerPermComboCoord {
-    pub sym_coord: CornerPermSymCoord,
-    pub domino_conjugation: DominoSymmetry,
-}
+

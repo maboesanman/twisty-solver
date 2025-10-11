@@ -1,3 +1,4 @@
+use num_integer::Integer;
 use rand::distr::Distribution;
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicU8, Ordering, fence};
@@ -7,7 +8,11 @@ use std::path::Path;
 use anyhow::Result;
 use memmap2::Mmap;
 
-use crate::cube_ops::repr_coord::SymReducedPhase1PartialRepr;
+use crate::cube_ops::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
+use crate::cube_ops::cube_move::CubeMove;
+use crate::cube_ops::cube_sym::DominoSymmetry;
+use crate::cube_ops::edge_group_orient_combo_coord::EdgeGroupOrientComboCoord;
+use crate::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
 use crate::tables::Tables;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
@@ -18,9 +23,7 @@ const FILE_CHECKSUM: u32 = 3247267664;
 struct WorkingTable<'a>(&'a [AtomicU8]);
 
 impl<'a> WorkingTable<'a> {
-    fn visited(&self, coords: SymReducedPhase1PartialRepr) -> bool {
-        let i = coords.into_pruning_index();
-
+    fn visited(&self, i: usize) -> bool {
         let j = i % 4;
         let i = i / 4;
 
@@ -34,11 +37,9 @@ impl<'a> WorkingTable<'a> {
 
     fn visited_at_level_residue(
         &self,
-        coords: SymReducedPhase1PartialRepr,
+        i: usize,
         level_residue: u8,
     ) -> bool {
-        let i = coords.into_pruning_index();
-
         let j = i % 4;
         let i = i / 4;
 
@@ -53,9 +54,7 @@ impl<'a> WorkingTable<'a> {
     }
 
     /// write to the table. returns true if write was successful and the moves from here should be handled.
-    fn write(&self, coords: SymReducedPhase1PartialRepr, level_residue: u8) -> bool {
-        let i = coords.into_pruning_index();
-
+    fn write(&self, i: usize, level_residue: u8) -> bool {
         let j = i % 4;
         let i = i / 4;
 
@@ -82,6 +81,111 @@ impl<'a> WorkingTable<'a> {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct PartialPhase1 {
+    pub edge_group_orient_combo_coord: EdgeGroupOrientComboCoord,
+    pub corner_orient_raw_coord: CornerOrientRawCoord,
+}
+
+impl PartialPhase1 {
+    pub fn from_index(index: usize) -> Self {
+        let (a, b) = index.div_rem(&2187);
+        Self {
+            edge_group_orient_combo_coord: EdgeGroupOrientComboCoord {
+                sym_coord: EdgeGroupOrientSymCoord(a as u16),
+                domino_conjugation: DominoSymmetry::IDENTITY,
+            },
+            corner_orient_raw_coord: CornerOrientRawCoord(b as u16),
+        }
+    }
+
+    pub fn into_index(self) -> usize {
+        debug_assert_eq!(
+            self.edge_group_orient_combo_coord.domino_conjugation,
+            DominoSymmetry::IDENTITY
+        );
+        let a = self.edge_group_orient_combo_coord.sym_coord.0;
+        let b = self.corner_orient_raw_coord.0;
+
+        (a as usize) * 2187 + (b as usize)
+    }
+
+    pub fn apply_cube_move(self, tables: &Tables, cube_move: CubeMove) -> Self {
+        let edge_group_orient_combo_coord = self
+            .edge_group_orient_combo_coord
+            .apply_cube_move(tables, cube_move);
+
+        let corner_orient_raw_coord = tables
+            .move_raw_corner_orient
+            .apply_cube_move(self.corner_orient_raw_coord, cube_move);
+
+        Self {
+            edge_group_orient_combo_coord,
+            corner_orient_raw_coord,
+        }
+    }
+
+    pub fn domino_conjugate(self, tables: &Tables, sym: DominoSymmetry) -> Self {
+        if sym == DominoSymmetry::IDENTITY {
+            return self;
+        }
+
+        let edge_group_orient_combo_coord =
+            self.edge_group_orient_combo_coord.domino_conjugate(sym);
+
+        let corner_orient_raw_coord = tables
+            .move_raw_corner_orient
+            .domino_conjugate(self.corner_orient_raw_coord, sym);
+
+        Self {
+            edge_group_orient_combo_coord,
+            corner_orient_raw_coord,
+        }
+    }
+
+    pub fn normalize(self, tables: &Tables) -> impl IntoIterator<Item = Self> {
+        let rep = self.domino_conjugate(
+            tables,
+            self.edge_group_orient_combo_coord
+                .domino_conjugation,
+        );
+
+        
+        LookupSymEdgeGroupOrientTable::get_all_stabilizing_conjugations(rep.edge_group_orient_combo_coord.sym_coord)
+            .into_iter()
+            .map(move |sym| PartialPhase1 {
+                edge_group_orient_combo_coord: rep.edge_group_orient_combo_coord,
+                corner_orient_raw_coord: tables
+                    .move_raw_corner_orient
+                    .domino_conjugate(rep.corner_orient_raw_coord, sym),
+            })
+    }
+
+    pub fn single_normalize(self, tables: &Tables) -> Self {
+        self.domino_conjugate(
+            tables,
+            self.edge_group_orient_combo_coord
+                .domino_conjugation,
+        )
+    }
+}
+
+pub fn top_down_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
+    let start = PartialPhase1::from_index(index);
+
+    CubeMove::all_iter()
+        .flat_map(move |cube_move| start.apply_cube_move(tables, cube_move).normalize(tables))
+        .map(PartialPhase1::into_index)
+}
+
+pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
+    let start = PartialPhase1::from_index(index);
+
+    CubeMove::all_iter()
+        .map(move |cube_move| start.apply_cube_move(tables, cube_move).single_normalize(tables))
+        .map(PartialPhase1::into_index)
+}
+
 pub struct PrunePhase1Table(Mmap);
 
 impl PrunePhase1Table {
@@ -103,7 +207,7 @@ impl PrunePhase1Table {
         let working = WorkingTable(atom);
 
         // initial state
-        let root = SymReducedPhase1PartialRepr::SOLVED;
+        let root = 0;
 
         working.write(root, 1);
 
@@ -124,7 +228,7 @@ impl PrunePhase1Table {
                 /* ---------- top-down ---------- */
                 frontier
                     .par_iter()
-                    .flat_map_iter(|&v| tables.phase_1_partial_adjacent(v))
+                    .flat_map_iter(|&v| top_down_adjacent(v, tables))
                     .filter_map(|nbr| {
                         if working.write(nbr, next_residue) {
                             Some(nbr)
@@ -137,12 +241,11 @@ impl PrunePhase1Table {
                 /* ---------- bottom-up ---------- */
                 (0..(64430 * 2187))
                     .into_par_iter()
-                    .map(SymReducedPhase1PartialRepr::from_pruning_index)
                     .filter_map(|v| {
                         if working.visited(v) {
                             return None; // already discovered
                         }
-                        for nbr in tables.phase_1_partial_adjacent(v) {
+                        for nbr in bottom_up_adjacent(v, tables) {
                             if working.visited_at_level_residue(nbr, frontier_residue) {
                                 if working.write(v, next_residue) {
                                     return Some(v);
@@ -163,8 +266,8 @@ impl PrunePhase1Table {
             total_visited += frontier.len();
         }
 
-        // println!("{:?}", frontier.len());
-        // println!("{frontier_level:?}");
+        println!("{:?}", frontier.len());
+        println!("{frontier_level:?}");
     }
 
     pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {
@@ -175,30 +278,21 @@ impl PrunePhase1Table {
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use crate::tables::{lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table};
+#[cfg(test)]
+mod test {
+    use anyhow::Result;
 
-//     #[test]
-//     fn generate() {
-//         let lookup_sym_edge_group_orient = LookupSymEdgeGroupOrientTable::load(
-//             "edge_group_orient_sym_lookup_table.dat",
-//         ).unwrap();
+    use crate::tables::{lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table, Tables};
 
-//         let move_sym_edge_group_orient = MoveSymEdgeGroupOrientTable::load(
-//             "edge_group_orient_sym_move_table.dat",
-//             &lookup_sym_edge_group_orient,
-//         ).unwrap();
+    #[test]
+    fn generate() -> anyhow::Result<()>{
+        let tables = Tables::new("tables")?;
 
-//         let move_raw_corner_orient = MoveRawCornerOrientTable::load("corner_orient_move_table.dat").unwrap();
+        let prune_phase_1 = PrunePhase1Table::load("phase_1_prune_table.dat", &tables).unwrap();
 
-//         let move_sym_edge_group_orient_ref = &move_sym_edge_group_orient;
-//         let move_raw_corner_orient_ref = &move_raw_corner_orient;
-
-//         let prune_phase_1 = PrunePhase1Table::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
-
-//     }
-// }
+        Ok(())
+    }
+}
 
 // #[test]
 // fn test_neighbors() -> anyhow::Result<()> {

@@ -14,10 +14,6 @@ use crate::{
             edge_group::EdgeGroup, edge_orient::EdgeOrient, edge_perm::EdgePerm,
             ud_edge_perm::UDEdgePerm,
         },
-        repr_coord::{
-            SymReducedPhase1PartialRepr, SymReducedPhase1Repr, SymReducedPhase2PartialRepr,
-            SymReducedPhase2Repr,
-        },
         repr_cube::ReprCube,
     },
     tables::{
@@ -33,7 +29,7 @@ pub mod move_raw_corner_orient;
 pub mod move_sym_corner_perm;
 pub mod move_sym_edge_group_orient;
 
-// pub mod prune_phase_1;
+pub mod prune_phase_1;
 // pub mod prune_phase_2;
 // pub mod prune_phase_2_corner_perm;
 
