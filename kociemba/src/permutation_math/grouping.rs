@@ -146,9 +146,8 @@ const COMBINATIONS: [[u16; 4]; 12] = {
     buf
 };
 
-
 #[test]
-fn count_parity()  {
+fn count_parity() {
     // let tables = Tables::new("tables")?;
 
     // let table = &tables.lookup_sym_corner_perm;

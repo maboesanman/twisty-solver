@@ -55,7 +55,7 @@ impl GroupedEdgeMovesTable {
         let e_intermediate = u8_slice[e_i] as usize;
         let ud_intermediate = u16_slice[ud_i] as usize;
 
-        let e = self.e_edge_perm_mult[135 * e_edge_perm.0 as usize + e_intermediate];
+        let e = self.e_edge_perm_mult[176 * e_edge_perm.0 as usize + e_intermediate];
         let ud =
             as_u16_slice(&self.ud_edge_perm_mult)[1123 * ud_edge_perm.0 as usize + ud_intermediate];
 
@@ -72,7 +72,9 @@ impl GroupedEdgeMovesTable {
         let sub_i = cube_move.into_index();
         let (ud, e) = self.update_edge_perms_shared(grouping, sub_i, ud_edge_perm, e_edge_perm);
 
-        let g = EdgeGroup::from_coord(grouping).apply_cube_move(cube_move).into_coord();
+        let g = EdgeGroup::from_coord(grouping)
+            .apply_cube_move(cube_move)
+            .into_coord();
         (g, ud, e)
     }
 
@@ -89,7 +91,9 @@ impl GroupedEdgeMovesTable {
         };
         let (ud, e) = self.update_edge_perms_shared(grouping, sub_i, ud_edge_perm, e_edge_perm);
 
-        let g = EdgeGroup::from_coord(grouping).domino_conjugate(domino_symmetry).into_coord();
+        let g = EdgeGroup::from_coord(grouping)
+            .domino_conjugate(domino_symmetry)
+            .into_coord();
         (g, ud, e)
     }
 
@@ -99,7 +103,7 @@ impl GroupedEdgeMovesTable {
         ud_edge_perm: UDEdgePermRawCoord,
         e_edge_perm: EEdgePermRawCoord,
     ) -> (UDEdgePermRawCoord, EEdgePermRawCoord) {
-        let e = self.e_edge_perm_mult[135 * e_edge_perm.0 as usize + sub_i];
+        let e = self.e_edge_perm_mult[176 * e_edge_perm.0 as usize + sub_i];
         let ud = as_u16_slice(&self.ud_edge_perm_mult)[1123 * ud_edge_perm.0 as usize + sub_i];
 
         (UDEdgePermRawCoord(ud), EEdgePermRawCoord(e))
@@ -417,9 +421,9 @@ mod test {
     #[test]
     fn test() -> Result<()> {
         let tables = Tables::new("tables")?;
-    
+
         let _table = &tables.grouped_edge_moves;
-    
+
         Ok(())
     }
 
@@ -439,8 +443,14 @@ mod test {
 
             for mv in CubeMove::all_iter() {
                 let a = perm.apply_cube_move(mv);
-                let (g, ud, e) = tables.grouped_edge_moves.update_edge_perms_cube_move(g, mv, ud, e);
-                let b = EdgePerm::join(EdgeGroup::from_coord(g), UDEdgePerm::from_coord(ud), EEdgePerm::from_coord(e));
+                let (g, ud, e) = tables
+                    .grouped_edge_moves
+                    .update_edge_perms_cube_move(g, mv, ud, e);
+                let b = EdgePerm::join(
+                    EdgeGroup::from_coord(g),
+                    UDEdgePerm::from_coord(ud),
+                    EEdgePerm::from_coord(e),
+                );
 
                 assert_eq!(a, b);
             }
@@ -465,8 +475,14 @@ mod test {
 
             for sym in DominoSymmetry::all_iter() {
                 let a = perm.domino_conjugate(sym);
-                let (g, ud, e) = tables.grouped_edge_moves.update_edge_perms_domino_conjugate(g, sym, ud, e);
-                let b = EdgePerm::join(EdgeGroup::from_coord(g), UDEdgePerm::from_coord(ud), EEdgePerm::from_coord(e));
+                let (g, ud, e) = tables
+                    .grouped_edge_moves
+                    .update_edge_perms_domino_conjugate(g, sym, ud, e);
+                let b = EdgePerm::join(
+                    EdgeGroup::from_coord(g),
+                    UDEdgePerm::from_coord(ud),
+                    EEdgePerm::from_coord(e),
+                );
 
                 assert_eq!(a, b);
             }

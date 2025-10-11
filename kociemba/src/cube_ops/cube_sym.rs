@@ -1,7 +1,7 @@
 use crate::cube;
 
 use super::{
-    cube_move::{CubeMove, DominoMove},
+    cube_move::CubeMove,
     partial_reprs::{
         corner_orient::CornerOrient, corner_perm::CornerPerm, e_edge_perm::EEdgePerm,
         edge_group::EdgeGroup, edge_group_orient::EdgeGroupOrient, edge_orient::EdgeOrient,
@@ -394,7 +394,7 @@ impl CubeMove {
                 let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
                 while j < 16 {
                     let sym: DominoSymmetry = unsafe { core::mem::transmute(j as u8) };
-                    val[i*16 + j] = {
+                    val[i * 16 + j] = {
                         let perm = mv.into_corner_perm().domino_conjugate(sym);
                         let mut k = 0;
                         'k: while k < 18 {
@@ -408,13 +408,13 @@ impl CubeMove {
                                 l += 1;
                             }
                             if equal {
-                                break 'k
+                                break 'k;
                             }
-                            
+
                             k += 1;
                         }
 
-                        unsafe { core::mem::transmute(k as u8)}
+                        unsafe { core::mem::transmute(k as u8) }
                     };
                     j += 1;
                 }
@@ -423,7 +423,7 @@ impl CubeMove {
 
             val
         };
-        TABLE[self.into_index()*16 + (sym.0 as usize)]
+        TABLE[self.into_index() * 16 + (sym.0 as usize)]
     }
 }
 

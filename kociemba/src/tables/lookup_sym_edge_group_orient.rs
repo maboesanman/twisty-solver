@@ -6,7 +6,10 @@ use rayon::prelude::*;
 
 use crate::{
     cube_ops::{
-        combo_coords::EdgeGroupOrientComboCoord, coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord}, cube_sym::DominoSymmetry, partial_reprs::edge_group_orient::EdgeGroupOrient
+        coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
+        cube_sym::DominoSymmetry,
+        edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
+        partial_reprs::edge_group_orient::EdgeGroupOrient,
     },
     tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
 };
@@ -24,8 +27,13 @@ impl LookupSymEdgeGroupOrientTable {
         EdgeGroupOrientRawCoord(buffer[sym_coord.0 as usize])
     }
 
-    pub fn get_raw_from_combo(&self, combo_coord: EdgeGroupOrientComboCoord) -> EdgeGroupOrientRawCoord {
-        EdgeGroupOrient::from_coord(self.get_rep_from_sym(combo_coord.sym_coord)).domino_conjugate(combo_coord.domino_conjugation).into_coord()
+    pub fn get_raw_from_combo(
+        &self,
+        combo_coord: EdgeGroupOrientComboCoord,
+    ) -> EdgeGroupOrientRawCoord {
+        EdgeGroupOrient::from_coord(self.get_rep_from_sym(combo_coord.sym_coord))
+            .domino_conjugate(combo_coord.domino_conjugation.inverse())
+            .into_coord()
     }
 
     pub fn get_combo_from_raw(
@@ -73,23 +81,34 @@ impl LookupSymEdgeGroupOrientTable {
 
 #[cfg(test)]
 mod test {
-    use crate::tables::Tables;
+    use rand::distr::StandardUniform;
 
-    use super::*;
+    use crate::{
+        cube_ops::{
+            coords::EdgeGroupOrientRawCoord,
+            cube_move::CubeMove,
+            cube_sym::DominoSymmetry,
+            partial_reprs::{
+                e_edge_perm::EEdgePerm, edge_group::EdgeGroup, edge_orient::EdgeOrient,
+                edge_perm::EdgePerm, ud_edge_perm::UDEdgePerm,
+            },
+        },
+        tables::Tables,
+    };
 
     #[test]
-    fn test() -> Result<()> {
+    fn round_trip() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
         let table = &tables.lookup_sym_edge_group_orient;
 
-        (0u32..(2048 * 495)).into_par_iter().for_each(|i| {
-            let a = EdgeGroupOrientRawCoord(i);
-            let combo = table.get_combo_from_raw(a);
-            let b = table.get_raw_from_combo(combo);
+        for i in 0..(495 * 2048) {
+            let raw = EdgeGroupOrientRawCoord(i);
+            let combo = table.get_combo_from_raw(raw);
+            let raw_again = table.get_raw_from_combo(combo);
 
-            assert_eq!(a, b)
-        });
+            assert_eq!(raw, raw_again);
+        }
 
         Ok(())
     }

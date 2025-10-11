@@ -6,7 +6,9 @@ use rayon::prelude::*;
 
 use crate::{
     cube_ops::{
-        combo_coords::EdgeGroupOrientComboCoord, coords::EdgeGroupOrientSymCoord, cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::edge_group_orient::EdgeGroupOrient
+        coords::EdgeGroupOrientSymCoord, cube_move::CubeMove, cube_sym::DominoSymmetry,
+        edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
+        partial_reprs::edge_group_orient::EdgeGroupOrient,
     },
     tables::table_loader::{as_u16_slice, as_u16_slice_mut},
 };
@@ -50,7 +52,10 @@ impl MoveSymEdgeGroupOrientTable {
             .enumerate()
             .for_each(|(i, store)| {
                 let sym_coord = EdgeGroupOrientSymCoord(i as u16);
-                let combo = EdgeGroupOrientComboCoord { sym_coord, domino_conjugation: DominoSymmetry::IDENTITY};
+                let combo = EdgeGroupOrientComboCoord {
+                    sym_coord,
+                    domino_conjugation: DominoSymmetry::IDENTITY,
+                };
                 let raw = sym_lookup_table.get_raw_from_combo(combo);
                 let group_orient = EdgeGroupOrient::from_coord(raw);
 
@@ -75,7 +80,6 @@ impl MoveSymEdgeGroupOrientTable {
     }
 }
 
-
 // #[cfg(test)]
 // mod test {
 
@@ -84,7 +88,7 @@ impl MoveSymEdgeGroupOrientTable {
 //     use super::*;
 //     #[test]
 //     fn test() -> anyhow::Result<()> {
-    
+
 //         let tables = Tables::new("tables")?;
 
 //         (0..2048 * 495).into_par_iter().for_each(|i| {

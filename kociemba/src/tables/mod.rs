@@ -7,14 +7,18 @@ use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
 use crate::{
     cube_ops::{
-        coords::EdgeGroupOrientRawCoord, cube_move::{CubeMove, DominoMove}, partial_reprs::{
+        coords::EdgeGroupOrientRawCoord,
+        cube_move::{CubeMove, DominoMove},
+        partial_reprs::{
             corner_orient::CornerOrient, corner_perm::CornerPerm, e_edge_perm::EEdgePerm,
-            edge_group::EdgeGroup,
-            edge_orient::EdgeOrient, edge_perm::EdgePerm, ud_edge_perm::UDEdgePerm,
-        }, repr_coord::{
+            edge_group::EdgeGroup, edge_orient::EdgeOrient, edge_perm::EdgePerm,
+            ud_edge_perm::UDEdgePerm,
+        },
+        repr_coord::{
             SymReducedPhase1PartialRepr, SymReducedPhase1Repr, SymReducedPhase2PartialRepr,
             SymReducedPhase2Repr,
-        }, repr_cube::ReprCube
+        },
+        repr_cube::ReprCube,
     },
     tables::{
         self, grouped_edge_moves::GroupedEdgeMovesTable,
@@ -26,7 +30,6 @@ pub mod lookup_sym_corner_perm;
 pub mod lookup_sym_edge_group_orient;
 
 pub mod move_raw_corner_orient;
-pub mod move_raw_corner_perm;
 pub mod move_sym_corner_perm;
 pub mod move_sym_edge_group_orient;
 
@@ -58,7 +61,6 @@ pub struct Tables {
     pub(crate) move_sym_edge_group_orient: MoveSymEdgeGroupOrientTable,
     pub(crate) move_sym_corner_perm: MoveSymCornerPermTable,
     pub(crate) grouped_edge_moves: GroupedEdgeMovesTable,
-
     // pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
     // pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
     // pub(crate) prune_phase_2_corner_perm: MaybeUninit<PrunePhaseCornerTable>,
@@ -207,7 +209,7 @@ impl Tables {
     //     let edge_group = edge_group_orient_raw.split().0;
     //     let e_edge_perm = cube.e_edge_perm_coord();
     //     let (ud_edge_perm, corner_perm) = cube.ud_edge_and_corner_perm_coords();
-        
+
     //     let corner_orient = cube.get_corner_orient_coord();
     //     let corner_perm_sym_correction = cube.corner_perm_sym_correction();
 

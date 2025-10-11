@@ -6,6 +6,7 @@ use rayon::prelude::*;
 
 use crate::cube_ops::{
     coords::{CornerPermRawCoord, CornerPermSymCoord},
+    corner_perm_combo_coord::CornerPermComboCoord,
     cube_sym::DominoSymmetry,
     partial_reprs::corner_perm::CornerPerm,
 };
@@ -20,11 +21,11 @@ const FILE_CHECKSUM: u32 = 188933558;
 pub struct LookupSymCornerPermTable(Mmap);
 
 impl LookupSymCornerPermTable {
-    pub fn get_raw_from_sym(&self, sym_coord: CornerPermSymCoord) -> CornerPermRawCoord {
+    pub fn get_rep_from_sym(&self, sym_coord: CornerPermSymCoord) -> CornerPermRawCoord {
         let buffer = as_u16_slice(&self.0);
         let (even, odd) = buffer.split_at(2768 / 2);
 
-        let buffer = if sym_coord.0 % 2 == 0 {
+        let buffer = if sym_coord.0.is_multiple_of(2) {
             even
         } else {
             odd
@@ -33,10 +34,13 @@ impl LookupSymCornerPermTable {
         CornerPermRawCoord(buffer[sym_coord.0 as usize / 2])
     }
 
-    pub fn get_sym_from_raw(
-        &self,
-        raw_coord: CornerPermRawCoord,
-    ) -> (CornerPermSymCoord, DominoSymmetry) {
+    pub fn get_raw_from_combo(&self, combo_coord: CornerPermComboCoord) -> CornerPermRawCoord {
+        CornerPerm::from_coord(self.get_rep_from_sym(combo_coord.sym_coord))
+            .domino_conjugate(combo_coord.domino_conjugation.inverse())
+            .into_coord()
+    }
+
+    pub fn get_combo_from_raw(&self, raw_coord: CornerPermRawCoord) -> CornerPermComboCoord {
         let buffer = as_u16_slice(&self.0);
         let (even, odd) = buffer.split_at(2768 >> 1);
         let corner_perm = CornerPerm::from_coord(raw_coord);
@@ -46,16 +50,19 @@ impl LookupSymCornerPermTable {
             .unwrap();
 
         // index within its parity half
-        let pos_in_half = if raw_coord.0 % 2 == 0 {
+        let pos_in_half = if raw_coord.0.is_multiple_of(2) {
             even.binary_search(&rep_coord.0).unwrap()
         } else {
             odd.binary_search(&rep_coord.0).unwrap()
         };
 
         // pack: (pos << 1) | parity
-        let packed = ((pos_in_half as u16) << 1) | ((raw_coord.0 & 1) as u16);
+        let packed = ((pos_in_half as u16) << 1) | (raw_coord.0 & 1);
 
-        (CornerPermSymCoord(packed), sym)
+        CornerPermComboCoord {
+            sym_coord: CornerPermSymCoord(packed),
+            domino_conjugation: sym,
+        }
     }
 
     fn generate(buffer: &mut [u8]) {
@@ -113,9 +120,12 @@ mod test {
             let raw_coord = CornerPermRawCoord(i);
             let corner_perm = CornerPerm::from_coord(raw_coord);
 
-            let (sym_coord, sym) = table.get_sym_from_raw(raw_coord);
+            let CornerPermComboCoord {
+                sym_coord,
+                domino_conjugation: sym,
+            } = table.get_combo_from_raw(raw_coord);
             let updated_raw = corner_perm.domino_conjugate(sym).into_coord();
-            let rep_coord = table.get_raw_from_sym(sym_coord);
+            let rep_coord = table.get_rep_from_sym(sym_coord);
 
             assert_eq!(rep_coord, updated_raw)
         });
@@ -131,7 +141,7 @@ mod test {
 
         (0..2768).into_iter().for_each(|i| {
             let sym_coord = CornerPermSymCoord(i);
-            let raw_coord = table.get_raw_from_sym(sym_coord);
+            let raw_coord = table.get_rep_from_sym(sym_coord);
             let corner_perm = CornerPerm::from_coord(raw_coord);
 
             assert_eq!(corner_perm.0.is_odd(), i & 0b1 == 1);
