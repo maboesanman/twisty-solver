@@ -464,10 +464,8 @@ impl Phase2Unpacked {
 
 #[cfg(test)]
 mod tests {
-    use crate::permutation_math::permutation::Permutation;
-
     use super::*;
-    use rand::{Rng, SeedableRng};
+    use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
     #[test]
