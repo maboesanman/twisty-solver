@@ -5,7 +5,7 @@
 #![feature(const_precise_live_drops)]
 #![allow(long_running_const_eval)]
 
-pub mod tables;
-pub mod search;
 pub mod cube_ops;
 pub mod permutation_math;
+pub mod search;
+pub mod tables;

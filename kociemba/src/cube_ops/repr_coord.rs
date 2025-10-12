@@ -2,7 +2,7 @@ use crate::{
     cube_ops::{
         coords::{
             CornerOrientRawCoord, CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupOrientRawCoord,
-            EdgeGroupOrientSymCoord, EdgeGroupRawCoord, UDEdgePermRawCoord,
+            EdgeGroupOrientSymCoord, UDEdgePermRawCoord,
         },
         corner_perm_combo_coord::CornerPermComboCoord,
         cube_move::{CubeMove, DominoMove},
@@ -367,10 +367,10 @@ impl Phase2Unpacked {
             .corner_perm_combo_coord
             .apply_cube_move(tables, domino_move.into());
 
-        let (_, ud_edge_perm_raw_coord, e_edge_perm_raw_coord) =
-            tables.grouped_edge_moves.update_edge_perms_cube_move(
-                EdgeGroupRawCoord(0),
-                domino_move.into(),
+        let (ud_edge_perm_raw_coord, e_edge_perm_raw_coord) = tables
+            .grouped_edge_moves
+            .update_edge_perm_phase_2_domino_move(
+                domino_move,
                 self.ud_edge_perm_raw_coord,
                 self.e_edge_perm_raw_coord,
             );
@@ -389,10 +389,9 @@ impl Phase2Unpacked {
 
         let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
 
-        let (_, ud_edge_perm_raw_coord, e_edge_perm_raw_coord) = tables
+        let (ud_edge_perm_raw_coord, e_edge_perm_raw_coord) = tables
             .grouped_edge_moves
-            .update_edge_perms_domino_conjugate(
-                EdgeGroupRawCoord(0),
+            .update_edge_perm_phase_2_domino_symmetry(
                 sym,
                 self.ud_edge_perm_raw_coord,
                 self.e_edge_perm_raw_coord,

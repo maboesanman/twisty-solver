@@ -265,6 +265,7 @@ impl PrunePhase1Table {
             let unvisited = TABLE_ENTRY_COUNT - total_visited;
             let _use_bottom_up = frontier.len() * /* degree of graph */ 18 > unvisited; // cheap heuristic
 
+            // TODO: fix top down search so this is dramatically more efficient
             let use_bottom_up = true;
 
             let next = if !use_bottom_up {
