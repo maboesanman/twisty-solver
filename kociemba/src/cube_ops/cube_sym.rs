@@ -377,7 +377,7 @@ impl CubeMove {
                             k += 1;
                         }
 
-                        unsafe { core::mem::transmute(k as u8) }
+                        unsafe { core::mem::transmute::<u8, CubeMove>(k as u8) }
                     };
                     j += 1;
                 }

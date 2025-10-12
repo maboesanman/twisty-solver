@@ -86,14 +86,14 @@ mod test {
         for i in 0..2187u16 {
             let coord = CornerOrientRawCoord(i);
             let orient = CornerOrient::from_coord(coord);
-    
+
             for mv in CubeMove::all_iter() {
                 assert_eq!(
                     table.apply_cube_move(coord, mv),
                     orient.apply_cube_move(mv).into_coord()
                 );
             }
-    
+
             for sym in DominoSymmetry::all_iter() {
                 assert_eq!(
                     table.domino_conjugate(coord, sym),
@@ -101,7 +101,7 @@ mod test {
                 );
             }
         }
-    
+
         Ok(())
     }
 }

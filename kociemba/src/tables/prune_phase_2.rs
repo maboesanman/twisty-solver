@@ -197,9 +197,9 @@ impl PrunePhase2Table {
             .unwrap_or_else(|| {
                 let bits = self.0.view_bits::<bitvec::order::Lsb0>();
 
-                let start = i * 3;
-                let chunk = &bits[start..start + 3];
-                4 + (chunk.load_le::<u8>() & 0b111)
+                let start = i * 4;
+                let chunk = &bits[start..start + 4];
+                4 + (chunk.load_le::<u8>() & 0b1111)
             })
     }
 

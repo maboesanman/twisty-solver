@@ -1,224 +1,202 @@
-use rand::distr::Distribution;
-
 use crate::{
-    cube, cube_ops::{
-        coords::{CornerOrientRawCoord, EdgeGroupRawCoord, EdgeOrientRawCoord},
-        cube_move::CubeMove,
+    cube_ops::{
+        cube_move::CubeMove, cube_sym::DominoSymmetry, repr_coord::SymReducedRepr,
         repr_cube::ReprCube,
-    }, tables::{
-        lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable,
-        move_raw_corner_orient::MoveRawCornerOrientTable,
-        move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table,
-    }
+    },
+    tables::Tables,
 };
 
-pub fn phase_1_solve(
-    cube: ReprCube,
-    sym_lookup: &LookupSymEdgeGroupOrientTable,
-    move_edge_sym: &MoveSymEdgeGroupOrientTable,
-    move_corner: &MoveRawCornerOrientTable,
-    pruning_table: &PrunePhase1Table,
-) -> Vec<CubeMove> {
-    let start_cube = Phase1InitRepr::from_cube(cube, move_corner, sym_lookup);
+pub fn domino_reduce(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
+    let start_cube = SymReducedRepr::from_cube(cube, tables);
 
-    let (sequence, _) = match pathfinding::directed::dijkstra::dijkstra(
+    let (sequence, _) = pathfinding::directed::idastar::idastar(
         &start_cube,
-        |&cube| {
-            let prune = pruning_table.get_value(cube);
-            CubeMove::all_iter()
-                .map(move |mv| cube.apply_cube_move(mv, move_edge_sym, move_corner).0)
-                .filter(move |new_cube| {
-                    let new_prune = pruning_table.get_value(*new_cube);
-                    (new_prune + 1) % 3 == prune
-                })
-                .map(|cube| (cube, 1))
-        },
-        |&start_cube| start_cube == Phase1InitRepr::SOLVED,
-    ) {
-        Some(x) => x,
-        None => {
-            println!("failed: {cube:?}");
-            return vec![];
-        }
-    };
+        |&cube| cube.neighbors(tables).into_iter().map(move |c| (c, 1)),
+        |&cube| cube.prune_distance_phase_1(tables),
+        |&cube| cube.is_phase_1_solved(),
+    )
+    .unwrap();
 
     let mut moves = vec![];
     let mut last = cube;
 
-    for solve_c in sequence[1..].iter() {
-        let (l, mv) = CubeMove::all_iter()
-            .map(|mv| (last.apply_cube_move(mv), mv))
-            .filter(|(c, _)| *solve_c == Phase1InitRepr::from_cube(*c, move_corner, sym_lookup))
-            .next()
+    for solve_c in sequence[1..].iter().map(|c| c.into_cube(tables)) {
+        let (_, l, mv) = CubeMove::all_iter()
+            .flat_map(|mv| {
+                let next = last.apply_cube_move(mv);
+                DominoSymmetry::all_iter().map(move |s| (next.domino_conjugate(s), next, mv))
+            })
+            .find(|(c, _, _)| *c == solve_c)
             .unwrap();
         last = l;
-        moves.push(mv.try_into().unwrap());
+        moves.push(mv);
     }
 
     moves
 }
 
-#[test]
-fn search_test() -> anyhow::Result<()> {
-    let lookup_sym_edge_group_orient = LookupSymEdgeGroupOrientTable::load(
-        "edge_group_orient_sym_lookup_table.dat",
-    ).unwrap();
+pub fn solve_phased(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
+    let start_cube = SymReducedRepr::from_cube(cube, tables);
 
-    let move_sym_edge_group_orient = MoveSymEdgeGroupOrientTable::load(
-        "edge_group_orient_sym_move_table.dat",
-        &lookup_sym_edge_group_orient,
-    ).unwrap();
+    let (mut sequence, _) = pathfinding::directed::idastar::idastar(
+        &start_cube,
+        |&cube| cube.neighbors(tables).into_iter().map(move |c| (c, 1)),
+        |&cube| cube.prune_distance_phase_1(tables),
+        |&cube| cube.is_phase_1_solved(),
+    )
+    .unwrap();
 
-    let move_raw_corner_orient = MoveRawCornerOrientTable::load("corner_orient_move_table.dat").unwrap();
+    let start = sequence.pop().unwrap();
 
-    let move_sym_edge_group_orient_ref = &move_sym_edge_group_orient;
-    let move_raw_corner_orient_ref = &move_raw_corner_orient;
+    let (mut phase_2_sequence, _) = pathfinding::directed::idastar::idastar(
+        &start,
+        |&cube| cube.neighbors(tables).into_iter().map(move |c| (c, 1)),
+        |&cube| cube.prune_distance_phase_2(tables),
+        |&cube| cube.is_solved(),
+    )
+    .unwrap();
 
-    let prune_phase_1 = PrunePhase1Table::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
+    sequence.append(&mut phase_2_sequence);
 
+    let mut moves = vec![];
+    let mut last = cube;
 
+    for solve_c in sequence[1..].iter().map(|c| c.into_cube(tables)) {
+        let (_, l, mv) = match CubeMove::all_iter()
+            .flat_map(|mv| {
+                let next = last.apply_cube_move(mv);
+                DominoSymmetry::all_iter().map(move |s| (next.domino_conjugate(s), next, mv))
+            })
+            .find(|(c, _, _)| *c == solve_c)
+        {
+            Some(a) => a,
+            None => panic!(),
+        };
 
-    let moves = phase_1_solve(
-        cube![R U Rp Up],
-        &lookup_sym_edge_group_orient,
-        &move_sym_edge_group_orient,
-        &move_raw_corner_orient,
-        &prune_phase_1,
-    );
-
-    for m in moves {
-        print!("{m} ");
+        last = l;
+        moves.push(mv);
     }
 
-    Ok(())
+    moves
 }
 
-#[test]
-fn search_test_superflip() -> anyhow::Result<()> {
-    let lookup_sym_edge_group_orient = LookupSymEdgeGroupOrientTable::load(
-        "edge_group_orient_sym_lookup_table.dat",
-    ).unwrap();
+#[cfg(test)]
+mod test {
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
-    let move_sym_edge_group_orient = MoveSymEdgeGroupOrientTable::load(
-        "edge_group_orient_sym_move_table.dat",
-        &lookup_sym_edge_group_orient,
-    ).unwrap();
+    use crate::cube;
 
-    let move_raw_corner_orient = MoveRawCornerOrientTable::load("corner_orient_move_table.dat").unwrap();
+    use super::*;
 
-    let move_sym_edge_group_orient_ref = &move_sym_edge_group_orient;
-    let move_raw_corner_orient_ref = &move_raw_corner_orient;
+    #[test]
+    fn domino_reduce_test() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
 
-    let prune_phase_1 = PrunePhase1Table::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
+        let moves = domino_reduce(cube![R U Rp Up], &tables);
 
+        for m in moves {
+            print!("{m} ");
+        }
 
-
-    let moves = phase_1_solve(
-        cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
-        &lookup_sym_edge_group_orient,
-        &move_sym_edge_group_orient,
-        &move_raw_corner_orient,
-        &prune_phase_1,
-    );
-
-    for m in moves {
-        print!("{m} ");
+        Ok(())
     }
 
-    Ok(())
-}
+    #[test]
+    fn domino_reduce_test_superflip() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
 
-#[test]
-fn search_test_other() -> anyhow::Result<()> {
-    let lookup_sym_edge_group_orient = LookupSymEdgeGroupOrientTable::load(
-        "edge_group_orient_sym_lookup_table.dat",
-    ).unwrap();
+        let moves = domino_reduce(
+            cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
+            &tables,
+        );
 
-    let move_sym_edge_group_orient = MoveSymEdgeGroupOrientTable::load(
-        "edge_group_orient_sym_move_table.dat",
-        &lookup_sym_edge_group_orient,
-    ).unwrap();
+        for m in moves {
+            print!("{m} ");
+        }
 
-    let move_raw_corner_orient = MoveRawCornerOrientTable::load("corner_orient_move_table.dat").unwrap();
-
-    let move_sym_edge_group_orient_ref = &move_sym_edge_group_orient;
-    let move_raw_corner_orient_ref = &move_raw_corner_orient;
-
-    let prune_phase_1 = PrunePhase1Table::load("phase_1_prune_table.dat", move_sym_edge_group_orient_ref, move_raw_corner_orient_ref).unwrap();
-
-
-
-    let moves = phase_1_solve(
-        cube![Fp B2 D2 L D R2 L F2 D Bp U Dp B L2 B2 L Fp Rp Fp Up F2 Up Dp Bp R2],
-        &lookup_sym_edge_group_orient,
-        &move_sym_edge_group_orient,
-        &move_raw_corner_orient,
-        &prune_phase_1,
-    );
-
-    for m in moves {
-        print!("{m} ");
+        Ok(())
     }
 
-    Ok(())
+    #[test]
+    fn domino_reduce_test_other() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        let moves = domino_reduce(
+            cube![Fp B2 D2 L D R2 L F2 D Bp U Dp B L2 B2 L Fp Rp Fp Up F2 Up Dp Bp R2],
+            &tables,
+        );
+
+        for m in moves {
+            print!("{m} ");
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn solve_phased_test() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        let moves = solve_phased(cube![Up R U Rp], &tables);
+
+        for m in moves {
+            print!("{m} ");
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn solve_phased_test_superflip() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        let moves = solve_phased(
+            cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
+            &tables,
+        );
+
+        for m in moves {
+            print!("{m} ");
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn solve_phased_test_other() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        let moves = solve_phased(
+            cube![Fp B2 D2 L D R2 L F2 D Bp U Dp B L2 B2 L Fp Rp Fp Up F2 Up Dp Bp R2],
+            &tables,
+        );
+
+        for m in moves {
+            print!("{m} ");
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn verify_phased_solutions_random() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let mut rng = ChaCha8Rng::seed_from_u64(99);
+
+        for _ in 0..100 {
+            let mut cube: ReprCube =
+                rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+
+            let moves = solve_phased(cube, &tables);
+
+            for mv in moves {
+                cube = cube.apply_cube_move(mv);
+            }
+
+            assert!(cube == ReprCube::SOLVED);
+        }
+
+        Ok(())
+    }
 }
-
-// #[test]
-// fn search_test_random() -> anyhow::Result<()> {
-//     use rand::{Rng, SeedableRng};
-//     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(18);
-
-//     let phase_1_move_edge_raw_table =
-//         crate::tables::move_raw_edge_group_flip::load("edge_group_and_orient_move_table.dat")?;
-//     let phase_1_move_corner_raw_table =
-//         crate::tables::move_raw_corner_orient::load("corner_orient_move_table.dat")?;
-//     let phase_1_lookup_edge_sym_table = crate::tables::sym_lookup_phase_1_edge::load(
-//         "phase_1_edge_sym_lookup_table.dat",
-//         &phase_1_move_edge_raw_table,
-//     )?;
-//     let phase_1_move_edge_sym_table = crate::tables::move_table_sym_edge_group_flip::load(
-//         "phase_1_edge_sym_move_table.dat",
-//         &phase_1_lookup_edge_sym_table,
-//         &phase_1_move_edge_raw_table,
-//     )?;
-
-//     let phase_1_pruning_table =
-//         crate::tables::pruning_table_phase_1_working::load_phase_1_pruning_table(
-//             "phase_1_pruning_table.dat",
-//             &phase_1_move_edge_sym_table,
-//             &phase_1_move_corner_raw_table,
-//         )?;
-
-//     // for _ in 0..10 {
-//     //     let _: ReprCube = StandardUniform.sample(&mut rng);
-//     // }
-
-//     for _ in 0..1000 {
-//         let moves = phase_1_solve(
-//             {
-//                 let mut cube = SOLVED_CUBE;
-//                 print!("scramble: ");
-//                 for _ in 0..20 {
-//                     let m: Move = unsafe { core::mem::transmute(rng.random_range(0..18u8)) };
-//                     print!("{m} ");
-//                     cube = cube.then(m.into());
-//                 }
-//                 println!();
-//                 cube
-//             },
-//             &phase_1_lookup_edge_sym_table,
-//             &phase_1_move_edge_raw_table,
-//             &phase_1_move_edge_sym_table,
-//             &phase_1_move_corner_raw_table,
-//             &phase_1_pruning_table,
-//         );
-
-//         print!("solve: ");
-//         for m in moves {
-//             print!("{m} ");
-//         }
-//         println!();
-//     }
-
-//     Ok(())
-// }
