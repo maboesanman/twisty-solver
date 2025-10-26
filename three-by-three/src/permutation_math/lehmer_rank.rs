@@ -4,7 +4,6 @@ use paste::paste;
 const FACTORIALS_U8: [u8; 6] = {
     let mut f = [1u8; 6];
     let mut i = 1;
-    // compute f[1] … f[n] inclusive
     while i <= 5 {
         f[i] = f[i - 1] * (i as u8);
         i += 1;
@@ -15,7 +14,6 @@ const FACTORIALS_U8: [u8; 6] = {
 const FACTORIALS_U16: [u16; 9] = {
     let mut f = [1u16; 9];
     let mut i = 1;
-    // compute f[1] … f[n] inclusive
     while i <= 8 {
         f[i] = f[i - 1] * (i as u16);
         i += 1;
@@ -26,7 +24,6 @@ const FACTORIALS_U16: [u16; 9] = {
 const FACTORIALS_U32: [u32; 13] = {
     let mut f = [1u32; 13];
     let mut i = 1;
-    // compute f[1] … f[n] inclusive
     while i <= 12 {
         f[i] = f[i - 1] * (i as u32);
         i += 1;
@@ -37,7 +34,6 @@ const FACTORIALS_U32: [u32; 13] = {
 const FACTORIALS_U64: [u64; 21] = {
     let mut f = [1u64; 21];
     let mut i = 1;
-    // compute f[1] … f[n] inclusive
     while i <= 20 {
         f[i] = f[i - 1] * (i as u64);
         i += 1;
@@ -51,7 +47,6 @@ macro_rules! permutation_coord {
             const [<FACTORIALS_ $n>]: [$t; $n + 1] = {
                 let mut f: [$t; $n + 1] = [1; $n + 1];
                 let mut i = 1;
-                // compute f[1] … f[n] inclusive
                 while i <= $n {
                     f[i] = f[i - 1] * (i as $t);
                     i += 1;
@@ -103,7 +98,6 @@ macro_rules! permutation_coord {
                                 result[i] = result[i + 1];
                                 i += 1;
                             }
-                            // todo!();
                             result[f] = swap;
                             c = 0;
                         }
@@ -119,7 +113,6 @@ macro_rules! permutation_coord {
 
             const fn [<permutation_coord_ $n _parity>](perm: &Permutation<$n>) -> $t {
                 let mut r = [<permutation_coord_ $n>](perm);
-                // is_odd returns bool, cast into integer 0/1
                 if (r & 1) != (perm.is_odd() as $t) {
                     r ^= 1;
                 }
@@ -182,18 +175,6 @@ macro_rules! permutation_coord {
     };
 }
 
-pub trait LehmerRank {
-    type Code;
-    fn into_coord(self) -> Self::Code;
-    fn from_coord(code: Self::Code) -> Self;
-}
-
-pub trait ParityPreservingRank {
-    type Code;
-    fn into_coord(self) -> Self::Code;
-    fn from_coord(code: Self::Code) -> Self;
-}
-
 permutation_coord!(1, u8, true);
 permutation_coord!(2, u8, true);
 permutation_coord!(3, u8, true);
@@ -234,20 +215,6 @@ macro_rules! impl_lehmer_rank {
             pub const fn const_from_coord(coord: $Code) -> Self {
                 debug_assert!(coord < $FACTORIALS[$N]);
                 $unrank_fn(coord)
-            }
-        }
-
-        impl LehmerRank for Permutation<$N> {
-            type Code = $Code;
-
-            #[inline(always)]
-            fn into_coord(self) -> $Code {
-                self.const_into_coord()
-            }
-
-            #[inline(always)]
-            fn from_coord(coord: $Code) -> Self {
-                Self::const_from_coord(coord)
             }
         }
     };

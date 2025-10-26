@@ -2,7 +2,7 @@ use crate::{
     cube_ops::{
         cube_move::CubeMove,
         cube_sym::DominoSymmetry,
-        partial_reprs::{edge_orient::EdgeOrient, edge_perm::EdgePerm},
+        partial_reprs::edge_orient::EdgeOrient,
     },
     kociemba::coords::coords::{EdgeGroupOrientRawCoord, EdgeGroupRawCoord, EdgeOrientRawCoord},
 };
@@ -13,8 +13,6 @@ use super::edge_group::EdgeGroup;
 pub struct EdgeGroupOrient(pub EdgeGroup, pub EdgeOrient);
 
 impl EdgeGroupOrient {
-    pub const SOLVED: Self = Self(EdgeGroup::SOLVED, EdgeOrient::SOLVED);
-
     pub const fn from_coord(coord: EdgeGroupOrientRawCoord) -> Self {
         let group_coord = (coord.0 >> 11) as u16;
         let orient_coord = (coord.0 & 0b11111111111) as u16;
@@ -28,10 +26,6 @@ impl EdgeGroupOrient {
         let group_coord = self.0.into_coord().0 as u32;
         let orient_coord = self.1.into_coord().0 as u32;
         EdgeGroupOrientRawCoord((group_coord << 11) | orient_coord)
-    }
-
-    pub const fn then(self, perm: EdgePerm) -> Self {
-        Self(self.0.permute(perm), self.1.permute(perm))
     }
 }
 

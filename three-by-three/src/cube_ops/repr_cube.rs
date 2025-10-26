@@ -2,7 +2,7 @@ use rand::distr::{Distribution, StandardUniform};
 
 use crate::{
     kociemba::coords::coords::{CornerOrientRawCoord, EdgeOrientRawCoord},
-    permutation_math::{lehmer_rank::LehmerRank, permutation::Permutation},
+    permutation_math::permutation::Permutation,
 };
 
 use super::{
@@ -225,16 +225,12 @@ macro_rules! cube {
 impl Distribution<ReprCube> for StandardUniform {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> ReprCube {
         let mut cube = ReprCube::SOLVED;
-
-        // retry until permutations are legal. this is lazy but should be quick enough still.
-        loop {
-            cube.edge_perm.0 = Permutation::from_coord(rng.random_range(0..479_001_600));
-            cube.corner_perm.0 = Permutation::from_coord(rng.random_range(0..40320));
-            if cube.edge_perm.0.is_odd() == cube.corner_perm.0.is_odd() {
-                break;
-            }
-        }
-
+        let edge_perm_high_bits = rng.random_range(0..(479_001_600 >> 1)) << 1;
+        let corner_perm_high_bits = rng.random_range(0..(40320 >> 1)) << 1;
+        let parity = rng.random_range(0..2);
+        cube.edge_perm.0 = Permutation::<12>::const_from_coord(edge_perm_high_bits | parity);
+        cube.corner_perm.0 =
+            Permutation::<8>::const_from_coord((corner_perm_high_bits | parity) as u16);
         cube.edge_orient = EdgeOrient::from_coord(EdgeOrientRawCoord(rng.random_range(0..2048)));
         cube.corner_orient =
             CornerOrient::from_coord(CornerOrientRawCoord(rng.random_range(0..2048)));

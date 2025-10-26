@@ -19,7 +19,6 @@ pub mod move_sym_edge_group_orient;
 
 pub mod prune_phase_1;
 pub mod prune_phase_2;
-// pub mod prune_phase_2_corner_perm;
 
 pub mod grouped_edge_moves;
 
@@ -35,7 +34,6 @@ const GROUPED_EDGE_MOVES_UD_TABLE_NAME: &str = "grouped_edge_moves_ud_table.dat"
 const GROUPED_EDGE_MOVES_E_TABLE_NAME: &str = "grouped_edge_moves_e_table.dat";
 const MOVE_SYM_CORNER_PERM_TABLE_NAME: &str = "move_sym_corner_perm_table.dat";
 const PRUNE_PHASE_2_TABLE_NAME: &str = "prune_phase_2_table.dat";
-// const PRUNE_PHASE_2_CORNER_PERM_TABLE_NAME: &str = "prune_phase_2_corner_perm_table.dat";
 
 pub struct Tables {
     pub(crate) lookup_sym_edge_group_orient: LookupSymEdgeGroupOrientTable,
@@ -46,9 +44,8 @@ pub struct Tables {
     pub(crate) move_sym_corner_perm: MoveSymCornerPermTable,
     pub(crate) grouped_edge_moves: GroupedEdgeMovesTable,
 
-    pub prune_phase_1: MaybeUninit<PrunePhase1Table>,
-    pub prune_phase_2: MaybeUninit<PrunePhase2Table>,
-    // pub(crate) prune_phase_2_corner_perm: MaybeUninit<PrunePhaseCornerTable>,
+    pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
+    pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
 }
 
 impl Tables {

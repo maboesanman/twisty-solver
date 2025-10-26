@@ -4,7 +4,7 @@ use rayon::iter::ParallelIterator;
 
 use crate::{
     cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry, repr_cube::ReprCube},
-    kociemba::search::capped_idastar::idastar_limited,
+    kociemba::{coords::repr_coord::{SymReducedRepr, SymReducedReprPhase2}, search::capped_idastar::idastar_limited},
     tables::Tables,
 };
 
@@ -19,7 +19,8 @@ pub fn produce_solutions<const N: usize, const S: bool>(
 
     domino_reductions
         .scan(current_best, |current_best, (start, end)| {
-            let phase_2_start = end.last().copied().unwrap_or(start[1]);
+            let phase_1_end = end.last().copied().unwrap_or(start[1]);
+            let phase_2_start = SymReducedReprPhase2([phase_1_end.0[2], phase_1_end.0[3]]);
             let phase_2_prune = phase_2_start.prune_distance_phase_2(tables);
             let phase_2_allowed = (*current_best - (N + 1)) as u8;
             if phase_2_prune > phase_2_allowed {
@@ -27,7 +28,7 @@ pub fn produce_solutions<const N: usize, const S: bool>(
             }
             let (phase_2_path, phase_2_len) = match idastar_limited(
                 phase_2_start,
-                |&cube| cube.neighbors(tables).into_iter().map(move |c| (c, 1)),
+                |&cube| cube.full_phase_2_neighbots(tables).into_iter().map(move |c| (c, 1)),
                 |&cube| cube.prune_distance_phase_2(tables),
                 |&cube| cube.is_solved(),
                 phase_2_allowed,
@@ -51,9 +52,9 @@ pub fn produce_solutions<const N: usize, const S: bool>(
             let mut last = cube;
 
             for solve_c in a[1..]
-                .iter()
-                .chain(b.iter())
-                .chain(c[1..].iter())
+                .iter().copied()
+                .chain(b.iter().copied())
+                .chain(c[1..].iter().map(|x| SymReducedRepr([0, 0, x.0[0], x.0[1]])))
                 .map(|c| c.into_cube(tables))
             {
                 let (_, l, mv) = match CubeMove::all_iter()
@@ -87,7 +88,8 @@ pub fn produce_solutions_par<'a, const N: usize, const S: bool>(
 
     domino_reductions
         .filter_map(|(start, end)| {
-            let phase_2_start = end.last().copied().unwrap_or(start[1]);
+            let phase_1_end = end.last().copied().unwrap_or(start[1]);
+            let phase_2_start = SymReducedReprPhase2([phase_1_end.0[2], phase_1_end.0[3]]);
             let phase_2_prune = phase_2_start.prune_distance_phase_2(tables);
             let curr_best = best.load(std::sync::atomic::Ordering::Relaxed);
             let phase_2_allowed = match curr_best.checked_sub(N + 1) {
@@ -99,7 +101,7 @@ pub fn produce_solutions_par<'a, const N: usize, const S: bool>(
             }
             let (phase_2_path, phase_2_len) = match idastar_limited(
                 phase_2_start,
-                |&cube| cube.neighbors(tables).into_iter().map(move |c| (c, 1)),
+                |&cube| cube.full_phase_2_neighbots(tables).into_iter().map(move |c| (c, 1)),
                 |&cube| cube.prune_distance_phase_2(tables),
                 |&cube| cube.is_solved(),
                 phase_2_allowed,
@@ -129,9 +131,9 @@ pub fn produce_solutions_par<'a, const N: usize, const S: bool>(
             let mut last = cube;
 
             for solve_c in a[1..]
-                .iter()
-                .chain(b.iter())
-                .chain(c[1..].iter())
+                .iter().copied()
+                .chain(b.iter().copied())
+                .chain(c[1..].iter().map(|x| SymReducedRepr([0, 0, x.0[0], x.0[1]])))
                 .map(|c| c.into_cube(tables))
             {
                 let (_, l, mv) = match CubeMove::all_iter()
