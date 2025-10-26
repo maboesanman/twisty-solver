@@ -63,7 +63,6 @@ impl SymReducedRepr {
             e_edge_perm_raw_coord: EEdgePermRawCoord(d),
             ud_edge_perm_raw_coord: UDEdgePermRawCoord(f),
             previous_move: None,
-            
         }
     }
 
@@ -188,14 +187,15 @@ impl SymReducedRepr {
         }
 
         match self.unpack() {
-            Unpacked::Phase1(phase1_unpacked) => {
-                EitherIter::A(CubeMove::all_iter().map(move |cube_move| {
-                    phase1_unpacked
-                        .apply_cube_move(tables, cube_move)
-                        .pack(tables)
+            Unpacked::Phase1(phase1_unpacked) => EitherIter::A(
+                CubeMove::all_iter()
+                    .map(move |cube_move| {
+                        phase1_unpacked
+                            .apply_cube_move(tables, cube_move)
+                            .pack(tables)
                     })
-                    .map(|(x, _)| x))
-            }
+                    .map(|(x, _)| x),
+            ),
             Unpacked::Phase2(phase2_unpacked) => {
                 EitherIter::B(DominoMove::all_iter().map(move |domino_move| {
                     phase2_unpacked

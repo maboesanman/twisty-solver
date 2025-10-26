@@ -1,11 +1,9 @@
-use crate::{
-    permutation_math::permutation::Permutation,
-};
+use crate::permutation_math::permutation::Permutation;
 
 use super::{
     partial_reprs::{
-        corner_orient::CornerOrient, corner_perm::CornerPerm, 
-        edge_orient::EdgeOrient, edge_perm::EdgePerm,
+        corner_orient::CornerOrient, corner_perm::CornerPerm, edge_orient::EdgeOrient,
+        edge_perm::EdgePerm,
     },
     repr_cube::ReprCube,
 };
@@ -117,7 +115,9 @@ impl CubeMove {
         let x = prev_move as u8 / 3;
         let range_1 = 0u8..(x * 3);
         let range_2 = ((x + 1) * 3)..18u8;
-        range_1.chain(range_2).map(|x| unsafe { core::mem::transmute(x) })
+        range_1
+            .chain(range_2)
+            .map(|x| unsafe { core::mem::transmute(x) })
     }
 
     pub const fn into_u8(self) -> u8 {

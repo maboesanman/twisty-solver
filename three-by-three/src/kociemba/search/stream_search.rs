@@ -1,15 +1,27 @@
-use std::{convert::identity, pin::Pin, sync::{atomic::{AtomicBool, AtomicUsize}, Arc}, usize};
+use std::{
+    pin::Pin,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize},
+    },
+    usize,
+};
 
-use flume::{r#async::RecvStream, Receiver};
-use futures::{future, StreamExt};
+use flume::r#async::RecvStream;
+use futures::{StreamExt, future};
 use futures_core::Stream;
 use rayon::iter::ParallelIterator;
 
-use crate::{cube_ops::{cube_move::CubeMove, repr_cube::ReprCube}, kociemba::search::solve_with_fixed_len_phase_1::produce_solutions_par, tables::Tables};
+use crate::{
+    cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
+    kociemba::search::solve_with_fixed_len_phase_1::produce_solutions_par,
+    tables::Tables,
+};
 
-
-
-pub fn get_incremental_solutions_stream(cube: ReprCube, tables: &'static Tables) -> impl Stream<Item = Vec<CubeMove>> {
+pub fn get_incremental_solutions_stream(
+    cube: ReprCube,
+    tables: &'static Tables,
+) -> impl Stream<Item = Vec<CubeMove>> {
     let (send, recv) = flume::unbounded();
     let cancel = Arc::new(AtomicBool::new(false));
     let cancel_clone = cancel.clone();
@@ -18,141 +30,141 @@ pub fn get_incremental_solutions_stream(cube: ReprCube, tables: &'static Tables)
         let cancel = cancel_clone;
         let mut best = AtomicUsize::new(usize::MAX);
 
-        if *(best.get_mut()) <= 0 + 1 {
-            return
+        if *(best.get_mut()) <= 1 {
+            return;
         }
         produce_solutions_par::<0>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 1 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<1>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 2 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<2>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 3 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<3>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 4 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<4>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 5 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<5>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 6 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<6>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 7 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<7>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 8 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<8>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 9 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<9>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 10 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<10>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 11 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<11>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 12 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<12>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 13 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<13>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 14 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<14>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 15 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<15>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 16 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<16>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 17 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<17>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 18 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<18>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
 
         if *(best.get_mut()) <= 19 + 1 {
-            return
+            return;
         }
         produce_solutions_par::<19>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
@@ -161,8 +173,9 @@ pub fn get_incremental_solutions_stream(cube: ReprCube, tables: &'static Tables)
 
     ImprovingSolutionStream {
         recv: recv.into_stream(),
-        cancel
-    }.scan(usize::MAX, |best_len, solution: Vec<CubeMove>| {
+        cancel,
+    }
+    .scan(usize::MAX, |best_len, solution: Vec<CubeMove>| {
         if solution.len() < *best_len {
             *best_len = solution.len();
             future::ready(Some(solution))
@@ -179,17 +192,19 @@ struct ImprovingSolutionStream<'a> {
 
 impl<'a> Drop for ImprovingSolutionStream<'a> {
     fn drop(&mut self) {
-        self.cancel.store(true, std::sync::atomic::Ordering::Release)
+        self.cancel
+            .store(true, std::sync::atomic::Ordering::Release)
     }
 }
 
 impl<'a> Stream for ImprovingSolutionStream<'a> {
     type Item = Vec<CubeMove>;
 
-    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
-        unsafe {
-            Pin::new_unchecked(&mut self.get_unchecked_mut().recv)
-        }.poll_next(cx)
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        unsafe { Pin::new_unchecked(&mut self.get_unchecked_mut().recv) }.poll_next(cx)
     }
 }
 
@@ -203,10 +218,12 @@ mod test {
 
     #[test]
     fn test_stream() -> anyhow::Result<()> {
-
         let tables = Box::leak(Box::new(Tables::new("tables")?));
 
-        let stream = get_incremental_solutions_stream(cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2], tables);
+        let stream = get_incremental_solutions_stream(
+            cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
+            tables,
+        );
 
         for solution in futures::executor::block_on_stream(stream) {
             print!("{:02} ", solution.len());
@@ -221,7 +238,6 @@ mod test {
 
     #[test]
     fn test_stream_simple() -> anyhow::Result<()> {
-
         let tables = Box::leak(Box::new(Tables::new("tables")?));
 
         let stream = get_incremental_solutions_stream(cube![R U Rp Up F B D B2 D], tables);

@@ -6,6 +6,6 @@
 #![allow(long_running_const_eval)]
 
 pub mod cube_ops;
+pub mod kociemba;
 pub mod permutation_math;
 pub mod tables;
-pub mod kociemba;

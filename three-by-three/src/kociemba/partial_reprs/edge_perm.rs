@@ -1,6 +1,9 @@
-use crate::{cube_ops::partial_reprs::edge_perm::EdgePerm, permutation_math::{grouping::EdgeCombination, permutation::Permutation}};
+use crate::{
+    cube_ops::partial_reprs::edge_perm::EdgePerm,
+    permutation_math::{grouping::EdgeCombination, permutation::Permutation},
+};
 
-use super::{edge_group::EdgeGroup, ud_edge_perm::UDEdgePerm, e_edge_perm::EEdgePerm };
+use super::{e_edge_perm::EEdgePerm, edge_group::EdgeGroup, ud_edge_perm::UDEdgePerm};
 
 impl EdgePerm {
     pub const fn split(self) -> (EdgeGroup, UDEdgePerm, EEdgePerm) {

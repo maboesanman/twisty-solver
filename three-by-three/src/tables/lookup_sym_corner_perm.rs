@@ -4,10 +4,13 @@ use anyhow::Result;
 use memmap2::Mmap;
 use rayon::prelude::*;
 
-use crate::{cube_ops::{
-    cube_sym::DominoSymmetry,
-    partial_reprs::corner_perm::CornerPerm,
-}, kociemba::coords::{coords::{CornerPermRawCoord, CornerPermSymCoord}, corner_perm_combo_coord::CornerPermComboCoord}};
+use crate::{
+    cube_ops::{cube_sym::DominoSymmetry, partial_reprs::corner_perm::CornerPerm},
+    kociemba::coords::{
+        coords::{CornerPermRawCoord, CornerPermSymCoord},
+        corner_perm_combo_coord::CornerPermComboCoord,
+    },
+};
 
 use super::table_loader::{
     as_u16_slice, as_u16_slice_mut, collect_unique_sorted_parallel, load_table,

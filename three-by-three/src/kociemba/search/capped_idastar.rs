@@ -16,7 +16,7 @@ where
     FS: FnMut(&N) -> bool,
 {
     let mut bound = heuristic(&start);
-    let mut path = vec![start.clone()];
+    let mut path = vec![start];
 
     loop {
         if bound > max_bound {
@@ -87,7 +87,7 @@ where
         match search_limited(path, cost + c, bound, successors, heuristic, success) {
             Path::Found(p, cost) => return Path::Found(p, cost),
             Path::Minimum(m) => {
-                if min.map_or(true, |n| m < n) {
+                if min.is_none_or(|n| m < n) {
                     min = Some(m);
                 }
             }
@@ -98,4 +98,3 @@ where
 
     min.map_or(Path::Impossible, Path::Minimum)
 }
-

@@ -1,7 +1,7 @@
-use crate::{cube_ops::{
-    cube_move::CubeMove,
-    cube_sym::DominoSymmetry,
-}, kociemba::coords::coords::{CornerPermRawCoord, CornerPermSymCoord}};
+use crate::{
+    cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry},
+    kociemba::coords::coords::{CornerPermRawCoord, CornerPermSymCoord},
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CornerPermComboCoord {

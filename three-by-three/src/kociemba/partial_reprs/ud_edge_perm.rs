@@ -1,4 +1,8 @@
-use crate::{cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry}, kociemba::coords::coords::UDEdgePermRawCoord, permutation_math::permutation::Permutation};
+use crate::{
+    cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry},
+    kociemba::coords::coords::UDEdgePermRawCoord,
+    permutation_math::permutation::Permutation,
+};
 
 /// The slot representation for corner permutation.
 /// While `Permutation<N>` represents an element of the permutation group, this represents
@@ -31,10 +35,10 @@ impl UDEdgePerm {
         self.0.const_eq(other.0)
     }
 
-
-
     pub const fn from_domino_move(mv: DominoMove) -> Self {
-        use crate::cube_ops::cube_move::{U_EDGE_PERM, D_EDGE_PERM, F_EDGE_PERM, B_EDGE_PERM, R_EDGE_PERM, L_EDGE_PERM};
+        use crate::cube_ops::cube_move::{
+            B_EDGE_PERM, D_EDGE_PERM, F_EDGE_PERM, L_EDGE_PERM, R_EDGE_PERM, U_EDGE_PERM,
+        };
 
         const TABLE: [UDEdgePerm; 10] = const {
             let mut val = [UDEdgePerm::SOLVED; 10];
@@ -67,7 +71,9 @@ impl UDEdgePerm {
     }
 
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
-        let perm = crate::cube_ops::cube_sym::EDGE_PERM_LOOKUP[sym.0 as usize].split().1;
+        let perm = crate::cube_ops::cube_sym::EDGE_PERM_LOOKUP[sym.0 as usize]
+            .split()
+            .1;
         let inv_perm = perm.inverse();
         inv_perm.then(self).then(perm)
     }

@@ -1,15 +1,23 @@
-use std::{convert::identity, sync::atomic::{AtomicBool, AtomicUsize}};
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 
 use rayon::iter::ParallelIterator;
 
-use crate::{cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry, repr_cube::ReprCube}, kociemba::search::capped_idastar::idastar_limited, tables::Tables};
+use crate::{
+    cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry, repr_cube::ReprCube},
+    kociemba::search::capped_idastar::idastar_limited,
+    tables::Tables,
+};
 
-
-pub fn produce_solutions<const N: usize>(cube: ReprCube, current_best: usize, tables: &Tables) -> impl Iterator<Item = Vec<CubeMove>> {
+pub fn produce_solutions<const N: usize>(
+    cube: ReprCube,
+    current_best: usize,
+    tables: &Tables,
+) -> impl Iterator<Item = Vec<CubeMove>> {
     let domino_reductions = super::domino_reduction_iter::all_domino_reductions::<N>(cube, tables);
 
-    domino_reductions.scan(current_best, |current_best, (start, end)| {
-        let phase_2_start = end.last().copied().unwrap_or( start[1]);
+    domino_reductions
+        .scan(current_best, |current_best, (start, end)| {
+            let phase_2_start = end.last().copied().unwrap_or(start[1]);
             let phase_2_prune = phase_2_start.prune_distance_phase_2(tables);
             let phase_2_allowed = (*current_best - (N + 1)) as u8;
             if phase_2_prune > phase_2_allowed {
@@ -34,36 +42,50 @@ pub fn produce_solutions<const N: usize>(cube: ReprCube, current_best: usize, ta
             } else {
                 Some(None)
             }
-    }).filter_map(identity)
-    .map(move |(a, b, c)| {
-        let mut moves = vec![];
-        let mut last = cube;
+        })
+        .flatten()
+        .map(move |(a, b, c)| {
+            let mut moves = vec![];
+            let mut last = cube;
 
-        for solve_c in a[1..].iter().chain(b.iter()).chain(c[1..].iter()).map(|c| c.into_cube(tables)) {
-            let (_, l, mv) = match CubeMove::all_iter()
-                .flat_map(|mv| {
-                    let next = last.apply_cube_move(mv);
-                    DominoSymmetry::all_iter().map(move |s| (next.domino_conjugate(s), next, mv))
-                })
-                .find(|(c, _, _)| *c == solve_c)
+            for solve_c in a[1..]
+                .iter()
+                .chain(b.iter())
+                .chain(c[1..].iter())
+                .map(|c| c.into_cube(tables))
             {
-                Some(a) => a,
-                None => panic!(),
-            };
+                let (_, l, mv) = match CubeMove::all_iter()
+                    .flat_map(|mv| {
+                        let next = last.apply_cube_move(mv);
+                        DominoSymmetry::all_iter()
+                            .map(move |s| (next.domino_conjugate(s), next, mv))
+                    })
+                    .find(|(c, _, _)| *c == solve_c)
+                {
+                    Some(a) => a,
+                    None => panic!(),
+                };
 
-            last = l;
-            moves.push(mv);
-        }
+                last = l;
+                moves.push(mv);
+            }
 
-        moves
-    })
+            moves
+        })
 }
 
-pub fn produce_solutions_par<'a, const N: usize>(cube: ReprCube, best: &'a AtomicUsize, tables: &'a Tables, cancel: &'a AtomicBool) -> impl 'a + ParallelIterator<Item = Vec<CubeMove>> {
-    let domino_reductions = super::domino_reduction_iter::all_domino_reductions_par::<N>(cube, tables, cancel);
+pub fn produce_solutions_par<'a, const N: usize>(
+    cube: ReprCube,
+    best: &'a AtomicUsize,
+    tables: &'a Tables,
+    cancel: &'a AtomicBool,
+) -> impl 'a + ParallelIterator<Item = Vec<CubeMove>> {
+    let domino_reductions =
+        super::domino_reduction_iter::all_domino_reductions_par::<N>(cube, tables, cancel);
 
-    domino_reductions.filter_map(|(start, end)| {
-        let phase_2_start = end.last().copied().unwrap_or( start[1]);
+    domino_reductions
+        .filter_map(|(start, end)| {
+            let phase_2_start = end.last().copied().unwrap_or(start[1]);
             let phase_2_prune = phase_2_start.prune_distance_phase_2(tables);
             let curr_best = best.load(std::sync::atomic::Ordering::Relaxed);
             let phase_2_allowed = (curr_best - (N + 1)) as u8;
@@ -84,7 +106,7 @@ pub fn produce_solutions_par<'a, const N: usize>(cube: ReprCube, best: &'a Atomi
             let new_path_len = (N + 1) + phase_2_len as usize;
 
             if curr_best <= new_path_len {
-                return None
+                return None;
             }
 
             match best.compare_exchange(
@@ -93,32 +115,38 @@ pub fn produce_solutions_par<'a, const N: usize>(cube: ReprCube, best: &'a Atomi
                 std::sync::atomic::Ordering::Relaxed, // or Release if publishing data
                 std::sync::atomic::Ordering::Relaxed,
             ) {
-                Ok(_) => Some((start, end, phase_2_path)),     // we won the race
-                Err(_) => None,   // lost, someone else wrote a smaller value
+                Ok(_) => Some((start, end, phase_2_path)), // we won the race
+                Err(_) => None, // lost, someone else wrote a smaller value
             }
-    })
-    .map(move |(a, b, c)| {
-        let mut moves = vec![];
-        let mut last = cube;
+        })
+        .map(move |(a, b, c)| {
+            let mut moves = vec![];
+            let mut last = cube;
 
-        for solve_c in a[1..].iter().chain(b.iter()).chain(c[1..].iter()).map(|c| c.into_cube(tables)) {
-            let (_, l, mv) = match CubeMove::all_iter()
-                .flat_map(|mv| {
-                    let next = last.apply_cube_move(mv);
-                    DominoSymmetry::all_iter().map(move |s| (next.domino_conjugate(s), next, mv))
-                })
-                .find(|(c, _, _)| *c == solve_c)
+            for solve_c in a[1..]
+                .iter()
+                .chain(b.iter())
+                .chain(c[1..].iter())
+                .map(|c| c.into_cube(tables))
             {
-                Some(a) => a,
-                None => panic!(),
-            };
+                let (_, l, mv) = match CubeMove::all_iter()
+                    .flat_map(|mv| {
+                        let next = last.apply_cube_move(mv);
+                        DominoSymmetry::all_iter()
+                            .map(move |s| (next.domino_conjugate(s), next, mv))
+                    })
+                    .find(|(c, _, _)| *c == solve_c)
+                {
+                    Some(a) => a,
+                    None => panic!(),
+                };
 
-            last = l;
-            moves.push(mv);
-        }
+                last = l;
+                moves.push(mv);
+            }
 
-        moves
-    })
+            moves
+        })
 }
 
 #[cfg(test)]
@@ -131,8 +159,6 @@ mod test {
     use crate::cube;
 
     use super::*;
-
-
 
     #[test]
     fn solve_combined_test_superflip_magic() -> anyhow::Result<()> {
@@ -166,7 +192,7 @@ mod test {
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &best,
             &tables,
-            &cancel
+            &cancel,
         );
 
         let block = Mutex::new(());

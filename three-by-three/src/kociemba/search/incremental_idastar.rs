@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
-use pathfinding::num_traits::{Zero, One};
-
+use pathfinding::num_traits::{One, Zero};
 
 pub fn idastar<N, C, FN, IN, FH, FS>(
     start: &N,
@@ -88,14 +87,13 @@ where
         path.push(node);
         match search(path, cost + extra, bound, successors, heuristic, success) {
             found_path @ Path::Found(_, _) => return found_path,
-            Path::Minimum(m) if !min.is_some_and(|n| n < m) => min = Some(m),
+            Path::Minimum(m) if min.is_none_or(|n| n >= m) => min = Some(m),
             _ => (),
         }
         path.pop();
     }
     min.map_or(Path::Impossible, Path::Minimum)
 }
-
 
 pub fn idastar_solutions<N, C, FN, IN, FH, FS>(
     start: N,
@@ -113,7 +111,7 @@ where
 {
     let bound = heuristic(&start);
     IdastarSolutions {
-        path: vec![start.clone()],
+        path: vec![start],
         successors,
         heuristic,
         success,
@@ -213,7 +211,7 @@ fn search_all<N, C, FN, IN, FH, FS>(
     let start = &path[path.len() - 1];
     let f = cost + heuristic(start);
     if f > bound {
-        if min_exceeded.map_or(true, |m| f < m) {
+        if min_exceeded.is_none_or(|m| f < m) {
             *min_exceeded = Some(f);
         }
         return;
@@ -232,7 +230,16 @@ fn search_all<N, C, FN, IN, FH, FS>(
 
     for (n, c, _) in neighbs {
         path.push(n);
-        search_all(path, cost + c, bound, successors, heuristic, success, solutions, min_exceeded);
+        search_all(
+            path,
+            cost + c,
+            bound,
+            successors,
+            heuristic,
+            success,
+            solutions,
+            min_exceeded,
+        );
         path.pop();
     }
 }

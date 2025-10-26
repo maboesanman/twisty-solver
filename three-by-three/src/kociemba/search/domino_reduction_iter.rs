@@ -1,7 +1,10 @@
 use std::sync::atomic::AtomicBool;
 
 use arrayvec::ArrayVec;
-use rayon::iter::{plumbing::{bridge_unindexed, UnindexedConsumer, UnindexedProducer}, ParallelBridge, ParallelIterator};
+use rayon::iter::{
+    ParallelIterator,
+    plumbing::{UnindexedConsumer, UnindexedProducer, bridge_unindexed},
+};
 
 use crate::{
     cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
@@ -23,7 +26,7 @@ pub fn all_domino_reductions<const N: usize>(
 pub fn all_domino_reductions_par<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
-    cancel: &'a AtomicBool
+    cancel: &'a AtomicBool,
 ) -> impl 'a + ParallelIterator<Item = ([SymReducedRepr; 2], [SymReducedRepr; N])> {
     Stack::new(cube, tables, cancel)
 }
@@ -68,7 +71,7 @@ impl<const N: usize, M: Copy> StackFrame<N, M> {
             return None;
         }
 
-        let split_index = (self.next_cubes.len() + 1) / 2;
+        let split_index = self.next_cubes.len().div_ceil(2);
 
         let mut new = self.next_cubes[split_index..].iter().copied().collect();
         self.next_cubes.truncate(split_index);
@@ -92,7 +95,11 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
         Self::new_from_frame_0([base].into_iter().collect(), tables, cancel)
     }
 
-    fn new_from_frame_0(frame_0: ArrayVec<SymReducedRepr, 3>, tables: &'t Tables, cancel: C) -> Self {
+    fn new_from_frame_0(
+        frame_0: ArrayVec<SymReducedRepr, 3>,
+        tables: &'t Tables,
+        cancel: C,
+    ) -> Self {
         let next_cubes = frame_0
             .into_iter()
             .map(|cube| {
@@ -309,7 +316,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
         if let Some(other) = self.frame_0.split() {
             let mut new = Self {
                 cancel: self.cancel,
-                tables: &self.tables,
+                tables: self.tables,
                 frame_0: other,
                 frame_1: StackFrame {
                     next_cubes: ArrayVec::new(),
@@ -327,7 +334,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
         if let Some(other) = self.frame_1.split() {
             let mut new = Self {
                 cancel: self.cancel,
-                tables: &self.tables,
+                tables: self.tables,
                 frame_0: self.frame_0.clone(),
                 frame_1: other,
                 frames_after: [const {
@@ -344,7 +351,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
             if let Some(other) = frame.split() {
                 let mut new = Self {
                     cancel: self.cancel,
-                    tables: &self.tables,
+                    tables: self.tables,
                     frame_0: self.frame_0.clone(),
                     frame_1: self.frame_1.clone(),
                     frames_after: [const {
@@ -441,7 +448,7 @@ mod test {
         let stack = all_domino_reductions_par::<9>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
-            &cancel
+            &cancel,
         );
 
         println!("{:?}", stack.count());

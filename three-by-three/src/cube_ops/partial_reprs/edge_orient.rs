@@ -1,4 +1,4 @@
-use crate::{ kociemba::coords::coords::EdgeOrientRawCoord};
+use crate::kociemba::coords::coords::EdgeOrientRawCoord;
 
 use super::edge_perm::EdgePerm;
 

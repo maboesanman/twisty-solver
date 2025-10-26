@@ -1,6 +1,13 @@
-use crate::{cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::{edge_orient::EdgeOrient, edge_perm::EdgePerm}}, kociemba::coords::coords::{EdgeGroupOrientRawCoord, EdgeGroupRawCoord, EdgeOrientRawCoord}};
+use crate::{
+    cube_ops::{
+        cube_move::CubeMove,
+        cube_sym::DominoSymmetry,
+        partial_reprs::{edge_orient::EdgeOrient, edge_perm::EdgePerm},
+    },
+    kociemba::coords::coords::{EdgeGroupOrientRawCoord, EdgeGroupRawCoord, EdgeOrientRawCoord},
+};
 
-use super::{edge_group::EdgeGroup};
+use super::edge_group::EdgeGroup;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EdgeGroupOrient(pub EdgeGroup, pub EdgeOrient);
@@ -37,7 +44,7 @@ impl EdgeGroupOrient {
         let perm = crate::cube_ops::cube_sym::EDGE_PERM_LOOKUP[sym.0 as usize];
         let new_group = self.0.permute(perm);
         let mut orient = self.1.permute(perm);
-    
+
         if ((sym.0 >> 1) & 1) == 1 {
             let mut i = 0;
             while i < 12 {
@@ -48,7 +55,7 @@ impl EdgeGroupOrient {
             }
             orient = orient.correct(crate::cube_ops::cube_sym::S_U4_1_EDGE_ORIENT_CORRECT);
         }
-    
+
         EdgeGroupOrient(new_group, orient)
     }
 }

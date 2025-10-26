@@ -1,7 +1,7 @@
-use crate::{cube_ops::{
-    cube_move::CubeMove,
-    cube_sym::DominoSymmetry,
-}, kociemba::coords::coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord}};
+use crate::{
+    cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry},
+    kociemba::coords::coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
+};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EdgeGroupOrientComboCoord {

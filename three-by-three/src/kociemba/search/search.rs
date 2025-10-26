@@ -1,10 +1,8 @@
-use std::convert::identity;
-
 use smallvec::{SmallVec, smallvec};
 
 use crate::{
     cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry, repr_cube::ReprCube},
-    kociemba::{coords::repr_coord::SymReducedRepr, search::capped_idastar::idastar_limited},
+    kociemba::coords::repr_coord::SymReducedRepr,
     tables::Tables,
 };
 
@@ -147,7 +145,6 @@ pub fn solve_phased(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
 //     for solution in cube_solutions {
 //         println!("solution: {:?} - {:?}", solution.len(), solution);
 //     }
-    
 
 //     todo!()
 // }

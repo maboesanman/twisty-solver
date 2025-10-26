@@ -5,7 +5,15 @@ use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::{
-    cube_ops::cube_sym::DominoSymmetry, kociemba::{coords::{coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord}, edge_group_orient_combo_coord::EdgeGroupOrientComboCoord}, partial_reprs::edge_group_orient::EdgeGroupOrient}, tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel}
+    cube_ops::cube_sym::DominoSymmetry,
+    kociemba::{
+        coords::{
+            coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
+            edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
+        },
+        partial_reprs::edge_group_orient::EdgeGroupOrient,
+    },
+    tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
 };
 
 use super::table_loader::{as_u32_slice_mut, load_table};

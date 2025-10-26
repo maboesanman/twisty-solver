@@ -1,4 +1,6 @@
-use crate::{kociemba::coords::coords::CornerPermRawCoord, permutation_math::permutation::Permutation};
+use crate::{
+    kociemba::coords::coords::CornerPermRawCoord, permutation_math::permutation::Permutation,
+};
 
 /// The slot representation for corner permutation.
 /// While `Permutation<N>` represents an element of the permutation group, this represents

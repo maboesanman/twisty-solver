@@ -4,11 +4,17 @@ use anyhow::Result;
 use memmap2::Mmap;
 use rayon::prelude::*;
 
-use crate::{cube_ops::{
-    cube_move::{CubeMove, DominoMove},
-    cube_sym::DominoSymmetry,
-    partial_reprs::edge_perm::EdgePerm,
-}, kociemba::{coords::coords::{EEdgePermRawCoord, EdgeGroupRawCoord, UDEdgePermRawCoord}, partial_reprs::{e_edge_perm::EEdgePerm, edge_group::EdgeGroup, ud_edge_perm::UDEdgePerm}}};
+use crate::{
+    cube_ops::{
+        cube_move::{CubeMove, DominoMove},
+        cube_sym::DominoSymmetry,
+        partial_reprs::edge_perm::EdgePerm,
+    },
+    kociemba::{
+        coords::coords::{EEdgePermRawCoord, EdgeGroupRawCoord, UDEdgePermRawCoord},
+        partial_reprs::{e_edge_perm::EEdgePerm, edge_group::EdgeGroup, ud_edge_perm::UDEdgePerm},
+    },
+};
 
 use super::table_loader::{as_u16_slice, load_table};
 

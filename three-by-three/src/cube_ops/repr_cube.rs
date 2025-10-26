@@ -1,6 +1,9 @@
 use rand::distr::{Distribution, StandardUniform};
 
-use crate::{kociemba::coords::coords::{CornerOrientRawCoord, EdgeOrientRawCoord}, permutation_math::{lehmer_rank::LehmerRank, permutation::Permutation}};
+use crate::{
+    kociemba::coords::coords::{CornerOrientRawCoord, EdgeOrientRawCoord},
+    permutation_math::{lehmer_rank::LehmerRank, permutation::Permutation},
+};
 
 use super::{
     cube_move::CubeMove,
