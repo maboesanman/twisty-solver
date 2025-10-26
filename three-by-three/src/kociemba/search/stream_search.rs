@@ -1,30 +1,21 @@
 use std::{
-    pin::Pin, sync::{
+    panic::AssertUnwindSafe, pin::Pin, sync::{
         atomic::{AtomicBool, AtomicUsize}, Arc
     }, thread::JoinHandle, usize
 };
 
-use flume::r#async::RecvStream;
+use flume::{r#async::RecvStream, Sender};
 use futures::{StreamExt, future};
 use futures_core::Stream;
 use rayon::iter::ParallelIterator;
 
 use crate::{
     cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
-    kociemba::{coords::repr_coord::SymReducedRepr, search::solve_with_fixed_len_phase_1::produce_solutions_par},
+    kociemba::search::solve_with_fixed_len_phase_1::produce_solutions_par,
     tables::Tables,
 };
 
-pub fn get_incremental_solutions_stream(
-    cube: ReprCube,
-    tables: &'static Tables,
-) -> impl Stream<Item = Vec<CubeMove>> {
-    let (send, recv) = flume::unbounded();
-    let cancel = Arc::new(AtomicBool::new(false));
-    let cancel_clone = cancel.clone();
-    let join_handle = std::thread::spawn(move || {
-        let send = send;
-        let cancel = cancel_clone;
+fn solver_thread(cube: ReprCube, tables: &Tables, send: Sender<Vec<CubeMove>>, cancel: Arc<AtomicBool>) {
         let mut best = AtomicUsize::new(usize::MAX);
 
         if *(best.get_mut()) <= 1 {
@@ -226,6 +217,26 @@ pub fn get_incremental_solutions_stream(
         produce_solutions_par::<19, true>(cube, &best, tables, &cancel).for_each(|solution| {
             let _ = send.send(solution);
         });
+}
+
+pub fn get_incremental_solutions_stream(
+    cube: ReprCube,
+    tables: &'static Tables,
+) -> impl Stream<Item = Vec<CubeMove>> {
+    let (send, recv) = flume::unbounded();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let cancel_clone = cancel.clone();
+    let join_handle = std::thread::spawn(move || {
+        let send = send;
+        let cancel = cancel_clone;
+        let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            solver_thread(cube, tables, send, cancel);
+        }));
+
+        if let Err(err) = result {
+            eprintln!("[worker] panicked: {:?}", err);
+            std::panic::resume_unwind(err);
+        }
     });
 
     ImprovingSolutionStream {
@@ -234,13 +245,15 @@ pub fn get_incremental_solutions_stream(
         join_handle: Some(join_handle),
     }
     .scan(usize::MAX, |best_len, solution: Vec<CubeMove>| {
-        if solution.len() < *best_len {
+        let emit = if solution.len() < *best_len {
             *best_len = solution.len();
-            future::ready(Some(solution))
+            Some(solution)
         } else {
-            future::ready(None)
-        }
+            None
+        };
+        future::ready(Some(emit))
     })
+    .filter_map(|opt| future::ready(opt))
 }
 
 struct ImprovingSolutionStream<'a> {

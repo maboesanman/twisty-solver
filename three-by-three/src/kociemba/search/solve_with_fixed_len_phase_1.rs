@@ -115,8 +115,8 @@ pub fn produce_solutions_par<'a, const N: usize, const S: bool>(
             match best.compare_exchange(
                 curr_best,
                 new_path_len,
-                std::sync::atomic::Ordering::Relaxed, // or Release if publishing data
-                std::sync::atomic::Ordering::Relaxed,
+                std::sync::atomic::Ordering::AcqRel,
+                std::sync::atomic::Ordering::Acquire,
             ) {
                 Ok(_) => Some((start, end, phase_2_path)), // we won the race
                 Err(_) => None, // lost, someone else wrote a smaller value
