@@ -1,4 +1,4 @@
-use std::{convert::identity, sync::atomic::AtomicUsize};
+use std::{convert::identity, sync::atomic::{AtomicBool, AtomicUsize}};
 
 use rayon::iter::ParallelIterator;
 
@@ -59,8 +59,8 @@ pub fn produce_solutions<const N: usize>(cube: ReprCube, current_best: usize, ta
     })
 }
 
-pub fn produce_solutions_par<const N: usize>(cube: ReprCube, best: &AtomicUsize, tables: &Tables) -> impl ParallelIterator<Item = Vec<CubeMove>> {
-    let domino_reductions = super::domino_reduction_iter::all_domino_reductions_par::<N>(cube, tables);
+pub fn produce_solutions_par<'a, const N: usize>(cube: ReprCube, best: &'a AtomicUsize, tables: &'a Tables, cancel: &'a AtomicBool) -> impl 'a + ParallelIterator<Item = Vec<CubeMove>> {
+    let domino_reductions = super::domino_reduction_iter::all_domino_reductions_par::<N>(cube, tables, cancel);
 
     domino_reductions.filter_map(|(start, end)| {
         let phase_2_start = end.last().copied().unwrap_or( start[1]);
@@ -160,11 +160,13 @@ mod test {
         let tables = Tables::new("tables")?;
 
         let best = AtomicUsize::new(usize::MAX);
+        let cancel = AtomicBool::new(false);
 
         let solutions = produce_solutions_par::<10>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &best,
             &tables,
+            &cancel
         );
 
         let block = Mutex::new(());

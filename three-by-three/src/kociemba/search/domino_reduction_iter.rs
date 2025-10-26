@@ -1,3 +1,5 @@
+use std::sync::atomic::AtomicBool;
+
 use arrayvec::ArrayVec;
 use rayon::iter::{plumbing::{bridge_unindexed, UnindexedConsumer, UnindexedProducer}, ParallelBridge, ParallelIterator};
 
@@ -15,21 +17,24 @@ pub fn all_domino_reductions<const N: usize>(
     cube: ReprCube,
     tables: &Tables,
 ) -> impl Iterator<Item = ([SymReducedRepr; 2], [SymReducedRepr; N])> {
-    Stack::new(cube, tables)
+    Stack::new(cube, tables, ())
 }
 
-pub fn all_domino_reductions_par<const N: usize>(
+pub fn all_domino_reductions_par<'a, const N: usize>(
     cube: ReprCube,
-    tables: &Tables,
-) -> impl ParallelIterator<Item = ([SymReducedRepr; 2], [SymReducedRepr; N])> {
-    Stack::new(cube, tables)
+    tables: &'a Tables,
+    cancel: &'a AtomicBool
+) -> impl 'a + ParallelIterator<Item = ([SymReducedRepr; 2], [SymReducedRepr; N])> {
+    Stack::new(cube, tables, cancel)
 }
 
 // N is number of moves - 1
 // this doesn't work if the cube is already domino reduced.
 #[derive(Clone)]
-struct Stack<'t, const N: usize> {
+struct Stack<'t, const N: usize, C> {
     tables: &'t Tables,
+    cancel: C,
+
     // one for each S_URF3 symmetry of the starting position
     frame_0: StackFrame<3, ()>,
 
@@ -40,7 +45,7 @@ struct Stack<'t, const N: usize> {
     frames_after: [StackFrame<15, CubeMove>; N],
 }
 
-impl<'t, const N: usize> std::fmt::Debug for Stack<'t, N> {
+impl<'t, const N: usize, C> std::fmt::Debug for Stack<'t, N, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg = f.debug_struct("Stack");
         dbg.field("frame_0", &self.frame_0);
@@ -81,13 +86,13 @@ struct NextCubes<M: Copy> {
     domino_distance: u8,
 }
 
-impl<'t, const N: usize> Stack<'t, N> {
-    pub fn new(cube: ReprCube, tables: &'t Tables) -> Self {
+impl<'t, const N: usize, C> Stack<'t, N, C> {
+    pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Self {
         let base = SymReducedRepr::from_cube(cube, tables);
-        Self::new_from_frame_0([base].into_iter().collect(), tables)
+        Self::new_from_frame_0([base].into_iter().collect(), tables, cancel)
     }
 
-    fn new_from_frame_0(frame_0: ArrayVec<SymReducedRepr, 3>, tables: &'t Tables) -> Self {
+    fn new_from_frame_0(frame_0: ArrayVec<SymReducedRepr, 3>, tables: &'t Tables, cancel: C) -> Self {
         let next_cubes = frame_0
             .into_iter()
             .map(|cube| {
@@ -105,6 +110,7 @@ impl<'t, const N: usize> Stack<'t, N> {
 
         let mut stack = Self {
             tables,
+            cancel,
             frame_0,
             frame_1: StackFrame {
                 next_cubes: ArrayVec::new(),
@@ -274,7 +280,7 @@ impl<'t, const N: usize> Stack<'t, N> {
     }
 }
 
-impl<'t, const N: usize> Iterator for Stack<'t, N> {
+impl<'t, const N: usize, C> Iterator for Stack<'t, N, C> {
     type Item = ([SymReducedRepr; 2], [SymReducedRepr; N]);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -296,12 +302,13 @@ impl<'t, const N: usize> Iterator for Stack<'t, N> {
     }
 }
 
-impl<'t, const N: usize> UnindexedProducer for Stack<'t, N> {
+impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
     type Item = <Self as Iterator>::Item;
 
     fn split(mut self) -> (Self, Option<Self>) {
         if let Some(other) = self.frame_0.split() {
             let mut new = Self {
+                cancel: self.cancel,
                 tables: &self.tables,
                 frame_0: other,
                 frame_1: StackFrame {
@@ -319,6 +326,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N> {
 
         if let Some(other) = self.frame_1.split() {
             let mut new = Self {
+                cancel: self.cancel,
                 tables: &self.tables,
                 frame_0: self.frame_0.clone(),
                 frame_1: other,
@@ -335,6 +343,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N> {
         for (i, frame) in self.frames_after.iter_mut().enumerate() {
             if let Some(other) = frame.split() {
                 let mut new = Self {
+                    cancel: self.cancel,
                     tables: &self.tables,
                     frame_0: self.frame_0.clone(),
                     frame_1: self.frame_1.clone(),
@@ -356,15 +365,22 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N> {
         (self, None)
     }
 
-    fn fold_with<F>(self, folder: F) -> F
+    fn fold_with<F>(self, mut folder: F) -> F
     where
         F: rayon::iter::plumbing::Folder<Self::Item>,
     {
-        folder.consume_iter(self)
+        let cancel = self.cancel;
+        for item in self {
+            folder = folder.consume(item);
+            if folder.full() || cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                break;
+            }
+        }
+        folder
     }
 }
 
-impl<'t, const N: usize> ParallelIterator for Stack<'t, N> {
+impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
     type Item = ([SymReducedRepr; 2], [SymReducedRepr; N]);
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
@@ -420,9 +436,12 @@ mod test {
     fn domino_reduce_test_superflip_2_par() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
+        let cancel = AtomicBool::new(false);
+
         let stack = all_domino_reductions_par::<9>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
+            &cancel
         );
 
         println!("{:?}", stack.count());
