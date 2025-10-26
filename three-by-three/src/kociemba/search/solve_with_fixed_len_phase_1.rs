@@ -8,12 +8,12 @@ use crate::{
     tables::Tables,
 };
 
-pub fn produce_solutions<const N: usize>(
+pub fn produce_solutions<const N: usize, const S: bool>(
     cube: ReprCube,
     current_best: usize,
     tables: &Tables,
 ) -> impl Iterator<Item = Vec<CubeMove>> {
-    let domino_reductions = super::domino_reduction_iter::all_domino_reductions::<N>(cube, tables);
+    let domino_reductions = super::domino_reduction_iter::all_domino_reductions::<N, S>(cube, tables);
 
     domino_reductions
         .scan(current_best, |current_best, (start, end)| {
@@ -74,21 +74,24 @@ pub fn produce_solutions<const N: usize>(
         })
 }
 
-pub fn produce_solutions_par<'a, const N: usize>(
+pub fn produce_solutions_par<'a, const N: usize, const S: bool>(
     cube: ReprCube,
     best: &'a AtomicUsize,
     tables: &'a Tables,
     cancel: &'a AtomicBool,
 ) -> impl 'a + ParallelIterator<Item = Vec<CubeMove>> {
     let domino_reductions =
-        super::domino_reduction_iter::all_domino_reductions_par::<N>(cube, tables, cancel);
+        super::domino_reduction_iter::all_domino_reductions_par::<N, S>(cube, tables, cancel);
 
     domino_reductions
         .filter_map(|(start, end)| {
             let phase_2_start = end.last().copied().unwrap_or(start[1]);
             let phase_2_prune = phase_2_start.prune_distance_phase_2(tables);
             let curr_best = best.load(std::sync::atomic::Ordering::Relaxed);
-            let phase_2_allowed = (curr_best - (N + 1)) as u8;
+            let phase_2_allowed = match curr_best.checked_sub(N + 1) {
+                Some(x) => x as u8,
+                None => return None,
+            };
             if phase_2_prune > phase_2_allowed {
                 return None;
             }
@@ -153,9 +156,6 @@ pub fn produce_solutions_par<'a, const N: usize>(
 mod test {
     use std::{sync::Mutex, usize};
 
-    use rand::SeedableRng;
-    use rand_chacha::ChaCha8Rng;
-
     use crate::cube;
 
     use super::*;
@@ -164,7 +164,7 @@ mod test {
     fn solve_combined_test_superflip_magic() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
-        let solutions = produce_solutions::<9>(
+        let solutions = produce_solutions::<9, false>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             usize::MAX,
             &tables,
@@ -188,7 +188,7 @@ mod test {
         let best = AtomicUsize::new(usize::MAX);
         let cancel = AtomicBool::new(false);
 
-        let solutions = produce_solutions_par::<10>(
+        let solutions = produce_solutions_par::<10, true>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &best,
             &tables,

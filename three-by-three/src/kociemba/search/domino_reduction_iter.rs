@@ -15,26 +15,32 @@ use crate::{
 /// returns all sequences of sym cubes which correspond with a
 /// domino reduction of exactly N + 1 moves.
 ///
-/// no sequence is reduced until the last move.
-pub fn all_domino_reductions<const N: usize>(
+/// if S is false, the move sequence is not allowed to be domino reduced at any time before the final state.
+/// if S is true, only the second-to-last state is prevented from being domino reduced
+pub fn all_domino_reductions<const N: usize, const S: bool>(
     cube: ReprCube,
     tables: &Tables,
 ) -> impl Iterator<Item = ([SymReducedRepr; 2], [SymReducedRepr; N])> {
-    Stack::new(cube, tables, ())
+    Stack::<_, S, _>::new(cube, tables, ())
 }
 
-pub fn all_domino_reductions_par<'a, const N: usize>(
+/// returns all sequences of sym cubes which correspond with a
+/// domino reduction of exactly N + 1 moves.
+///
+/// if S is false, the move sequence is not allowed to be domino reduced at any time before the final state.
+/// if S is true, only the second-to-last state is prevented from being domino reduced
+pub fn all_domino_reductions_par<'a, const N: usize, const S: bool>(
     cube: ReprCube,
     tables: &'a Tables,
     cancel: &'a AtomicBool,
 ) -> impl 'a + ParallelIterator<Item = ([SymReducedRepr; 2], [SymReducedRepr; N])> {
-    Stack::new(cube, tables, cancel)
+    Stack::<_, S, _>::new(cube, tables, cancel)
 }
 
 // N is number of moves - 1
 // this doesn't work if the cube is already domino reduced.
 #[derive(Clone)]
-struct Stack<'t, const N: usize, C> {
+struct Stack<'t, const N: usize, const S: bool, C> {
     tables: &'t Tables,
     cancel: C,
 
@@ -48,7 +54,7 @@ struct Stack<'t, const N: usize, C> {
     frames_after: [StackFrame<15, CubeMove>; N],
 }
 
-impl<'t, const N: usize, C> std::fmt::Debug for Stack<'t, N, C> {
+impl<'t, const N: usize, const S: bool, C> std::fmt::Debug for Stack<'t, N, S, C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut dbg = f.debug_struct("Stack");
         dbg.field("frame_0", &self.frame_0);
@@ -89,7 +95,7 @@ struct NextCubes<M: Copy> {
     domino_distance: u8,
 }
 
-impl<'t, const N: usize, C> Stack<'t, N, C> {
+impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Self {
         let base = SymReducedRepr::from_cube(cube, tables);
         Self::new_from_frame_0([base].into_iter().collect(), tables, cancel)
@@ -140,10 +146,14 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
         iter: impl IntoIterator<Item = (SymReducedRepr, CubeMove)>,
         tables: &Tables,
     ) -> impl Iterator<Item = NextCubes<CubeMove>> {
-        let min_d = if parent_moves_remaining == 1 {
-            0
-        } else {
-            parent_dist.saturating_sub(2) + 1
+        let min_d = match parent_moves_remaining - 1 {
+            0 => 0,
+            1 => 1,
+            _ => if S {
+                parent_dist.saturating_sub(1)
+            } else {
+                parent_dist.saturating_sub(2) + 1
+            }
         };
         let max_d = (parent_dist + 1).min(parent_moves_remaining - 1);
 
@@ -255,7 +265,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
             .iter()
             .enumerate()
             .rev()
-            .find(|(i, f)| !f.next_cubes.is_empty())
+            .find(|(_, f)| !f.next_cubes.is_empty())
         {
             Some((i, _)) => i + 2,
             None => {
@@ -287,7 +297,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
     }
 }
 
-impl<'t, const N: usize, C> Iterator for Stack<'t, N, C> {
+impl<'t, const N: usize, const S: bool, C> Iterator for Stack<'t, N, S, C> {
     type Item = ([SymReducedRepr; 2], [SymReducedRepr; N]);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -309,7 +319,7 @@ impl<'t, const N: usize, C> Iterator for Stack<'t, N, C> {
     }
 }
 
-impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
+impl<'t, const N: usize, const S: bool> UnindexedProducer for Stack<'t, N, S, &'t AtomicBool> {
     type Item = <Self as Iterator>::Item;
 
     fn split(mut self) -> (Self, Option<Self>) {
@@ -387,7 +397,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
     }
 }
 
-impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
+impl<'t, const N: usize, const S: bool> ParallelIterator for Stack<'t, N, S, &'t AtomicBool> {
     type Item = ([SymReducedRepr; 2], [SymReducedRepr; N]);
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
@@ -400,8 +410,6 @@ impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
 
 #[cfg(test)]
 mod test {
-    use rand::SeedableRng;
-    use rand_chacha::ChaCha8Rng;
 
     use crate::cube;
 
@@ -411,7 +419,7 @@ mod test {
     fn domino_reduce_test_iter_2() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
-        let mut stack = all_domino_reductions::<5>(cube![R U Rp Up], &tables);
+        let stack = all_domino_reductions::<5, false>(cube![R U Rp Up], &tables);
 
         println!("{:?}", stack.count());
         // loop {
@@ -429,7 +437,7 @@ mod test {
     fn domino_reduce_test_superflip_2() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
-        let mut stack = all_domino_reductions::<9>(
+        let stack = all_domino_reductions::<9, false>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
         );
@@ -445,7 +453,7 @@ mod test {
 
         let cancel = AtomicBool::new(false);
 
-        let stack = all_domino_reductions_par::<9>(
+        let stack = all_domino_reductions_par::<9, false>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
             &cancel,
