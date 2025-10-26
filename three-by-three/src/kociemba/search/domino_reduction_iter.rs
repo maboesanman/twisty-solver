@@ -149,10 +149,12 @@ impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
         let min_d = match parent_moves_remaining - 1 {
             0 => 0,
             1 => 1,
-            _ => if S {
-                parent_dist.saturating_sub(1)
-            } else {
-                parent_dist.saturating_sub(2) + 1
+            _ => {
+                if S {
+                    parent_dist.saturating_sub(1)
+                } else {
+                    parent_dist.saturating_sub(2) + 1
+                }
             }
         };
         let max_d = (parent_dist + 1).min(parent_moves_remaining - 1);

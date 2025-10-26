@@ -8,12 +8,14 @@ use crate::{
     tables::Tables,
 };
 
+#[allow(unused)]
 pub fn produce_solutions<const N: usize, const S: bool>(
     cube: ReprCube,
     current_best: usize,
     tables: &Tables,
 ) -> impl Iterator<Item = Vec<CubeMove>> {
-    let domino_reductions = super::domino_reduction_iter::all_domino_reductions::<N, S>(cube, tables);
+    let domino_reductions =
+        super::domino_reduction_iter::all_domino_reductions::<N, S>(cube, tables);
 
     domino_reductions
         .scan(current_best, |current_best, (start, end)| {
