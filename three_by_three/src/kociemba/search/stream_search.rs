@@ -12,7 +12,6 @@ use std::{
 use flume::{Sender, r#async::RecvStream};
 use futures::{StreamExt, future};
 use futures_core::Stream;
-use itertools::Itertools as _;
 use rayon::iter::ParallelIterator;
 
 use crate::{
@@ -20,7 +19,7 @@ use crate::{
     kociemba::{
         coords::repr_coord::{SymReducedRepr, SymReducedReprPhase2},
         search::{
-            capped_idastar::idastar_limited, move_resolver, solve_domino::solve_domino,
+            move_resolver, solve_domino::solve_domino,
             solve_with_fixed_len_phase_1::produce_solutions_par,
         },
     },

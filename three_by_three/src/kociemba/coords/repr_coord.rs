@@ -356,7 +356,7 @@ impl SymReducedReprPhase2 {
             return true
         }
         let cube = SymReducedRepr([0, 0, self.0[0], self.0[1]]).into_cube(tables);
-        let (x, phase_2_len) = pathfinding::directed::idastar::idastar(
+        let (_, phase_2_len) = pathfinding::directed::idastar::idastar(
                 &self,
                 |&cube| cube.full_phase_2_neighbors(tables).into_iter().map(move |c| (c, 1)),
                 |&cube| cube.prune_distance_phase_2(tables),

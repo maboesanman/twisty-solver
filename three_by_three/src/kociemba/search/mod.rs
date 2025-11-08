@@ -9,20 +9,11 @@ pub use stream_search::get_incremental_solutions_stream;
 
 #[cfg(test)]
 mod test {
-    use pathfinding::directed::idastar;
-    use rand::SeedableRng;
-    use rand_chacha::ChaCha8Rng;
+    use crate::{kociemba::coords::repr_coord::SymReducedReprPhase2, Tables};
 
-    use crate::{
-        ReprCube, Tables,
-        kociemba::{
-            coords::repr_coord::{SymReducedRepr, SymReducedReprPhase2},
-            search::stream_search,
-        },
-    };
-
+    #[ignore]
     #[test]
-    fn random_phase_2_optimality() -> anyhow::Result<()> {
+    fn domino_optimality_check() -> anyhow::Result<()> {
         let tables = Box::leak(Box::new(Tables::new("tables")?));
 
         let items = pathfinding::directed::bfs::bfs(

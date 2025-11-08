@@ -1,5 +1,3 @@
-use arrayvec::ArrayVec;
-use itertools::Itertools;
 
 use crate::cube;
 
@@ -14,8 +12,8 @@ use super::{
 
 pub const S_URF3_1_CORNER_PERM: CornerPerm = cube![R Lp F Bp U Dp R Lp].corner_perm;
 pub const S_URF3_1_EDGE_PERM: EdgePerm = cube![R Lp F Bp U Dp R Lp].edge_perm;
-pub const S_URF3_1_CORNER_ORIENT_CORRECT: CornerOrient = cube![R Lp F Bp U Dp R Lp].corner_orient;
-pub const S_URF3_1_EDGE_ORIENT_CORRECT: EdgeOrient = cube![R Lp F Bp U Dp R Lp].edge_orient;
+// pub const S_URF3_1_CORNER_ORIENT_CORRECT: CornerOrient = cube![R Lp F Bp U Dp R Lp].corner_orient;
+// pub const S_URF3_1_EDGE_ORIENT_CORRECT: EdgeOrient = cube![R Lp F Bp U Dp R Lp].edge_orient;
 
 pub const S_URF3_1_CUBE: ReprCube = cube![R Lp F Bp U Dp R Lp];
 
