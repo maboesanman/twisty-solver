@@ -1,3 +1,6 @@
+use arrayvec::ArrayVec;
+use itertools::Itertools;
+
 use crate::cube;
 
 use super::{
@@ -292,8 +295,15 @@ impl ReprCube {
         }
     }
 
-    pub const fn conjugate(self, sym: DominoSymmetry) -> Self {
-        todo!()
+    pub const fn conjugate(self, sym: CubeSymmetry) -> Self {
+        let domino_component = DominoSymmetry(sym.0 & 0xF);
+        let domino_conjugated = self.domino_conjugate(domino_component);
+        match sym.0 >> 4 {
+            0 => domino_conjugated,
+            1 => S_URF3_1_CUBE.then(domino_conjugated).then(S_URF3_1_CUBE).then(S_URF3_1_CUBE),
+            2 => S_URF3_1_CUBE.then(S_URF3_1_CUBE).then(domino_conjugated).then(S_URF3_1_CUBE),
+            _ => unreachable!()
+        }
     }
 }
 

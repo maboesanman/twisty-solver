@@ -1,13 +1,13 @@
 
 [package]
-name = "kociemba"
+name = "three_by_three"
 version = "0.1.0"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "kociemba"
+name = "three_by_three"
 
 [dependencies]
 smallvec = "1.10.0"
@@ -32,3 +32,9 @@ flume = { version = "0.11.1", features = ["async"] }
 futures-core = "0.3.31"
 pin-project = "1.1.10"
 futures = "0.3.31"
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+panic = "abort"
+

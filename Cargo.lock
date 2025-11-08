@@ -322,34 +322,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kociemba"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arrayvec",
- "bitvec",
- "crc32fast",
- "dirs",
- "flume",
- "fs2",
- "futures",
- "futures-core",
- "itertools",
- "memmap2",
- "memoffset",
- "num-integer",
- "num_enum",
- "paste",
- "pathfinding",
- "phf",
- "pin-project",
- "rand",
- "rand_chacha",
- "rayon",
- "smallvec",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.172"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -792,6 +764,34 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.100",
+]
+
+[[package]]
+name = "three_by_three"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arrayvec",
+ "bitvec",
+ "crc32fast",
+ "dirs",
+ "flume",
+ "fs2",
+ "futures",
+ "futures-core",
+ "itertools",
+ "memmap2",
+ "memoffset",
+ "num-integer",
+ "num_enum",
+ "paste",
+ "pathfinding",
+ "phf",
+ "pin-project",
+ "rand",
+ "rand_chacha",
+ "rayon",
+ "smallvec",
 ]
 
 [[package]]

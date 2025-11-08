@@ -7,7 +7,7 @@ use rayon::iter::{
 };
 
 use crate::{
-    cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
+    cube_ops::{cube_move::CubeMove, cube_sym::CubeSymmetry, repr_cube::ReprCube},
     kociemba::coords::repr_coord::SymReducedRepr,
     tables::Tables,
 };
@@ -97,8 +97,8 @@ struct NextCubes<M: Copy> {
 
 impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Self {
-        let base = SymReducedRepr::from_cube(cube, tables);
-        Self::new_from_frame_0([base].into_iter().collect(), tables, cancel)
+        let options = (0..2).map(|x| SymReducedRepr::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables)).collect();
+        Self::new_from_frame_0(options, tables, cancel)
     }
 
     fn new_from_frame_0(
@@ -146,16 +146,18 @@ impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
         iter: impl IntoIterator<Item = (SymReducedRepr, CubeMove)>,
         tables: &Tables,
     ) -> impl Iterator<Item = NextCubes<CubeMove>> {
+        // there's an interesting optimization here.
+        // there are no domino sequences of 7 moves or less which can be done in fewer moves when treated
+        // as a non-domino. this means that if our domino reduction is ever distance 0 at two distinct points
+        // within 7 moves, those moves could be replaced by the same number of domino moves.
+        // now consider the last position of phase 1, which is distance 0. if we are distance 0 within 7 moves
+        // of the final position, that sequence could be replaced by domino moves, which means it will not be shorter
+        // than a path already found, because it there would exist a solution with a shorter phase 1 ending at the
+        // first domino reduction, and staying in domino moves, likely more optimally but never longer.
         let min_d = match parent_moves_remaining - 1 {
             0 => 0,
-            1 => 1,
-            _ => {
-                if S {
-                    parent_dist.saturating_sub(1)
-                } else {
-                    parent_dist.saturating_sub(2) + 1
-                }
-            }
+            1..8 => parent_dist.saturating_sub(2) + 1,
+            8.. => parent_dist.saturating_sub(1),
         };
         let max_d = (parent_dist + 1).min(parent_moves_remaining - 1);
 

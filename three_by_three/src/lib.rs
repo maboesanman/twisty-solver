@@ -9,6 +9,7 @@ mod cube_ops;
 mod kociemba;
 mod permutation_math;
 mod tables;
+mod cube_entry;
 
 pub use cube_ops::repr_cube::ReprCube;
 

@@ -1,3 +1,5 @@
+use rand::distr::{Distribution, StandardUniform};
+
 use crate::{
     cube_ops::{
         cube_move::{CubeMove, DominoMove},
@@ -336,7 +338,7 @@ impl SymReducedReprPhase2 {
             .get_value(corner_perm_sym_coord, ud_edge_perm_raw_coord)
     }
 
-    pub fn full_phase_2_neighbots(self, tables: &Tables) -> impl IntoIterator<Item = Self> {
+    pub fn full_phase_2_neighbors(self, tables: &Tables) -> impl IntoIterator<Item = Self> {
         let phase_2_unpacked = self.unpack_phase_2();
         DominoMove::all_iter().map(move |domino_move| {
             phase_2_unpacked
@@ -347,6 +349,31 @@ impl SymReducedReprPhase2 {
 
     pub fn is_solved(self) -> bool {
         self.0 == [0, 0]
+    }
+
+    pub fn domino_is_optimal(self, tables: &'static Tables) -> bool {
+        if self.is_solved() {
+            return true
+        }
+        let cube = SymReducedRepr([0, 0, self.0[0], self.0[1]]).into_cube(tables);
+        let (x, phase_2_len) = pathfinding::directed::idastar::idastar(
+                &self,
+                |&cube| cube.full_phase_2_neighbors(tables).into_iter().map(move |c| (c, 1)),
+                |&cube| cube.prune_distance_phase_2(tables),
+                |&cube| cube.is_solved(),
+            ).unwrap();
+        let stream = crate::get_incremental_solutions_stream(cube, tables, Some(phase_2_len as usize - 1));
+        futures::executor::block_on_stream(stream).next().is_none()
+    }
+}
+
+impl Distribution<SymReducedReprPhase2> for StandardUniform {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> SymReducedReprPhase2 {
+        let ud_edge_perm: u16 = rng.random_range(0..40320);
+        let corner_perm: u16 = rng.random_range(0..2768);
+        let e_edge_perm_high_bits: u16 = rng.random_range(0..12);
+
+        SymReducedReprPhase2([(e_edge_perm_high_bits << 12) & corner_perm, ud_edge_perm])
     }
 }
 
