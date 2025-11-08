@@ -118,6 +118,18 @@ impl PartialPhase1 {
         }
     }
 
+    pub fn from_index_exhaustive(index: usize, tables: &Tables) -> impl IntoIterator<Item = Self> {
+        let base = Self::from_index(index);
+        LookupSymEdgeGroupOrientTable::get_all_stabilizing_conjugations(
+            base.edge_group_orient_combo_coord.sym_coord, tables
+        ).into_iter().map(move |sym| {
+            Self {
+                edge_group_orient_combo_coord: base.edge_group_orient_combo_coord,
+                corner_orient_raw_coord: tables.move_raw_corner_orient.domino_conjugate(base.corner_orient_raw_coord, sym),
+            }
+        })
+    }
+
     pub fn into_index(self) -> usize {
         debug_assert_eq!(
             self.edge_group_orient_combo_coord.domino_conjugation,
@@ -170,6 +182,7 @@ impl PartialPhase1 {
 
         LookupSymEdgeGroupOrientTable::get_all_stabilizing_conjugations(
             rep.edge_group_orient_combo_coord.sym_coord,
+            tables
         )
         .into_iter()
         .map(move |sym| PartialPhase1 {
@@ -189,11 +202,10 @@ impl PartialPhase1 {
 }
 
 pub fn top_down_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
-    let start = PartialPhase1::from_index(index);
-
-    CubeMove::all_iter()
+    let starts = PartialPhase1::from_index_exhaustive(index, tables);
+    starts.into_iter().flat_map(move |start| CubeMove::all_iter()
         .flat_map(move |cube_move| start.apply_cube_move(tables, cube_move).normalize(tables))
-        .map(PartialPhase1::into_index)
+        .map(PartialPhase1::into_index))
 }
 
 pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
@@ -263,10 +275,7 @@ impl PrunePhase1Table {
             let next_level = frontier_level + 1;
             println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
             let unvisited = TABLE_ENTRY_COUNT - total_visited;
-            let _use_bottom_up = frontier.len() * /* degree of graph */ 18 > unvisited; // cheap heuristic
-
-            // TODO: fix top down search so this is dramatically more efficient
-            let use_bottom_up = true;
+            let use_bottom_up = frontier.len() * /* degree of graph */ 18 > unvisited; // cheap heuristic
 
             let next = if !use_bottom_up {
                 /* ---------- top-down ---------- */
