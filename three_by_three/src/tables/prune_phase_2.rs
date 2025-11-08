@@ -15,7 +15,6 @@ use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
 use crate::kociemba::coords::corner_perm_combo_coord::CornerPermComboCoord;
 use crate::tables::Tables;
-use crate::tables::lookup_sym_corner_perm::LookupSymCornerPermTable;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
@@ -92,6 +91,23 @@ impl PartialPhase2 {
         }
     }
 
+    pub fn from_index_exhaustive(index: usize, tables: &Tables) -> impl IntoIterator<Item = Self> {
+        let base = Self::from_index(index);
+        tables
+            .lookup_sym_corner_perm
+            .get_all_stabilizing_conjugations(base.corner_perm_combo_coord.sym_coord)
+            .into_iter()
+            .map(move |sym| Self {
+                corner_perm_combo_coord: base.corner_perm_combo_coord,
+                ud_edge_perm_raw_coord: tables
+                    .grouped_edge_moves
+                    .update_edge_perm_phase_2_partial_domino_symmetry(
+                        sym,
+                        base.ud_edge_perm_raw_coord,
+                    ),
+            })
+    }
+
     pub fn into_index(self) -> usize {
         debug_assert_eq!(
             self.corner_perm_combo_coord.domino_conjugation,
@@ -138,16 +154,19 @@ impl PartialPhase2 {
     pub fn normalize(self, tables: &Tables) -> impl IntoIterator<Item = Self> {
         let rep = self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation);
 
-        LookupSymCornerPermTable::get_all_stabilizing_conjugations(
-            rep.corner_perm_combo_coord.sym_coord,
-        )
-        .into_iter()
-        .map(move |sym| PartialPhase2 {
-            corner_perm_combo_coord: rep.corner_perm_combo_coord,
-            ud_edge_perm_raw_coord: tables
-                .grouped_edge_moves
-                .update_edge_perm_phase_2_partial_domino_symmetry(sym, rep.ud_edge_perm_raw_coord),
-        })
+        tables
+            .lookup_sym_corner_perm
+            .get_all_stabilizing_conjugations(rep.corner_perm_combo_coord.sym_coord)
+            .into_iter()
+            .map(move |sym| PartialPhase2 {
+                corner_perm_combo_coord: rep.corner_perm_combo_coord,
+                ud_edge_perm_raw_coord: tables
+                    .grouped_edge_moves
+                    .update_edge_perm_phase_2_partial_domino_symmetry(
+                        sym,
+                        rep.ud_edge_perm_raw_coord,
+                    ),
+            })
     }
 
     pub fn single_normalize(self, tables: &Tables) -> Self {
@@ -156,11 +175,10 @@ impl PartialPhase2 {
 }
 
 pub fn top_down_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
-    let start = PartialPhase2::from_index(index);
-
-    DominoMove::all_iter()
+    let starts = PartialPhase2::from_index_exhaustive(index, tables);
+    starts.into_iter().flat_map(move |start| DominoMove::all_iter()
         .flat_map(move |cube_move| start.apply_domino_move(tables, cube_move).normalize(tables))
-        .map(PartialPhase2::into_index)
+        .map(PartialPhase2::into_index))
 }
 
 pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
@@ -220,7 +238,6 @@ impl PrunePhase2Table {
 
         let mut frontier = vec![root];
         let mut frontier_level = 0u8; // real level, not mod-3
-        let mut total_visited = 1;
 
         while !frontier.is_empty() {
             if special_cases.contains(&frontier_level) {
@@ -228,13 +245,9 @@ impl PrunePhase2Table {
             }
             let next_level = frontier_level + 1;
             println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
-            let unvisited = TABLE_ENTRY_COUNT - total_visited;
-            let _use_bottom_up = frontier.len() * /* degree of graph */ 10 > unvisited; // cheap heuristic
+            let use_bottom_up = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18];
 
-            // TODO: fix top down search so this is dramatically more efficient
-            let use_bottom_up = true;
-
-            let next = if !use_bottom_up {
+            let next = if use_bottom_up.contains(&frontier_level) {
                 /* ---------- top-down ---------- */
                 frontier
                     .par_iter()
@@ -273,7 +286,6 @@ impl PrunePhase2Table {
 
             fence(Ordering::SeqCst);
             frontier_level += 1;
-            total_visited += frontier.len();
         }
 
         // let mut out_string = "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
