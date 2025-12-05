@@ -1,4 +1,4 @@
-use crate::permutation_math::permutation::Permutation;
+use crate::{cube_ops::cube_prev_axis::CubePreviousAxis, permutation_math::permutation::Permutation};
 
 use super::{
     partial_reprs::{
@@ -111,13 +111,22 @@ impl CubeMove {
         (0u8..18u8).map(|x| unsafe { core::mem::transmute(x) })
     }
 
-    pub fn new_axis_iter(prev_move: Self) -> impl Iterator<Item = Self> {
-        let x = prev_move as u8 / 3;
-        let range_1 = 0u8..(x * 3);
-        let range_2 = ((x + 1) * 3)..18u8;
+    pub fn new_axis_iter(prev_axis: CubePreviousAxis) -> impl IntoIterator<Item = Self> {
+        let (range_1, range_2) = match prev_axis {
+            CubePreviousAxis::U => (0..0, 3..18),
+            CubePreviousAxis::D => (0..3, 6..18),
+            CubePreviousAxis::UD => (0..0, 6..18),
+            CubePreviousAxis::F => (0..6, 9..18),
+            CubePreviousAxis::B => (0..9, 12..18),
+            CubePreviousAxis::FB => (0..6, 12..18),
+            CubePreviousAxis::R => (0..12, 15..18),
+            CubePreviousAxis::L => (0..15, 18..18),
+            CubePreviousAxis::RL => (0..12, 18..18),
+        };
+
         range_1
             .chain(range_2)
-            .map(|x| unsafe { core::mem::transmute(x) })
+            .map(|x: u8| unsafe { core::mem::transmute(x) })
     }
 
     pub const fn into_u8(self) -> u8 {

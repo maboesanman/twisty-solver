@@ -2,13 +2,10 @@ use rand::distr::{Distribution, StandardUniform};
 
 use crate::{
     cube_ops::{
-        cube_move::{CubeMove, DominoMove},
-        cube_sym::DominoSymmetry,
-        partial_reprs::{
+        cube_move::{CubeMove, DominoMove}, cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry, partial_reprs::{
             corner_orient::CornerOrient, corner_perm::CornerPerm, edge_orient::EdgeOrient,
             edge_perm::EdgePerm,
-        },
-        repr_cube::ReprCube,
+        }, repr_cube::ReprCube
     },
     kociemba::{
         coords::{
@@ -59,7 +56,7 @@ impl SymReducedRepr {
             },
             e_edge_perm_raw_coord: EEdgePermRawCoord(d),
             ud_edge_perm_raw_coord: UDEdgePermRawCoord(f),
-            previous_move: None,
+            previous_axis: None,
         }
     }
 
@@ -85,7 +82,7 @@ impl SymReducedRepr {
     pub fn full_phase_1_neighbors(
         self,
         tables: &Tables,
-    ) -> impl IntoIterator<Item = (Self, CubeMove)> {
+    ) -> impl IntoIterator<Item = (Self, CubePreviousAxis)> {
         let phase_1_unpacked = self.unpack_phase_1();
         CubeMove::all_iter()
             .map(move |cube_move| {
@@ -99,10 +96,11 @@ impl SymReducedRepr {
     pub fn partial_phase_1_neighbors(
         self,
         tables: &Tables,
-        prev_move: CubeMove,
-    ) -> impl IntoIterator<Item = (Self, CubeMove)> {
+        prev_axis: CubePreviousAxis,
+    ) -> impl IntoIterator<Item = (Self, CubePreviousAxis)> {
         let phase_1_unpacked = self.unpack_phase_1();
-        CubeMove::new_axis_iter(prev_move)
+        CubeMove::new_axis_iter(prev_axis)
+            .into_iter()
             .map(move |cube_move| {
                 phase_1_unpacked
                     .apply_cube_move(tables, cube_move)
@@ -123,7 +121,7 @@ pub struct Phase1Unpacked {
     pub corner_perm_combo_coord: CornerPermComboCoord,
     pub e_edge_perm_raw_coord: EEdgePermRawCoord,
     pub ud_edge_perm_raw_coord: UDEdgePermRawCoord,
-    pub previous_move: Option<CubeMove>,
+    pub previous_axis: Option<CubePreviousAxis>,
 }
 
 impl Phase1Unpacked {
@@ -153,13 +151,18 @@ impl Phase1Unpacked {
                 self.e_edge_perm_raw_coord,
             );
 
+        let previous_axis = match self.previous_axis {
+            Some(prev) => prev.update_with_new_move(cube_move),
+            None => CubePreviousAxis::from_first_move(cube_move),
+        };
+
         Self {
             edge_group_orient_combo_coord,
             corner_orient_raw_coord,
             corner_perm_combo_coord,
             e_edge_perm_raw_coord,
             ud_edge_perm_raw_coord,
-            previous_move: Some(cube_move),
+            previous_axis: Some(previous_axis),
         }
     }
 
@@ -191,7 +194,7 @@ impl Phase1Unpacked {
                 self.e_edge_perm_raw_coord,
             );
 
-        let previous_move = self.previous_move.map(|mv| mv.domino_conjugate(sym));
+        let previous_axis = self.previous_axis.map(|mv| mv.domino_conjugate(sym));
 
         Self {
             edge_group_orient_combo_coord,
@@ -199,7 +202,7 @@ impl Phase1Unpacked {
             corner_perm_combo_coord,
             e_edge_perm_raw_coord,
             ud_edge_perm_raw_coord,
-            previous_move,
+            previous_axis,
         }
     }
 
@@ -226,7 +229,7 @@ impl Phase1Unpacked {
         }
     }
 
-    pub fn pack(self, tables: &Tables) -> (SymReducedRepr, Option<CubeMove>) {
+    pub fn pack(self, tables: &Tables) -> (SymReducedRepr, Option<CubePreviousAxis>) {
         let norm = self.normalize(tables);
 
         let a = norm.edge_group_orient_combo_coord.sym_coord.0;
@@ -239,7 +242,7 @@ impl Phase1Unpacked {
         let bc = ((b as u16) << 12) | c;
         let de = ((d >> 1) << 12) | e;
 
-        (SymReducedRepr([a, bc, de, f]), norm.previous_move)
+        (SymReducedRepr([a, bc, de, f]), norm.previous_axis)
     }
 
     pub fn from_cube(cube: ReprCube, tables: &Tables) -> Self {
@@ -271,7 +274,7 @@ impl Phase1Unpacked {
             corner_perm_combo_coord,
             e_edge_perm_raw_coord,
             ud_edge_perm_raw_coord,
-            previous_move: None,
+            previous_axis: None,
         }
     }
 
@@ -282,7 +285,7 @@ impl Phase1Unpacked {
             corner_perm_combo_coord,
             e_edge_perm_raw_coord,
             ud_edge_perm_raw_coord,
-            previous_move: _,
+            previous_axis: _,
         } = self;
 
         let edge_group_orient_raw_coord = edge_group_orient_combo_coord.into_raw(tables);
