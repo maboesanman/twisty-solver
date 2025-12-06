@@ -1,4 +1,6 @@
-use crate::{cube_ops::cube_prev_axis::CubePreviousAxis, permutation_math::permutation::Permutation};
+use crate::{
+    cube_ops::cube_prev_axis::CubePreviousAxis, permutation_math::permutation::Permutation,
+};
 
 use super::{
     partial_reprs::{

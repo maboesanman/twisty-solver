@@ -1,4 +1,3 @@
-
 use crate::cube;
 
 use super::{
@@ -298,9 +297,15 @@ impl ReprCube {
         let domino_conjugated = self.domino_conjugate(domino_component);
         match sym.0 >> 4 {
             0 => domino_conjugated,
-            1 => S_URF3_1_CUBE.then(domino_conjugated).then(S_URF3_1_CUBE).then(S_URF3_1_CUBE),
-            2 => S_URF3_1_CUBE.then(S_URF3_1_CUBE).then(domino_conjugated).then(S_URF3_1_CUBE),
-            _ => unreachable!()
+            1 => S_URF3_1_CUBE
+                .then(domino_conjugated)
+                .then(S_URF3_1_CUBE)
+                .then(S_URF3_1_CUBE),
+            2 => S_URF3_1_CUBE
+                .then(S_URF3_1_CUBE)
+                .then(domino_conjugated)
+                .then(S_URF3_1_CUBE),
+            _ => unreachable!(),
         }
     }
 }

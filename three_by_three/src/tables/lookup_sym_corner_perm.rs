@@ -73,9 +73,8 @@ impl LookupSymCornerPermTable {
     ) -> impl IntoIterator<Item = DominoSymmetry> {
         let rep = self.get_rep_from_sym(sym_coord);
         let corner_perm = CornerPerm::from_coord(rep);
-        DominoSymmetry::all_iter().filter(move |sym| {
-            corner_perm.domino_conjugate(*sym) == corner_perm
-        })
+        DominoSymmetry::all_iter()
+            .filter(move |sym| corner_perm.domino_conjugate(*sym) == corner_perm)
     }
 
     fn generate(buffer: &mut [u8]) {
@@ -177,7 +176,10 @@ mod test {
             let sym = CornerPermSymCoord(i);
             let rep = tables.lookup_sym_corner_perm.get_rep_from_sym(sym);
             let corner_perm = CornerPerm::from_coord(rep);
-            let stabilizing_conjugations = table.get_all_stabilizing_conjugations(sym).into_iter().collect_vec();
+            let stabilizing_conjugations = table
+                .get_all_stabilizing_conjugations(sym)
+                .into_iter()
+                .collect_vec();
             for s in DominoSymmetry::all_iter() {
                 let stabilized = corner_perm == corner_perm.domino_conjugate(s);
                 assert_eq!(stabilized, stabilizing_conjugations.contains(&s))

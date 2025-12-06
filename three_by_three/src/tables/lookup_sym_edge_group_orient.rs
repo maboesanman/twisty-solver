@@ -62,9 +62,8 @@ impl LookupSymEdgeGroupOrientTable {
     ) -> impl IntoIterator<Item = DominoSymmetry> {
         let rep = self.get_rep_from_sym(sym_coord);
         let group_orient = EdgeGroupOrient::from_coord(rep);
-        DominoSymmetry::all_iter().filter(move |sym| {
-            group_orient.domino_conjugate(*sym) == group_orient
-        })
+        DominoSymmetry::all_iter()
+            .filter(move |sym| group_orient.domino_conjugate(*sym) == group_orient)
     }
 
     fn generate(buffer: &mut [u8]) {
@@ -130,7 +129,10 @@ mod test {
             let sym = EdgeGroupOrientSymCoord(i);
             let rep = tables.lookup_sym_edge_group_orient.get_rep_from_sym(sym);
             let group_orient = EdgeGroupOrient::from_coord(rep);
-            let stabilizing_conjugations = table.get_all_stabilizing_conjugations(sym).into_iter().collect_vec();
+            let stabilizing_conjugations = table
+                .get_all_stabilizing_conjugations(sym)
+                .into_iter()
+                .collect_vec();
             for s in DominoSymmetry::all_iter() {
                 let stabilized = group_orient == group_orient.domino_conjugate(s);
                 assert_eq!(stabilized, stabilizing_conjugations.contains(&s))

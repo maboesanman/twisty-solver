@@ -1,5 +1,3 @@
-use std::mem::transmute_copy;
-
 use crate::{CubeMove, cube_ops::cube_sym::DominoSymmetry};
 
 #[repr(u8)]
@@ -50,7 +48,7 @@ impl CubePreviousAxis {
             let mut lookup = [CubePreviousAxis::U; 9 * 16];
 
             let mut i = 0usize;
-            
+
             while i < 9 * 16 {
                 let prev_axis: CubePreviousAxis = unsafe { std::mem::transmute((i >> 4) as u8) };
                 let sym: DominoSymmetry = unsafe { std::mem::transmute((i & 15) as u8) };
@@ -76,11 +74,11 @@ impl CubePreviousAxis {
                         0 => CubePreviousAxis::UD,
                         1 => CubePreviousAxis::FB,
                         2 => CubePreviousAxis::RL,
-                        _ => unreachable!()
+                        _ => unreachable!(),
                     };
                 }
-                
-                lookup[i as usize] = val;
+
+                lookup[i] = val;
 
                 i += 1;
             }

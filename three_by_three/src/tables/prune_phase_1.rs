@@ -119,14 +119,16 @@ impl PartialPhase1 {
 
     pub fn from_index_exhaustive(index: usize, tables: &Tables) -> impl IntoIterator<Item = Self> {
         let base = Self::from_index(index);
-        tables.lookup_sym_edge_group_orient.get_all_stabilizing_conjugations(
-            base.edge_group_orient_combo_coord.sym_coord
-        ).into_iter().map(move |sym| {
-            Self {
+        tables
+            .lookup_sym_edge_group_orient
+            .get_all_stabilizing_conjugations(base.edge_group_orient_combo_coord.sym_coord)
+            .into_iter()
+            .map(move |sym| Self {
                 edge_group_orient_combo_coord: base.edge_group_orient_combo_coord,
-                corner_orient_raw_coord: tables.move_raw_corner_orient.domino_conjugate(base.corner_orient_raw_coord, sym),
-            }
-        })
+                corner_orient_raw_coord: tables
+                    .move_raw_corner_orient
+                    .domino_conjugate(base.corner_orient_raw_coord, sym),
+            })
     }
 
     pub fn into_index(self) -> usize {
@@ -179,16 +181,16 @@ impl PartialPhase1 {
             self.edge_group_orient_combo_coord.domino_conjugation,
         );
 
-        tables.lookup_sym_edge_group_orient.get_all_stabilizing_conjugations(
-            rep.edge_group_orient_combo_coord.sym_coord
-        )
-        .into_iter()
-        .map(move |sym| PartialPhase1 {
-            edge_group_orient_combo_coord: rep.edge_group_orient_combo_coord,
-            corner_orient_raw_coord: tables
-                .move_raw_corner_orient
-                .domino_conjugate(rep.corner_orient_raw_coord, sym),
-        })
+        tables
+            .lookup_sym_edge_group_orient
+            .get_all_stabilizing_conjugations(rep.edge_group_orient_combo_coord.sym_coord)
+            .into_iter()
+            .map(move |sym| PartialPhase1 {
+                edge_group_orient_combo_coord: rep.edge_group_orient_combo_coord,
+                corner_orient_raw_coord: tables
+                    .move_raw_corner_orient
+                    .domino_conjugate(rep.corner_orient_raw_coord, sym),
+            })
     }
 
     pub fn single_normalize(self, tables: &Tables) -> Self {
@@ -201,9 +203,11 @@ impl PartialPhase1 {
 
 pub fn top_down_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
     let starts = PartialPhase1::from_index_exhaustive(index, tables);
-    starts.into_iter().flat_map(move |start| CubeMove::all_iter()
-        .flat_map(move |cube_move| start.apply_cube_move(tables, cube_move).normalize(tables))
-        .map(PartialPhase1::into_index))
+    starts.into_iter().flat_map(move |start| {
+        CubeMove::all_iter()
+            .flat_map(move |cube_move| start.apply_cube_move(tables, cube_move).normalize(tables))
+            .map(PartialPhase1::into_index)
+    })
 }
 
 pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {

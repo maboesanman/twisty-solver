@@ -176,9 +176,11 @@ impl PartialPhase2 {
 
 pub fn top_down_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
     let starts = PartialPhase2::from_index_exhaustive(index, tables);
-    starts.into_iter().flat_map(move |start| DominoMove::all_iter()
-        .flat_map(move |cube_move| start.apply_domino_move(tables, cube_move).normalize(tables))
-        .map(PartialPhase2::into_index))
+    starts.into_iter().flat_map(move |start| {
+        DominoMove::all_iter()
+            .flat_map(move |cube_move| start.apply_domino_move(tables, cube_move).normalize(tables))
+            .map(PartialPhase2::into_index)
+    })
 }
 
 pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {

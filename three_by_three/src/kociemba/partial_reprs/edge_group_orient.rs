@@ -1,8 +1,6 @@
 use crate::{
     cube_ops::{
-        cube_move::CubeMove,
-        cube_sym::DominoSymmetry,
-        partial_reprs::edge_orient::EdgeOrient,
+        cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::edge_orient::EdgeOrient,
     },
     kociemba::coords::coords::{EdgeGroupOrientRawCoord, EdgeGroupRawCoord, EdgeOrientRawCoord},
 };

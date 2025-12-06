@@ -5,18 +5,18 @@
 #![feature(const_precise_live_drops)]
 #![allow(long_running_const_eval)]
 
+mod cube_entry;
 mod cube_ops;
 mod kociemba;
 mod permutation_math;
 mod tables;
-mod cube_entry;
 
 pub use cube_ops::repr_cube::ReprCube;
 
-pub use cube_ops::partial_reprs::edge_perm::EdgePerm;
+pub use cube_ops::partial_reprs::corner_orient::CornerOrient;
 pub use cube_ops::partial_reprs::corner_perm::CornerPerm;
 pub use cube_ops::partial_reprs::edge_orient::EdgeOrient;
-pub use cube_ops::partial_reprs::corner_orient::CornerOrient;
+pub use cube_ops::partial_reprs::edge_perm::EdgePerm;
 
 pub use permutation_math::permutation::Permutation;
 

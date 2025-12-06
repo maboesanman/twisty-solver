@@ -7,7 +7,7 @@ use rayon::iter::{
 };
 
 use crate::{
-    cube_ops::{cube_move::CubeMove, cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
+    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
     kociemba::coords::repr_coord::SymReducedRepr,
     tables::Tables,
 };
@@ -97,7 +97,9 @@ struct NextCubes<A: Copy> {
 
 impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Self {
-        let options = (0..2).map(|x| SymReducedRepr::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables)).collect();
+        let options = (0..2)
+            .map(|x| SymReducedRepr::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables))
+            .collect();
         Self::new_from_frame_0(options, tables, cancel)
     }
 
@@ -140,7 +142,7 @@ impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
         stack
     }
 
-    /// after the 
+    /// after the
     fn cube_child_filter(
         parent_dist: u8,
         parent_moves_remaining: u8,

@@ -483,7 +483,6 @@ mod test {
 
     #[test]
     fn test_already_solved() -> anyhow::Result<()> {
-
         let tables = Box::leak(Box::new(Tables::new("tables")?));
 
         let mut stream = get_incremental_solutions_stream(ReprCube::SOLVED, tables, Some(20));

@@ -2,10 +2,14 @@ use rand::distr::{Distribution, StandardUniform};
 
 use crate::{
     cube_ops::{
-        cube_move::{CubeMove, DominoMove}, cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry, partial_reprs::{
+        cube_move::{CubeMove, DominoMove},
+        cube_prev_axis::CubePreviousAxis,
+        cube_sym::DominoSymmetry,
+        partial_reprs::{
             corner_orient::CornerOrient, corner_perm::CornerPerm, edge_orient::EdgeOrient,
             edge_perm::EdgePerm,
-        }, repr_cube::ReprCube
+        },
+        repr_cube::ReprCube,
     },
     kociemba::{
         coords::{
@@ -308,7 +312,6 @@ impl Phase1Unpacked {
     }
 }
 
-
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 #[repr(transparent)]
 pub struct SymReducedReprPhase2(pub [u16; 2]);
@@ -356,16 +359,22 @@ impl SymReducedReprPhase2 {
 
     pub fn domino_is_optimal(self, tables: &'static Tables) -> bool {
         if self.is_solved() {
-            return true
+            return true;
         }
         let cube = SymReducedRepr([0, 0, self.0[0], self.0[1]]).into_cube(tables);
         let (_, phase_2_len) = pathfinding::directed::idastar::idastar(
-                &self,
-                |&cube| cube.full_phase_2_neighbors(tables).into_iter().map(move |c| (c, 1)),
-                |&cube| cube.prune_distance_phase_2(tables),
-                |&cube| cube.is_solved(),
-            ).unwrap();
-        let stream = crate::get_incremental_solutions_stream(cube, tables, Some(phase_2_len as usize - 1));
+            &self,
+            |&cube| {
+                cube.full_phase_2_neighbors(tables)
+                    .into_iter()
+                    .map(move |c| (c, 1))
+            },
+            |&cube| cube.prune_distance_phase_2(tables),
+            |&cube| cube.is_solved(),
+        )
+        .unwrap();
+        let stream =
+            crate::get_incremental_solutions_stream(cube, tables, Some(phase_2_len as usize - 1));
         futures::executor::block_on_stream(stream).next().is_none()
     }
 }
