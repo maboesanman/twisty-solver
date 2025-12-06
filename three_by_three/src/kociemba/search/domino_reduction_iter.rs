@@ -7,7 +7,7 @@ use rayon::iter::{
 };
 
 use crate::{
-    cube_ops::{cube_move::CubeMove, cube_sym::CubeSymmetry, repr_cube::ReprCube},
+    cube_ops::{cube_move::CubeMove, cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
     kociemba::coords::repr_coord::SymReducedRepr,
     tables::Tables,
 };
@@ -48,10 +48,10 @@ struct Stack<'t, const N: usize, const S: bool, C> {
     frame_0: StackFrame<3, ()>,
 
     // the 18 possible moves from the starting position
-    frame_1: StackFrame<18, CubeMove>,
+    frame_1: StackFrame<18, CubePreviousAxis>,
 
     // the 15 possible moves from the previous position, because you can't turn the face you just turned.
-    frames_after: [StackFrame<15, CubeMove>; N],
+    frames_after: [StackFrame<15, CubePreviousAxis>; N],
 }
 
 impl<'t, const N: usize, const S: bool, C> std::fmt::Debug for Stack<'t, N, S, C> {
@@ -89,9 +89,9 @@ impl<const N: usize, M: Copy> StackFrame<N, M> {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct NextCubes<M: Copy> {
+struct NextCubes<A: Copy> {
     cube: SymReducedRepr,
-    previous_move: M,
+    previous_axis: A,
     domino_distance: u8,
 }
 
@@ -113,7 +113,7 @@ impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
 
                 NextCubes {
                     cube,
-                    previous_move: (),
+                    previous_axis: (),
                     domino_distance,
                 }
             })
@@ -140,12 +140,13 @@ impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
         stack
     }
 
+    /// after the 
     fn cube_child_filter(
         parent_dist: u8,
         parent_moves_remaining: u8,
-        iter: impl IntoIterator<Item = (SymReducedRepr, CubeMove)>,
+        iter: impl IntoIterator<Item = (SymReducedRepr, CubePreviousAxis)>,
         tables: &Tables,
-    ) -> impl Iterator<Item = NextCubes<CubeMove>> {
+    ) -> impl Iterator<Item = NextCubes<CubePreviousAxis>> {
         // there's an interesting optimization here.
         // there are no domino sequences of 7 moves or less which can be done in fewer moves when treated
         // as a non-domino. this means that if our domino reduction is ever distance 0 at two distinct points
@@ -161,7 +162,7 @@ impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
         };
         let max_d = (parent_dist + 1).min(parent_moves_remaining - 1);
 
-        iter.into_iter().filter_map(move |(cube, previous_move)| {
+        iter.into_iter().filter_map(move |(cube, previous_axis)| {
             let domino_distance = cube.prune_distance_phase_1(tables);
 
             if !(min_d..=max_d).contains(&domino_distance) {
@@ -170,7 +171,7 @@ impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
 
             Some(NextCubes {
                 cube,
-                previous_move,
+                previous_axis,
                 domino_distance,
             })
         })
@@ -240,7 +241,7 @@ impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
                     prev_m_remaining,
                     parent
                         .cube
-                        .partial_phase_1_neighbors(self.tables, parent.previous_move),
+                        .partial_phase_1_neighbors(self.tables, parent.previous_axis),
                     self.tables,
                 ));
                 !child_frame.next_cubes.is_empty()
