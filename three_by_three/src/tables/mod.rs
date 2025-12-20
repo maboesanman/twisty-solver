@@ -6,8 +6,7 @@ use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
 use crate::tables::{
-    grouped_edge_moves::GroupedEdgeMovesTable, move_sym_corner_perm::MoveSymCornerPermTable,
-    prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table,
+    grouped_edge_moves::GroupedEdgeMovesTable, move_edge_positions::MoveEdgePositions, move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table
 };
 
 pub mod lookup_sym_corner_perm;
@@ -16,6 +15,7 @@ pub mod lookup_sym_edge_group_orient;
 pub mod move_raw_corner_orient;
 pub mod move_sym_corner_perm;
 pub mod move_sym_edge_group_orient;
+pub mod move_edge_positions;
 
 pub mod prune_phase_1;
 pub mod prune_phase_2;
@@ -34,6 +34,7 @@ const GROUPED_EDGE_MOVES_UD_TABLE_NAME: &str = "grouped_edge_moves_ud_table.dat"
 const GROUPED_EDGE_MOVES_E_TABLE_NAME: &str = "grouped_edge_moves_e_table.dat";
 const MOVE_SYM_CORNER_PERM_TABLE_NAME: &str = "move_sym_corner_perm_table.dat";
 const PRUNE_PHASE_2_TABLE_NAME: &str = "prune_phase_2_table.dat";
+const MOVE_EDGE_POSITION_TABLE_NAME: &str = "move_raw_edge_position_table.dat";
 
 pub struct Tables {
     pub(crate) lookup_sym_edge_group_orient: LookupSymEdgeGroupOrientTable,
@@ -43,6 +44,7 @@ pub struct Tables {
     pub(crate) move_sym_edge_group_orient: MoveSymEdgeGroupOrientTable,
     pub(crate) move_sym_corner_perm: MoveSymCornerPermTable,
     pub(crate) grouped_edge_moves: GroupedEdgeMovesTable,
+    pub(crate) move_edge_position: MoveEdgePositions,
 
     pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
     pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
@@ -79,6 +81,8 @@ impl Tables {
             &lookup_sym_corner_perm,
         )?;
 
+        let move_edge_position = MoveEdgePositions::load(folder.join(MOVE_EDGE_POSITION_TABLE_NAME))?;
+
         let mut working = Tables {
             move_raw_corner_orient,
             move_sym_edge_group_orient,
@@ -86,7 +90,7 @@ impl Tables {
             grouped_edge_moves,
             lookup_sym_corner_perm,
             move_sym_corner_perm,
-
+            move_edge_position,
             prune_phase_1: MaybeUninit::uninit(),
             prune_phase_2: MaybeUninit::uninit(),
             // prune_phase_2_corner_perm: MaybeUninit::uninit(),
