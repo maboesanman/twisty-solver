@@ -24,4 +24,4 @@ pub use cube_ops::cube_move::CubeMove;
 
 pub use tables::Tables;
 
-pub use kociemba::search::get_incremental_solutions_stream;
+// pub use kociemba::search::get_incremental_solutions_stream;

@@ -124,6 +124,7 @@ impl CubeMove {
             CubePreviousAxis::R => (0..12, 15..18),
             CubePreviousAxis::L => (0..15, 18..18),
             CubePreviousAxis::RL => (0..12, 18..18),
+            CubePreviousAxis::None => (0..18, 18..18),
         };
 
         range_1

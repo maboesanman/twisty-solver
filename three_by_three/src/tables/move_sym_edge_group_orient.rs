@@ -40,9 +40,10 @@ impl MoveSymEdgeGroupOrientTable {
         coord: EdgeGroupOrientSymCoord,
         mv: CubeMove,
     ) -> EdgeGroupOrientComboCoord {
+        let chunk = self.chunk(coord);
         EdgeGroupOrientComboCoord {
-            sym_coord: EdgeGroupOrientSymCoord(self.chunk(coord)[mv.into_index() * 2]),
-            domino_conjugation: DominoSymmetry(self.chunk(coord)[mv.into_index() * 2 + 1] as u8),
+            sym_coord: EdgeGroupOrientSymCoord(chunk[mv.into_index() * 2]),
+            domino_conjugation: DominoSymmetry(chunk[mv.into_index() * 2 + 1] as u8),
         }
     }
 

@@ -6,7 +6,7 @@ use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
 use crate::tables::{
-    grouped_edge_moves::GroupedEdgeMovesTable, move_edge_positions::MoveEdgePositions, move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table
+    move_edge_positions::MoveEdgePositions, move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table
 };
 
 pub mod lookup_sym_corner_perm;
@@ -19,8 +19,6 @@ pub mod move_edge_positions;
 
 pub mod prune_phase_1;
 pub mod prune_phase_2;
-
-pub mod grouped_edge_moves;
 
 mod table_loader;
 
@@ -43,7 +41,6 @@ pub struct Tables {
     pub(crate) move_raw_corner_orient: MoveRawCornerOrientTable,
     pub(crate) move_sym_edge_group_orient: MoveSymEdgeGroupOrientTable,
     pub(crate) move_sym_corner_perm: MoveSymCornerPermTable,
-    pub(crate) grouped_edge_moves: GroupedEdgeMovesTable,
     pub(crate) move_edge_position: MoveEdgePositions,
 
     pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
@@ -69,11 +66,6 @@ impl Tables {
             folder.join(MOVE_SYM_EDGE_GROUP_ORIENT_TABLE_NAME),
             &lookup_sym_edge_group_orient,
         )?;
-        let grouped_edge_moves = GroupedEdgeMovesTable::load(
-            folder.join(GROUPED_EDGE_MOVES_RESTRICT_TABLE_NAME),
-            folder.join(GROUPED_EDGE_MOVES_UD_TABLE_NAME),
-            folder.join(GROUPED_EDGE_MOVES_E_TABLE_NAME),
-        )?;
         let lookup_sym_corner_perm =
             LookupSymCornerPermTable::load(folder.join(LOOKUP_SYM_CORNER_PERM_TABLE_NAME))?;
         let move_sym_corner_perm = MoveSymCornerPermTable::load(
@@ -87,7 +79,6 @@ impl Tables {
             move_raw_corner_orient,
             move_sym_edge_group_orient,
             lookup_sym_edge_group_orient,
-            grouped_edge_moves,
             lookup_sym_corner_perm,
             move_sym_corner_perm,
             move_edge_position,

@@ -1,3 +1,5 @@
+use std::ops::RangeBounds;
+
 use crate::{
     cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry},
     kociemba::coords::coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},

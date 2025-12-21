@@ -13,22 +13,11 @@ pub enum CubePreviousAxis {
     R,
     L,
     RL,
+    None,
 }
 
 impl CubePreviousAxis {
-    pub const fn from_first_move(mv: CubeMove) -> Self {
-        match mv as u8 / 3 {
-            0 => Self::U,
-            1 => Self::D,
-            2 => Self::F,
-            3 => Self::B,
-            4 => Self::R,
-            5 => Self::L,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn update_with_new_move(self, mv: CubeMove) -> Self {
+    pub const fn update_with_new_move(self, mv: CubeMove) -> Self {
         match (mv as u8 / 3, self) {
             (0, Self::D) | (1, Self::U) | (0, Self::UD) | (1, Self::UD) => Self::UD,
             (2, Self::B) | (3, Self::F) | (2, Self::FB) | (3, Self::FB) => Self::FB,
@@ -63,11 +52,12 @@ impl CubePreviousAxis {
                     CubePreviousAxis::R => (CubeMove::R1, false),
                     CubePreviousAxis::L => (CubeMove::L1, false),
                     CubePreviousAxis::RL => (CubeMove::R1, true),
+                    CubePreviousAxis::None => unreachable!(),
                 };
 
                 let mv = mv.domino_conjugate(sym);
 
-                let mut val = CubePreviousAxis::from_first_move(mv);
+                let mut val = CubePreviousAxis::None.update_with_new_move(mv);
 
                 if double {
                     val = match val as u8 / 3 {

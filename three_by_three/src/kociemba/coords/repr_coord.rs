@@ -1,3 +1,5 @@
+use std::ops::{Range, RangeBounds};
+
 use rand::distr::{Distribution, StandardUniform};
 
 use crate::{
@@ -130,84 +132,99 @@ pub struct Phase1Unpacked {
 
 impl Phase1Unpacked {
     pub fn apply_cube_move(self, tables: &Tables, cube_move: CubeMove) -> Self {
-        let edge_group_orient_combo_coord = self
+        // let edge_group_orient_combo_coord = self
+        //     .edge_group_orient_combo_coord
+        //     .apply_cube_move(tables, cube_move);
+
+        // let (group, _) = tables
+        //     .lookup_sym_edge_group_orient
+        //     .get_raw_from_combo(self.edge_group_orient_combo_coord)
+        //     .split();
+
+        // let corner_orient_raw_coord = tables
+        //     .move_raw_corner_orient
+        //     .apply_cube_move(self.corner_orient_raw_coord, cube_move);
+
+        // let corner_perm_combo_coord = self
+        //     .corner_perm_combo_coord
+        //     .apply_cube_move(tables, cube_move);
+
+        // let (_, ud_edge_perm_raw_coord, e_edge_perm_raw_coord) =
+        //     tables.grouped_edge_moves.update_edge_perms_cube_move(
+        //         group,
+        //         cube_move,
+        //         self.ud_edge_perm_raw_coord,
+        //         self.e_edge_perm_raw_coord,
+        //     );
+
+        // let previous_axis = match self.previous_axis {
+        //     Some(prev) => prev.update_with_new_move(cube_move),
+        //     None => CubePreviousAxis::from_first_move(cube_move),
+        // };
+
+        // Self {
+        //     edge_group_orient_combo_coord,
+        //     corner_orient_raw_coord,
+        //     corner_perm_combo_coord,
+        //     e_edge_perm_raw_coord,
+        //     ud_edge_perm_raw_coord,
+        //     previous_axis: Some(previous_axis),
+        // }
+
+        todo!()
+    }
+
+    pub fn apply_multiple_cube_moves(self, tables: &Tables, move_range_a: impl RangeBounds<u8>, move_range_b: impl RangeBounds<u8>) -> impl IntoIterator<Item = Self> {
+    
+        let edge_group_orient_combo_coords = self
             .edge_group_orient_combo_coord
-            .apply_cube_move(tables, cube_move);
+            .apply_multiple_cube_moves(tables, move_range_a, move_range_b);
 
-        let (group, _) = tables
-            .lookup_sym_edge_group_orient
-            .get_raw_from_combo(self.edge_group_orient_combo_coord)
-            .split();
 
-        let corner_orient_raw_coord = tables
-            .move_raw_corner_orient
-            .apply_cube_move(self.corner_orient_raw_coord, cube_move);
 
-        let corner_perm_combo_coord = self
-            .corner_perm_combo_coord
-            .apply_cube_move(tables, cube_move);
-
-        let (_, ud_edge_perm_raw_coord, e_edge_perm_raw_coord) =
-            tables.grouped_edge_moves.update_edge_perms_cube_move(
-                group,
-                cube_move,
-                self.ud_edge_perm_raw_coord,
-                self.e_edge_perm_raw_coord,
-            );
-
-        let previous_axis = match self.previous_axis {
-            Some(prev) => prev.update_with_new_move(cube_move),
-            None => CubePreviousAxis::from_first_move(cube_move),
-        };
-
-        Self {
-            edge_group_orient_combo_coord,
-            corner_orient_raw_coord,
-            corner_perm_combo_coord,
-            e_edge_perm_raw_coord,
-            ud_edge_perm_raw_coord,
-            previous_axis: Some(previous_axis),
-        }
+        None
     }
 
     pub fn domino_conjugate(self, tables: &Tables, sym: DominoSymmetry) -> Self {
-        if sym == DominoSymmetry::IDENTITY {
-            return self;
-        }
+        // if sym == DominoSymmetry::IDENTITY {
+        //     return self;
+        // }
 
-        let edge_group_orient_combo_coord =
-            self.edge_group_orient_combo_coord.domino_conjugate(sym);
+        // let edge_group_orient_combo_coord =
+        //     self.edge_group_orient_combo_coord.domino_conjugate(sym);
 
-        let (group, _) = tables
-            .lookup_sym_edge_group_orient
-            .get_raw_from_combo(self.edge_group_orient_combo_coord)
-            .split();
+        // let (group, _) = tables
+        //     .lookup_sym_edge_group_orient
+        //     .get_raw_from_combo(self.edge_group_orient_combo_coord)
+        //     .split();
 
-        let corner_orient_raw_coord = tables
-            .move_raw_corner_orient
-            .domino_conjugate(self.corner_orient_raw_coord, sym);
+        // let corner_orient_raw_coord = tables
+        //     .move_raw_corner_orient
+        //     .domino_conjugate(self.corner_orient_raw_coord, sym);
 
-        let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
+        // let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
 
-        let (_, ud_edge_perm_raw_coord, e_edge_perm_raw_coord) = tables
-            .grouped_edge_moves
-            .update_edge_perms_domino_conjugate(
-                group,
-                sym,
-                self.ud_edge_perm_raw_coord,
-                self.e_edge_perm_raw_coord,
-            );
+        // let (_, ud_edge_perm_raw_coord, e_edge_perm_raw_coord) = tables
+        //     .grouped_edge_moves
+        //     .update_edge_perms_domino_conjugate(
+        //         group,
+        //         sym,
+        //         self.ud_edge_perm_raw_coord,
+        //         self.e_edge_perm_raw_coord,
+        //     );
 
-        let previous_axis = self.previous_axis.map(|mv| mv.domino_conjugate(sym));
+        // let previous_axis = self.previous_axis.map(|mv| mv.domino_conjugate(sym));
 
-        Self {
-            edge_group_orient_combo_coord,
-            corner_orient_raw_coord,
-            corner_perm_combo_coord,
-            e_edge_perm_raw_coord,
-            ud_edge_perm_raw_coord,
-            previous_axis,
-        }
+        // Self {
+        //     edge_group_orient_combo_coord,
+        //     corner_orient_raw_coord,
+        //     corner_perm_combo_coord,
+        //     e_edge_perm_raw_coord,
+        //     ud_edge_perm_raw_coord,
+        //     previous_axis,
+        // }
+
+        todo!()
     }
 
     pub fn normalize(self, tables: &Tables) -> Self {
@@ -398,45 +415,49 @@ pub struct Phase2Unpacked {
 
 impl Phase2Unpacked {
     pub fn apply_domino_move(self, tables: &Tables, domino_move: DominoMove) -> Self {
-        let corner_perm_combo_coord = self
-            .corner_perm_combo_coord
-            .apply_cube_move(tables, domino_move.into());
+        // let corner_perm_combo_coord = self
+        //     .corner_perm_combo_coord
+        //     .apply_cube_move(tables, domino_move.into());
 
-        let (ud_edge_perm_raw_coord, e_edge_perm_raw_coord) = tables
-            .grouped_edge_moves
-            .update_edge_perm_phase_2_domino_move(
-                domino_move,
-                self.ud_edge_perm_raw_coord,
-                self.e_edge_perm_raw_coord,
-            );
+        // let (ud_edge_perm_raw_coord, e_edge_perm_raw_coord) = tables
+        //     .grouped_edge_moves
+        //     .update_edge_perm_phase_2_domino_move(
+        //         domino_move,
+        //         self.ud_edge_perm_raw_coord,
+        //         self.e_edge_perm_raw_coord,
+        //     );
 
-        Self {
-            corner_perm_combo_coord,
-            e_edge_perm_raw_coord,
-            ud_edge_perm_raw_coord,
-        }
+        // Self {
+        //     corner_perm_combo_coord,
+        //     e_edge_perm_raw_coord,
+        //     ud_edge_perm_raw_coord,
+        // }
+
+        todo!()
     }
 
     pub fn domino_conjugate(self, tables: &Tables, sym: DominoSymmetry) -> Self {
-        if sym == DominoSymmetry::IDENTITY {
-            return self;
-        }
+        // if sym == DominoSymmetry::IDENTITY {
+        //     return self;
+        // }
 
-        let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
+        // let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
 
-        let (ud_edge_perm_raw_coord, e_edge_perm_raw_coord) = tables
-            .grouped_edge_moves
-            .update_edge_perm_phase_2_domino_symmetry(
-                sym,
-                self.ud_edge_perm_raw_coord,
-                self.e_edge_perm_raw_coord,
-            );
+        // let (ud_edge_perm_raw_coord, e_edge_perm_raw_coord) = tables
+        //     .grouped_edge_moves
+        //     .update_edge_perm_phase_2_domino_symmetry(
+        //         sym,
+        //         self.ud_edge_perm_raw_coord,
+        //         self.e_edge_perm_raw_coord,
+        //     );
 
-        Self {
-            corner_perm_combo_coord,
-            e_edge_perm_raw_coord,
-            ud_edge_perm_raw_coord,
-        }
+        // Self {
+        //     corner_perm_combo_coord,
+        //     e_edge_perm_raw_coord,
+        //     ud_edge_perm_raw_coord,
+        // }
+
+        todo!()
     }
 
     pub fn normalize(self, tables: &Tables) -> Self {
@@ -458,7 +479,10 @@ impl Phase2Unpacked {
 
 #[cfg(test)]
 mod tests {
+    use crate::kociemba::coords::coords::EdgeGroupRawCoord;
+
     use super::*;
+    use arrayvec::ArrayVec;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
@@ -500,6 +524,41 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn count_edge_stuff() {
+        // let tables = Tables::new("tables").unwrap();
+
+        // let mut all_move_tables = std::collections::HashSet::<ArrayVec<u16, 18>>::new();
+
+        // for g in 0..495 {
+        //     let group = EdgeGroup::from_coord(EdgeGroupRawCoord(g));
+        //     println!("GROUP: {g}");
+        //     for ud in 0..40320 {
+        //         let ud_perm = UDEdgePerm::from_coord(UDEdgePermRawCoord(ud));
+        //         let edge_perm = EdgePerm::join(group, ud_perm, EEdgePerm::SOLVED);
+        //         let row = CubeMove::all_iter().map(|mv| {
+        //             let new_edge_perm = edge_perm.apply_cube_move(mv);
+        //             let (_, new_ud_perm, _) = new_edge_perm.split();
+        //             let new_ud = new_ud_perm.into_coord();
+        //             new_ud.0
+        //         }).collect();
+
+        //         all_move_tables.insert(row);
+        //     }
+        // }
+
+        // println!("ROWS: {}", all_move_tables.len())
+
+        for g in 0..495 {
+            let group = EdgeGroup::from_coord(EdgeGroupRawCoord(g));
+            print!("GROUP: {g:03} ");
+            for i in group.0.0 {
+                print!("{}", i as u8);
+            }
+            println!("");
+        }
     }
 
     // #[test]

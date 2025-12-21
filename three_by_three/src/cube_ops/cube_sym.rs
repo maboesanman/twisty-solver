@@ -279,17 +279,18 @@ impl CornerOrient {
 
 impl ReprCube {
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
-        Self {
-            corner_perm: self.corner_perm.domino_conjugate(sym),
-            corner_orient: self.corner_orient.domino_conjugate(sym),
-            edge_perm: self.edge_perm.domino_conjugate(sym),
-            edge_orient: crate::kociemba::partial_reprs::edge_group_orient::EdgeGroupOrient(
-                self.edge_perm.split().0,
-                self.edge_orient,
-            )
-            .domino_conjugate(sym)
-            .1,
-        }
+        todo!();
+        // Self {
+        //     corner_perm: self.corner_perm.domino_conjugate(sym),
+        //     corner_orient: self.corner_orient.domino_conjugate(sym),
+        //     edge_perm: self.edge_perm.domino_conjugate(sym),
+        //     edge_orient: crate::kociemba::partial_reprs::edge_group_orient::EdgeGroupOrient(
+        //         self.edge_perm.split().0,
+        //         self.edge_orient,
+        //     )
+        //     .domino_conjugate(sym)
+        //     .1,
+        // }
     }
 
     pub const fn conjugate(self, sym: CubeSymmetry) -> Self {

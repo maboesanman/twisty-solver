@@ -426,60 +426,60 @@ mod test {
         Ok(())
     }
 
-    #[test]
-    fn gen_domino_scrambles() -> anyhow::Result<()> {
-        let tables = Box::leak(Box::new(Tables::new("tables")?));
-        let mut rng = ChaCha8Rng::seed_from_u64(1);
+    // #[test]
+    // fn gen_domino_scrambles() -> anyhow::Result<()> {
+    //     let tables = Box::leak(Box::new(Tables::new("tables")?));
+    //     let mut rng = ChaCha8Rng::seed_from_u64(1);
 
-        for _ in 0..100 {
-            let mut cube: ReprCube =
-                rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+    //     for _ in 0..100 {
+    //         let mut cube: ReprCube =
+    //             rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
 
-            cube.edge_orient = EdgeOrient::SOLVED;
-            cube.corner_orient = CornerOrient::SOLVED;
-            cube.edge_perm = {
-                let (_, ud, e) = EdgePerm::split(cube.edge_perm);
-                EdgePerm::join(EdgeGroup::SOLVED, ud, e)
-            };
+    //         cube.edge_orient = EdgeOrient::SOLVED;
+    //         cube.corner_orient = CornerOrient::SOLVED;
+    //         cube.edge_perm = {
+    //             let (_, ud, e) = EdgePerm::split(cube.edge_perm);
+    //             EdgePerm::join(EdgeGroup::SOLVED, ud, e)
+    //         };
 
-            cube.pretty_print();
+    //         cube.pretty_print();
 
-            let mut stream = get_incremental_solutions_stream(cube, tables, None);
-            let future = stream.next();
-            // assert!(futures::executor::block_on(future).is_some());
+    //         let mut stream = get_incremental_solutions_stream(cube, tables, None);
+    //         let future = stream.next();
+    //         // assert!(futures::executor::block_on(future).is_some());
 
-            let solution = futures::executor::block_on(future).unwrap();
-            {
-                print!("{:02} ", solution.len());
-                for m in solution.into_iter().rev() {
-                    let m = match m {
-                        CubeMove::U1 => CubeMove::U3,
-                        CubeMove::U2 => CubeMove::U2,
-                        CubeMove::U3 => CubeMove::U1,
-                        CubeMove::D1 => CubeMove::D3,
-                        CubeMove::D2 => CubeMove::D2,
-                        CubeMove::D3 => CubeMove::D1,
-                        CubeMove::F1 => CubeMove::F3,
-                        CubeMove::F2 => CubeMove::F2,
-                        CubeMove::F3 => CubeMove::F1,
-                        CubeMove::B1 => CubeMove::B3,
-                        CubeMove::B2 => CubeMove::B2,
-                        CubeMove::B3 => CubeMove::B1,
-                        CubeMove::R1 => CubeMove::R3,
-                        CubeMove::R2 => CubeMove::R2,
-                        CubeMove::R3 => CubeMove::R1,
-                        CubeMove::L1 => CubeMove::L3,
-                        CubeMove::L2 => CubeMove::L2,
-                        CubeMove::L3 => CubeMove::L1,
-                    };
-                    print!("{m} ");
-                }
-                println!("");
-            }
-        }
+    //         let solution = futures::executor::block_on(future).unwrap();
+    //         {
+    //             print!("{:02} ", solution.len());
+    //             for m in solution.into_iter().rev() {
+    //                 let m = match m {
+    //                     CubeMove::U1 => CubeMove::U3,
+    //                     CubeMove::U2 => CubeMove::U2,
+    //                     CubeMove::U3 => CubeMove::U1,
+    //                     CubeMove::D1 => CubeMove::D3,
+    //                     CubeMove::D2 => CubeMove::D2,
+    //                     CubeMove::D3 => CubeMove::D1,
+    //                     CubeMove::F1 => CubeMove::F3,
+    //                     CubeMove::F2 => CubeMove::F2,
+    //                     CubeMove::F3 => CubeMove::F1,
+    //                     CubeMove::B1 => CubeMove::B3,
+    //                     CubeMove::B2 => CubeMove::B2,
+    //                     CubeMove::B3 => CubeMove::B1,
+    //                     CubeMove::R1 => CubeMove::R3,
+    //                     CubeMove::R2 => CubeMove::R2,
+    //                     CubeMove::R3 => CubeMove::R1,
+    //                     CubeMove::L1 => CubeMove::L3,
+    //                     CubeMove::L2 => CubeMove::L2,
+    //                     CubeMove::L3 => CubeMove::L1,
+    //                 };
+    //                 print!("{m} ");
+    //             }
+    //             println!("");
+    //         }
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     #[test]
     fn test_already_solved() -> anyhow::Result<()> {
