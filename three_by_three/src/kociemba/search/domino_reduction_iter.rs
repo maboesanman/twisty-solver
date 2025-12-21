@@ -79,6 +79,8 @@ impl Default for FrameMetadata {
 }
 
 impl<'t, const N: usize, C> Stack<'t, N, C> {
+    const FRAME_DATA_CAP: usize = 3 + 15 * N;
+
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Self {
         // let options = (0..2)
         //     .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables))
@@ -89,7 +91,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
 
     fn new_from_frame_0(starts: Vec<Phase1Node>, tables: &'t Tables, cancel: C) -> Self {
         let mut frame_data = starts;
-        frame_data.reserve_exact(3 + 15 * N);
+        frame_data.reserve_exact(Self::FRAME_DATA_CAP);
 
         let mut stack = Self {
             tables,
@@ -108,8 +110,6 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
         while self.get_frame_metadata_i(*i).start
             == self.frame_data.len() as u16
         {
-            // println!("DROPPING {i}");
-            // self.pretty_print();
             self.frame_data.pop()?;
             *i -= 1;
         }
@@ -121,8 +121,6 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
     fn fill_recurse(&mut self, i: usize) -> Option<()> {
         let mut i = i;
         while i < N {
-            // println!("FILLING {i}");
-            // self.pretty_print();
             let last_data = self.frame_data.last()?;
             let last_frame = self.get_frame_metadata_i(i);
 
@@ -159,8 +157,6 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
         
     }
 
-
-
     fn get_frame_metadata_i(&self, i: usize) -> FrameMetadata {
         i.checked_sub(1).map(|j| self.frame_metadata[j]).unwrap_or_default()
     }
@@ -187,7 +183,53 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
     type Item = <Self as Iterator>::Item;
 
     fn split(mut self) -> (Self, Option<Self>) {
-        (self, None)
+        // we've already been exhausted. nothing to split
+        if self.frame_data.is_empty() {
+            return (self, None)
+        }
+
+        let mut i = 0;
+        let (frame_start, frame_end) = loop {
+            if i > N {
+                return (self, None)
+            }
+            let mut start = self.get_frame_metadata_i(i).start;
+            while self.frame_data[start as usize].skip {
+                start += 1;
+            }
+            let end = self.frame_metadata[i].start;
+
+            if end - start > 1 {
+                break (start as usize, end as usize)
+            }
+
+            i += 1;
+        };
+
+        // frame i has more than 1 item in it. let's produce a new frame metadata and data.
+
+        // if it's odd, the last one in the frame is alreay potentially partially expanded so we
+        // give more items to the latter half (round down)
+        let frame_split = (frame_start + frame_end) / 2;
+
+        let mut new_frame_data = Vec::with_capacity(Self::FRAME_DATA_CAP);
+        new_frame_data.extend_from_slice(&self.frame_data[0..frame_split]);
+
+        for node in self.frame_data[frame_start..frame_split].iter_mut() {
+            node.skip = true;
+        }
+
+        let mut new_stack = Stack {
+            tables: self.tables,
+            cancel: self.cancel,
+            frame_metadata: self.frame_metadata.clone(),
+            frame_data: new_frame_data,
+        };
+
+        match new_stack.fill_recurse(i) {
+            Some(()) => (self, Some(new_stack)),
+            None => (self, None),
+        }
     }
 
     fn fold_with<F>(self, mut folder: F) -> F
@@ -242,7 +284,7 @@ mod test {
     }
 
     #[test]
-    fn domino_reduce_test_superflip_2() -> anyhow::Result<()> {
+    fn domino_reduce_test_superflip_2_single() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
         let stack = all_domino_reductions::<10>(

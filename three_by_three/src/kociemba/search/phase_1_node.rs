@@ -33,6 +33,8 @@ pub struct Phase1Node {
 
     // bookkeeping
     previous_axis: CubePreviousAxis, // 4 bits
+
+    pub skip: bool,
 }
 
 // a set of nodes which came from the same call to `produce_next_nodes`
@@ -72,6 +74,7 @@ impl Phase1Node {
             d_edge_positions,
             e_edge_positions,
             previous_axis: CubePreviousAxis::None,
+            skip: false,
         }
     }
 
@@ -82,6 +85,9 @@ impl Phase1Node {
         moves_remaining: NonZeroU8,
         tables: &Tables,
     ) -> Option<Frame<impl Iterator<Item = Self>>> {
+        if self.skip {
+            return None
+        }
         // there's an interesting optimization here.
         // there are no domino sequences of 7 moves or less which can be done in fewer moves when treated
         // as a non-domino. this means that if our domino reduction is ever distance 0 at two distinct points
@@ -156,6 +162,7 @@ impl Phase1Node {
                         d_edge_positions,
                         e_edge_positions,
                         previous_axis: self.previous_axis.update_with_new_move(cube_move),
+                        skip: false
                     }
                 },
             )
