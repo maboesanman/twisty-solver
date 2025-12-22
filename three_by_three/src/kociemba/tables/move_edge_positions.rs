@@ -92,7 +92,7 @@ impl MoveEdgePositions {
 #[cfg(test)]
 mod test {
     use crate::Permutation;
-    use crate::tables::Tables;
+    use crate::kociemba::tables::Tables;
 
     use super::*;
 

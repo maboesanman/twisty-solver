@@ -10,7 +10,7 @@ use rayon::iter::{
 use crate::{
     cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
     kociemba::search::phase_1_node::{Phase1FrameMetadata, Phase1Node},
-    tables::Tables,
+    kociemba::tables::Tables,
 };
 
 /// returns all sequences of sym cubes which correspond with a

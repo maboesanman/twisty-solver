@@ -14,14 +14,14 @@ use crate::cube_ops::cube_move::DominoMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
 use crate::kociemba::coords::corner_perm_combo_coord::CornerPermComboCoord;
-use crate::tables::Tables;
+use crate::kociemba::tables::Tables;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
 const TABLE_ENTRY_COUNT: usize = 2768 * 40320;
 const WORKING_TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT;
 const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
-const FILE_CHECKSUM: u32 = 796939987;
+const FILE_CHECKSUM: u32 = 1262550731;
 
 static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {
     241926 | 282257 | 12902505 => 1,
@@ -100,10 +100,10 @@ impl PartialPhase2 {
             .map(move |sym| Self {
                 corner_perm_combo_coord: base.corner_perm_combo_coord,
                 ud_edge_perm_raw_coord: tables
-                    .grouped_edge_moves
-                    .update_edge_perm_phase_2_partial_domino_symmetry(
-                        sym,
+                    .move_raw_ud_edge_perm
+                    .domino_conjugate(
                         base.ud_edge_perm_raw_coord,
+                        sym,
                     ),
             })
     }
@@ -126,7 +126,7 @@ impl PartialPhase2 {
 
         let ud_edge_perm_raw_coord = tables
             .move_raw_ud_edge_perm
-            .update_edge_perm_phase_2_partial_domino_move(domino_move, self.ud_edge_perm_raw_coord);
+            .apply_cube_move(self.ud_edge_perm_raw_coord, domino_move);
 
         Self {
             corner_perm_combo_coord,
@@ -142,8 +142,8 @@ impl PartialPhase2 {
         let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
 
         let ud_edge_perm_raw_coord = tables
-            .grouped_edge_moves
-            .update_edge_perm_phase_2_partial_domino_symmetry(sym, self.ud_edge_perm_raw_coord);
+            .move_raw_ud_edge_perm
+            .domino_conjugate(self.ud_edge_perm_raw_coord, sym);
 
         Self {
             corner_perm_combo_coord,
@@ -161,10 +161,10 @@ impl PartialPhase2 {
             .map(move |sym| PartialPhase2 {
                 corner_perm_combo_coord: rep.corner_perm_combo_coord,
                 ud_edge_perm_raw_coord: tables
-                    .grouped_edge_moves
-                    .update_edge_perm_phase_2_partial_domino_symmetry(
-                        sym,
+                    .move_raw_ud_edge_perm
+                    .domino_conjugate(
                         rep.ud_edge_perm_raw_coord,
+                        sym,
                     ),
             })
     }
@@ -246,7 +246,7 @@ impl PrunePhase2Table {
                 shortcut_map.insert(frontier_level, frontier.clone());
             }
             let next_level = frontier_level + 1;
-            println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
+            // println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
             let use_bottom_up = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18];
 
             let next = if use_bottom_up.contains(&frontier_level) {
@@ -310,9 +310,6 @@ impl PrunePhase2Table {
             let x = working.read(i);
             (set)(i, x.clamp(3, 18) - 3);
         }
-
-        println!("{:?}", frontier.len());
-        println!("{frontier_level:?}");
     }
 
     pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {

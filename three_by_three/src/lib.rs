@@ -9,7 +9,6 @@ mod cube_entry;
 mod cube_ops;
 mod kociemba;
 mod permutation_math;
-mod tables;
 
 pub use cube_ops::repr_cube::ReprCube;
 
@@ -22,6 +21,6 @@ pub use permutation_math::permutation::Permutation;
 
 pub use cube_ops::cube_move::CubeMove;
 
-pub use tables::Tables;
+pub use kociemba::tables::Tables;
 
 // pub use kociemba::search::get_incremental_solutions_stream;

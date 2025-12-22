@@ -54,7 +54,7 @@ impl MoveRawUDEdgePermTable {
 
     fn generate(buffer: &mut [u8]) {
         let buffer = as_u16_slice_mut(buffer);
-        buffer.chunks_mut(25).enumerate().for_each(|(i, row)| {
+        buffer.par_chunks_mut(25).enumerate().for_each(|(i, row)| {
             let perm = UDEdgePerm::from_coord(UDEdgePermRawCoord(i as u16));
             for (j, coord) in DominoMove::all_iter()
                 .map(move |mv| perm.apply_domino_move(mv))
@@ -76,7 +76,7 @@ impl MoveRawUDEdgePermTable {
 
 #[cfg(test)]
 mod test {
-    use crate::tables::Tables;
+    use crate::kociemba::tables::Tables;
 
     use super::*;
 

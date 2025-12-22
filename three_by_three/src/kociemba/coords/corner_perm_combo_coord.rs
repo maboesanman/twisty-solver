@@ -10,15 +10,15 @@ pub struct CornerPermComboCoord {
 }
 
 impl CornerPermComboCoord {
-    pub fn from_raw(tables: &crate::tables::Tables, raw_coord: CornerPermRawCoord) -> Self {
+    pub fn from_raw(tables: &crate::kociemba::tables::Tables, raw_coord: CornerPermRawCoord) -> Self {
         tables.lookup_sym_corner_perm.get_combo_from_raw(raw_coord)
     }
 
-    pub fn into_raw(self, tables: &crate::tables::Tables) -> CornerPermRawCoord {
+    pub fn into_raw(self, tables: &crate::kociemba::tables::Tables) -> CornerPermRawCoord {
         tables.lookup_sym_corner_perm.get_raw_from_combo(self)
     }
 
-    pub fn apply_cube_move(self, tables: &crate::tables::Tables, cube_move: CubeMove) -> Self {
+    pub fn apply_cube_move(self, tables: &crate::kociemba::tables::Tables, cube_move: CubeMove) -> Self {
         let preimage_move = cube_move.domino_conjugate(self.domino_conjugation);
         let mut result = tables
             .move_sym_corner_perm
@@ -42,7 +42,7 @@ mod test {
     use super::*;
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-    use crate::{cube_ops::partial_reprs::corner_perm::CornerPerm, tables::Tables};
+    use crate::{cube_ops::partial_reprs::corner_perm::CornerPerm, kociemba::tables::Tables};
 
     #[test]
     fn round_trip() -> anyhow::Result<()> {

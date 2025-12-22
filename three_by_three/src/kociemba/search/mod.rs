@@ -5,7 +5,7 @@ mod move_resolver;
 // mod solve_with_fixed_len_phase_1;
 // mod stream_search;
 mod phase_1_node;
-// mod phase_2_node;
+mod phase_2_node;
 
 // pub use stream_search::get_incremental_solutions_stream;
 

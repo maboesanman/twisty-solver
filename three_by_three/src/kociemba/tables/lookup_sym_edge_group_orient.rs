@@ -13,7 +13,7 @@ use crate::{
         },
         partial_reprs::edge_group_orient::EdgeGroupOrient,
     },
-    tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
+    kociemba::tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
 };
 
 use super::table_loader::{as_u32_slice_mut, load_table};
@@ -98,7 +98,7 @@ mod test {
 
     use itertools::Itertools;
 
-    use crate::{kociemba::coords::coords::EdgeGroupRawCoord, tables::Tables};
+    use crate::{kociemba::coords::coords::EdgeGroupRawCoord, kociemba::tables::Tables};
 
     use super::*;
 

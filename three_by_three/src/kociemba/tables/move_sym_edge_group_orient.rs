@@ -12,8 +12,8 @@ use crate::{
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         },
         partial_reprs::edge_group_orient::EdgeGroupOrient,
+        tables::table_loader::{as_u16_slice, as_u16_slice_mut},
     },
-    tables::table_loader::{as_u16_slice, as_u16_slice_mut},
 };
 
 use super::{

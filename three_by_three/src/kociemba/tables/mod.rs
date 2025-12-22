@@ -5,7 +5,7 @@ use lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
 use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
-use crate::tables::{
+use crate::kociemba::tables::{
     move_edge_positions::MoveEdgePositions, move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table
 };
 
