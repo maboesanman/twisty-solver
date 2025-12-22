@@ -6,7 +6,7 @@ use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
 use crate::tables::{
-    move_edge_positions::MoveEdgePositions, move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table
+    move_edge_positions::MoveEdgePositions, move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table
 };
 
 pub mod lookup_sym_corner_perm;
@@ -16,6 +16,8 @@ pub mod move_raw_corner_orient;
 pub mod move_sym_corner_perm;
 pub mod move_sym_edge_group_orient;
 pub mod move_edge_positions;
+pub mod move_raw_e_edge_perm;
+pub mod move_raw_ud_edge_perm;
 
 pub mod prune_phase_1;
 pub mod prune_phase_2;
@@ -27,9 +29,8 @@ const MOVE_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &str = "move_sym_edge_group_orient_
 const LOOKUP_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &str = "lookup_sym_edge_group_orient_table.dat";
 const LOOKUP_SYM_CORNER_PERM_TABLE_NAME: &str = "lookup_sym_corner_perm_table.dat";
 const PRUNE_PHASE_1_TABLE_NAME: &str = "prune_phase_1_table.dat";
-const GROUPED_EDGE_MOVES_RESTRICT_TABLE_NAME: &str = "grouped_edge_moves_restrict_table.dat";
-const GROUPED_EDGE_MOVES_UD_TABLE_NAME: &str = "grouped_edge_moves_ud_table.dat";
-const GROUPED_EDGE_MOVES_E_TABLE_NAME: &str = "grouped_edge_moves_e_table.dat";
+const MOVE_E_EDGE_PERM_TABLE_NAME: &str = "move_raw_e_edge_perm.dat";
+const MOVE_UD_EDGE_PERM_TABLE_NAME: &str = "move_raw_ud_edge_perm.dat";
 const MOVE_SYM_CORNER_PERM_TABLE_NAME: &str = "move_sym_corner_perm_table.dat";
 const PRUNE_PHASE_2_TABLE_NAME: &str = "prune_phase_2_table.dat";
 const MOVE_EDGE_POSITION_TABLE_NAME: &str = "move_raw_edge_position_table.dat";
@@ -42,6 +43,8 @@ pub struct Tables {
     pub(crate) move_sym_edge_group_orient: MoveSymEdgeGroupOrientTable,
     pub(crate) move_sym_corner_perm: MoveSymCornerPermTable,
     pub(crate) move_edge_position: MoveEdgePositions,
+    pub(crate) move_raw_e_edge_perm: MoveRawEEdgePermTable,
+    pub(crate) move_raw_ud_edge_perm: MoveRawUDEdgePermTable,
 
     pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
     pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
@@ -75,6 +78,9 @@ impl Tables {
 
         let move_edge_position = MoveEdgePositions::load(folder.join(MOVE_EDGE_POSITION_TABLE_NAME))?;
 
+        let move_raw_e_edge_perm = MoveRawEEdgePermTable::load(folder.join(MOVE_E_EDGE_PERM_TABLE_NAME))?;
+        let move_raw_ud_edge_perm = MoveRawUDEdgePermTable::load(folder.join(MOVE_UD_EDGE_PERM_TABLE_NAME))?;
+
         let mut working = Tables {
             move_raw_corner_orient,
             move_sym_edge_group_orient,
@@ -82,6 +88,8 @@ impl Tables {
             lookup_sym_corner_perm,
             move_sym_corner_perm,
             move_edge_position,
+            move_raw_e_edge_perm,
+            move_raw_ud_edge_perm,
             prune_phase_1: MaybeUninit::uninit(),
             prune_phase_2: MaybeUninit::uninit(),
             // prune_phase_2_corner_perm: MaybeUninit::uninit(),

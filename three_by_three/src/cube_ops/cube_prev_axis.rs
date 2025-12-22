@@ -17,7 +17,14 @@ pub enum CubePreviousAxis {
 }
 
 impl CubePreviousAxis {
-    pub const fn update_with_new_move(self, mv: CubeMove) -> Self {
+    pub const fn update_with_new_move(self, mv: CubeMove, remaining_moves: u8) -> Self {
+        if remaining_moves == 1 {
+            match mv {
+                CubeMove::F2 | CubeMove::B2 => return Self::FB,
+                CubeMove::R2 | CubeMove::L2 => return Self::RL,
+                _ => {}
+            }
+        }
         match (mv as u8 / 3, self) {
             (0, Self::D) | (1, Self::U) | (0, Self::UD) | (1, Self::UD) => Self::UD,
             (2, Self::B) | (3, Self::F) | (2, Self::FB) | (3, Self::FB) => Self::FB,
@@ -57,7 +64,7 @@ impl CubePreviousAxis {
 
                 let mv = mv.domino_conjugate(sym);
 
-                let mut val = CubePreviousAxis::None.update_with_new_move(mv);
+                let mut val = CubePreviousAxis::None.update_with_new_move(mv, 10);
 
                 if double {
                     val = match val as u8 / 3 {
@@ -79,3 +86,4 @@ impl CubePreviousAxis {
         LOOKUP[((self as u8 as usize) << 4) + (sym.0 as usize)]
     }
 }
+

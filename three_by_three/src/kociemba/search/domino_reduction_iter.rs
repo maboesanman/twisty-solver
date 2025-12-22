@@ -9,7 +9,7 @@ use rayon::iter::{
 
 use crate::{
     cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
-    kociemba::search::phase_1_node::{Frame, Phase1Node},
+    kociemba::search::phase_1_node::{Phase1FrameMetadata, Phase1Node},
     tables::Tables,
 };
 
@@ -82,10 +82,10 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
     const FRAME_DATA_CAP: usize = 3 + 15 * N;
 
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Self {
-        // let options = (0..2)
-        //     .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables))
-        //     .collect();
-        let options = vec![Phase1Node::from_cube(cube, tables)];
+        let options = (0..2)
+            .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables))
+            .collect();
+        // let options = vec![Phase1Node::from_cube(cube, tables)];
         Self::new_from_frame_0(options, tables, cancel)
     }
 
@@ -107,9 +107,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
 
     /// drop the frame at the top (belonging to frame i)
     fn drop_recurse(&mut self, i: &mut usize) -> Option<()> {
-        while self.get_frame_metadata_i(*i).start
-            == self.frame_data.len() as u16
-        {
+        while self.get_frame_metadata_i(*i).start == self.frame_data.len() as u16 {
             self.frame_data.pop()?;
             *i -= 1;
         }
@@ -125,16 +123,14 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
             let last_frame = self.get_frame_metadata_i(i);
 
             let incoming = last_data.produce_next_nodes(
-                last_frame.min_distance, 
-                last_frame.max_distance, 
+                last_frame.max_distance,
                 unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
-                self.tables
+                self.tables,
             );
 
             self.frame_metadata[i].start = self.frame_data.len() as u16;
 
             if let Some(incoming) = incoming {
-                self.frame_metadata[i].min_distance = incoming.min_possible_distance;
                 self.frame_metadata[i].max_distance = incoming.max_possible_distance;
                 self.frame_data.extend(incoming.children);
             }
@@ -146,19 +142,29 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
 
         Some(())
     }
-    
+
     pub fn pretty_print(&self) {
         println!("=== STACK STATE ===");
 
         let default = FrameMetadata::default();
 
         println!("{:#?}", self.frame_metadata);
-        println!("{:#?}", self.frame_data.iter().map(|n| format!("{}-{}", n.edge_group_orient_combo.sym_coord.0, n.corner_orient_raw.0)).collect_vec());
-        
+        println!(
+            "{:#?}",
+            self.frame_data
+                .iter()
+                .map(|n| format!(
+                    "{}-{}",
+                    n.edge_group_orient_combo.sym_coord.0, n.corner_orient_raw.0
+                ))
+                .collect_vec()
+        );
     }
 
     fn get_frame_metadata_i(&self, i: usize) -> FrameMetadata {
-        i.checked_sub(1).map(|j| self.frame_metadata[j]).unwrap_or_default()
+        i.checked_sub(1)
+            .map(|j| self.frame_metadata[j])
+            .unwrap_or_default()
     }
 }
 
@@ -185,13 +191,13 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
     fn split(mut self) -> (Self, Option<Self>) {
         // we've already been exhausted. nothing to split
         if self.frame_data.is_empty() {
-            return (self, None)
+            return (self, None);
         }
 
         let mut i = 0;
         let (frame_start, frame_end) = loop {
             if i > N {
-                return (self, None)
+                return (self, None);
             }
             let mut start = self.get_frame_metadata_i(i).start;
             while self.frame_data[start as usize].skip {
@@ -200,7 +206,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
             let end = self.frame_metadata[i].start;
 
             if end - start > 1 {
-                break (start as usize, end as usize)
+                break (start as usize, end as usize);
             }
 
             i += 1;
@@ -261,24 +267,44 @@ impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
 #[cfg(test)]
 mod test {
 
-    use crate::cube;
+    use crate::{cube, kociemba::search::move_resolver::{move_resolver, move_resolver_multi_dimension_domino}};
 
     use super::*;
 
     #[test]
     fn domino_reduce_test_iter_2() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
+        let table_ref = &tables;
+        let cube = cube![R U Rp Up];
+        // let cube = cube![D R2 L];
+        let stack = all_domino_reductions::<1>(cube, &tables);
+        let res = move |path: &[Phase1Node], last: &Phase1Node| {
+            let cubes = path
+                .into_iter()
+                .chain(Some(last))
+                .map(|x| x.into_cube(table_ref));
 
-        let stack = all_domino_reductions::<4>(cube![R U Rp Up], &tables);
-
-        println!("{:?}", stack.count());
-        // loop {
-        //     if stack.next().is_none() {
-        //         break
-        //     };
-        //     println!("{stack:?}");
-        //     // println!("{x:?} ");
-        // }
+            move_resolver_multi_dimension_domino(cube, cubes)
+        };
+        stack.for_each(|(path, last)| {
+            println!("{:?}", res(&path, &last));
+        });
+        let stack = all_domino_reductions::<2>(cube, &tables);
+        stack.for_each(|(path, last)| {
+            println!("{:?}", res(&path, &last));
+        });
+        let stack = all_domino_reductions::<3>(cube, &tables);
+        stack.for_each(|(path, last)| {
+            println!("{:?}", res(&path, &last));
+        });
+        let stack = all_domino_reductions::<4>(cube, &tables);
+        stack.for_each(|(path, last)| {
+            println!("{:?}", res(&path, &last));
+        });
+        let stack = all_domino_reductions::<5>(cube, &tables);
+        stack.for_each(|(path, last)| {
+            println!("{:?}", res(&path, &last));
+        });
 
         Ok(())
     }
@@ -303,7 +329,7 @@ mod test {
 
         let cancel = AtomicBool::new(false);
 
-        let stack = all_domino_reductions_par::<10>(
+        let stack = all_domino_reductions_par::<14>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
             &cancel,

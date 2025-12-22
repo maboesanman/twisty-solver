@@ -68,12 +68,24 @@ impl UEdgePositions {
 
     // d_group_residue is already 0..70
     pub const fn get_phase_2_u(d_group_residue: u16, perm: u16) -> UEdgePositions {
-        const GROUP_LOOKUP: [u8; 70] = {
-            let mut table = [0u8; 70];
+        const GROUP_LOOKUP: [u16; 70] = {
+            let mut table = [0u16; 70];
+
+            let mut i = 0;
+            while i < 70 {
+                let mut combo = EdgeCombination::from_coord(i + 425).const_into_array();
+                let mut j = 0;
+                while j < 8 {
+                    combo[j] = !combo[j];
+                    j += 1;
+                }
+                table[i as usize] = EdgeCombination::const_from_array(combo).into_coord();
+                i += 1;
+            }
 
             table
         };
-        let group = GROUP_LOOKUP[d_group_residue as usize] as u16 + 425;
+        let group = GROUP_LOOKUP[d_group_residue as usize] as u16;
 
         Self(EdgePositions(group * 24 + perm))
     }
@@ -209,6 +221,7 @@ pub const fn combine_edge_positions(u: UEdgePositions, d: DEdgePositions, e: EEd
             i += 1;
             continue;
         }
+        panic!()
     }
 
     EdgePerm(Permutation(array))

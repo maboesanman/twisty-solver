@@ -1,13 +1,13 @@
 use crate::{
     Tables,
-    kociemba::{coords::repr_coord::SymReducedReprPhase2, search::capped_idastar::idastar_limited},
+    kociemba::search::{capped_idastar::idastar_limited, phase_2_node::Phase2Node},
 };
 
 pub fn solve_domino(
-    phase_2_start: SymReducedReprPhase2,
+    phase_2_start: Phase2Node,
     tables: &Tables,
     max_moves: u8,
-) -> Option<Vec<SymReducedReprPhase2>> {
+) -> Option<Vec<Phase2Node>> {
     let phase_2_prune = phase_2_start.prune_distance_phase_2(tables);
     if phase_2_prune > max_moves {
         return None;

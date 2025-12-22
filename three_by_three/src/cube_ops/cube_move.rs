@@ -114,22 +114,35 @@ impl CubeMove {
     }
 
     pub fn new_axis_iter(prev_axis: CubePreviousAxis) -> impl IntoIterator<Item = Self> {
-        let (range_1, range_2) = match prev_axis {
-            CubePreviousAxis::U => (0..0, 3..18),
-            CubePreviousAxis::D => (0..3, 6..18),
-            CubePreviousAxis::UD => (0..0, 6..18),
-            CubePreviousAxis::F => (0..6, 9..18),
-            CubePreviousAxis::B => (0..9, 12..18),
-            CubePreviousAxis::FB => (0..6, 12..18),
-            CubePreviousAxis::R => (0..12, 15..18),
-            CubePreviousAxis::L => (0..15, 18..18),
-            CubePreviousAxis::RL => (0..12, 18..18),
-            CubePreviousAxis::None => (0..18, 18..18),
+        use CubeMove::*;
+
+        let slice: &[CubeMove] = match prev_axis {
+            CubePreviousAxis::U => &[D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3],
+            CubePreviousAxis::D | CubePreviousAxis::UD => &[F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3],
+            CubePreviousAxis::F => &[U1, U2, U3, D1, D2, D3, B1, B2, B3, R1, R2, R3, L1, L2, L3],
+            CubePreviousAxis::B | CubePreviousAxis::FB => &[U1, U2, U3, D1, D2, D3, R1, R2, R3, L1, L2, L3],
+            CubePreviousAxis::R => &[U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, L1, L2, L3],
+            CubePreviousAxis::L | CubePreviousAxis::RL => &[U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3],
+            CubePreviousAxis::None => &[U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3],
         };
 
-        range_1
-            .chain(range_2)
-            .map(|x: u8| unsafe { core::mem::transmute(x) })
+        slice.into_iter().copied()
+    }
+
+    pub fn new_axis_iter_end_phase_1(prev_axis: CubePreviousAxis) -> impl IntoIterator<Item = Self> {
+        use CubeMove::*;
+
+        let slice: &[CubeMove] = match prev_axis {
+            CubePreviousAxis::U | CubePreviousAxis::D | CubePreviousAxis::UD => &[F1, F3, B1, B3, R1, R3, L1, L3],
+            CubePreviousAxis::F => &[B1, B3, R1, R3, L1, L3],
+            CubePreviousAxis::B | CubePreviousAxis::FB => &[R1, R3, L1, L3],
+            CubePreviousAxis::R => &[F1, F3, B1, B3, L1, L3],
+            CubePreviousAxis::L | CubePreviousAxis::RL => &[F1, F3, B1, B3],
+
+            CubePreviousAxis::None => &[U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3],
+        };
+
+        slice.into_iter().copied()
     }
 
     pub const fn into_u8(self) -> u8 {

@@ -92,24 +92,20 @@ impl PartialPhase2 {
     }
 
     pub fn from_index_exhaustive(index: usize, tables: &Tables) -> impl IntoIterator<Item = Self> {
-        // let base = Self::from_index(index);
-        // tables
-        //     .lookup_sym_corner_perm
-        //     .get_all_stabilizing_conjugations(base.corner_perm_combo_coord.sym_coord)
-        //     .into_iter()
-        //     .map(move |sym| Self {
-        //         corner_perm_combo_coord: base.corner_perm_combo_coord,
-        //         ud_edge_perm_raw_coord: tables
-        //             .grouped_edge_moves
-        //             .update_edge_perm_phase_2_partial_domino_symmetry(
-        //                 sym,
-        //                 base.ud_edge_perm_raw_coord,
-        //             ),
-        //     })
-
-        todo!();
-
-        None
+        let base = Self::from_index(index);
+        tables
+            .lookup_sym_corner_perm
+            .get_all_stabilizing_conjugations(base.corner_perm_combo_coord.sym_coord)
+            .into_iter()
+            .map(move |sym| Self {
+                corner_perm_combo_coord: base.corner_perm_combo_coord,
+                ud_edge_perm_raw_coord: tables
+                    .grouped_edge_moves
+                    .update_edge_perm_phase_2_partial_domino_symmetry(
+                        sym,
+                        base.ud_edge_perm_raw_coord,
+                    ),
+            })
     }
 
     pub fn into_index(self) -> usize {
@@ -124,61 +120,53 @@ impl PartialPhase2 {
     }
 
     pub fn apply_domino_move(self, tables: &Tables, domino_move: DominoMove) -> Self {
-        // let corner_perm_combo_coord = self
-        //     .corner_perm_combo_coord
-        //     .apply_cube_move(tables, domino_move.into());
+        let corner_perm_combo_coord = self
+            .corner_perm_combo_coord
+            .apply_cube_move(tables, domino_move.into());
 
-        // let ud_edge_perm_raw_coord = tables
-        //     .grouped_edge_moves
-        //     .update_edge_perm_phase_2_partial_domino_move(domino_move, self.ud_edge_perm_raw_coord);
+        let ud_edge_perm_raw_coord = tables
+            .move_raw_ud_edge_perm
+            .update_edge_perm_phase_2_partial_domino_move(domino_move, self.ud_edge_perm_raw_coord);
 
-        // Self {
-        //     corner_perm_combo_coord,
-        //     ud_edge_perm_raw_coord,
-        // }
-
-        todo!()
+        Self {
+            corner_perm_combo_coord,
+            ud_edge_perm_raw_coord,
+        }
     }
 
     pub fn domino_conjugate(self, tables: &Tables, sym: DominoSymmetry) -> Self {
-        // if sym == DominoSymmetry::IDENTITY {
-        //     return self;
-        // }
+        if sym == DominoSymmetry::IDENTITY {
+            return self;
+        }
 
-        // let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
+        let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
 
-        // let ud_edge_perm_raw_coord = tables
-        //     .grouped_edge_moves
-        //     .update_edge_perm_phase_2_partial_domino_symmetry(sym, self.ud_edge_perm_raw_coord);
+        let ud_edge_perm_raw_coord = tables
+            .grouped_edge_moves
+            .update_edge_perm_phase_2_partial_domino_symmetry(sym, self.ud_edge_perm_raw_coord);
 
-        // Self {
-        //     corner_perm_combo_coord,
-        //     ud_edge_perm_raw_coord,
-        // }
-
-        todo!()
+        Self {
+            corner_perm_combo_coord,
+            ud_edge_perm_raw_coord,
+        }
     }
 
     pub fn normalize(self, tables: &Tables) -> impl IntoIterator<Item = Self> {
-        // let rep = self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation);
+        let rep = self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation);
 
-        // tables
-        //     .lookup_sym_corner_perm
-        //     .get_all_stabilizing_conjugations(rep.corner_perm_combo_coord.sym_coord)
-        //     .into_iter()
-        //     .map(move |sym| PartialPhase2 {
-        //         corner_perm_combo_coord: rep.corner_perm_combo_coord,
-        //         ud_edge_perm_raw_coord: tables
-        //             .grouped_edge_moves
-        //             .update_edge_perm_phase_2_partial_domino_symmetry(
-        //                 sym,
-        //                 rep.ud_edge_perm_raw_coord,
-        //             ),
-        //     })
-
-        todo!();
-
-        None
+        tables
+            .lookup_sym_corner_perm
+            .get_all_stabilizing_conjugations(rep.corner_perm_combo_coord.sym_coord)
+            .into_iter()
+            .map(move |sym| PartialPhase2 {
+                corner_perm_combo_coord: rep.corner_perm_combo_coord,
+                ud_edge_perm_raw_coord: tables
+                    .grouped_edge_moves
+                    .update_edge_perm_phase_2_partial_domino_symmetry(
+                        sym,
+                        rep.ud_edge_perm_raw_coord,
+                    ),
+            })
     }
 
     pub fn single_normalize(self, tables: &Tables) -> Self {
