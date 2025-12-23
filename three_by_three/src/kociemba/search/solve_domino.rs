@@ -8,7 +8,7 @@ pub fn solve_domino(
     tables: &Tables,
     max_moves: u8,
 ) -> Option<Vec<Phase2Node>> {
-    let phase_2_prune = phase_2_start.prune_distance_phase_2(tables);
+    let phase_2_prune = phase_2_start.distance_heuristic(tables);
     if phase_2_prune > max_moves {
         return None;
     }
@@ -16,11 +16,11 @@ pub fn solve_domino(
     idastar_limited(
         phase_2_start,
         |&cube| {
-            cube.full_phase_2_neighbors(tables)
+            cube.produce_next_nodes(tables)
                 .into_iter()
-                .map(move |c| (c, 1))
+                .map(|c| (c, 1))
         },
-        |&cube| cube.prune_distance_phase_2(tables),
+        |&cube| cube.distance_heuristic(tables),
         |&cube| cube.is_solved(),
         max_moves,
     )

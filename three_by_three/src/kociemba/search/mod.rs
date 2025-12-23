@@ -1,8 +1,8 @@
 mod capped_idastar;
 mod domino_reduction_iter;
 mod move_resolver;
-// mod solve_domino;
-// mod solve_with_fixed_len_phase_1;
+mod solve_domino;
+mod solve_with_fixed_len_phase_1;
 // mod stream_search;
 mod phase_1_node;
 mod phase_2_node;

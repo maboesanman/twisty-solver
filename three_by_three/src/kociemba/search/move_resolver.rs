@@ -1,8 +1,8 @@
 use itertools::Itertools;
 
 use crate::{
-    CubeMove, ReprCube, Tables,
-    cube_ops::cube_sym::CubeSymmetry, kociemba::search::phase_1_node::Phase1Node, kociemba::tables,
+    CubeMove, ReprCube, Tables, cube_ops::cube_sym::CubeSymmetry,
+    kociemba::search::phase_1_node::Phase1Node, kociemba::tables,
 };
 
 // pub fn move_resolver_phase_1<const N: usize>(
@@ -35,29 +35,24 @@ pub fn move_resolver_multi_dimension_domino(
     let start_cube = *peekable.peek().unwrap();
 
     let mut symmetries = (0..3).map(|x| CubeSymmetry(x << 4));
-    let sym = symmetries.find(|sym| start_cube.conjugate(*sym) == initial_cube).unwrap();
+    let sym = symmetries
+        .find(|sym| start_cube.conjugate(*sym) == initial_cube)
+        .unwrap();
 
     let adjusted_cubes = peekable.map(|c| c.conjugate(sym));
 
     move_resolver(adjusted_cubes)
 }
 
-pub fn move_resolver(
-    cubes: impl Iterator<Item = ReprCube>
-) -> Vec<CubeMove> {
-    let mut moves = vec![];
-
-    for (cube_a, cube_b) in cubes.tuple_windows() {
-        let (_, mv) = match CubeMove::all_iter()
-            .map(|mv| (cube_a.apply_cube_move(mv), mv))
-            .find(|(c, _)| *c == cube_b)
-        {
-            Some(a) => a,
-            None => panic!(),
-        };
-
-        moves.push(mv);
-    }
-
-    moves
+pub fn move_resolver(cubes: impl Iterator<Item = ReprCube>) -> Vec<CubeMove> {
+    cubes
+        .tuple_windows()
+        .map(|(cube_a, cube_b)| {
+            CubeMove::all_iter()
+                .map(|mv| (cube_a.apply_cube_move(mv), mv))
+                .find(|(c, _)| *c == cube_b)
+                .unwrap()
+                .1
+        })
+        .collect()
 }

@@ -5,6 +5,7 @@ use crate::{
     }, partial_reprs::{edge_positions::{EEdgePositions, combine_edge_positions}, ud_edge_perm::UDEdgePerm}, search::phase_1_node::Phase1Node}
 };
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Phase2Node {
     pub corner_perm_combo: CornerPermComboCoord,
     pub ud_edge_perm_raw: UDEdgePermRawCoord,
@@ -37,7 +38,7 @@ impl Phase2Node {
         let edge_perm = combine_edge_positions(
             u_edge_positions,
             d_edge_positions,
-            EEdgePositions::SOLVED,
+            EEdgePositions::from_inner(self.e_edge_perm_raw.0 as u16),
         );
         let corner_perm = CornerPerm::from_coord(self.corner_perm_combo.into_raw(tables));
 
@@ -61,6 +62,12 @@ impl Phase2Node {
             self.corner_perm_combo.sym_coord,
             ud_edge_perm_adjusted,
         )
+    }
+
+    pub fn is_solved(
+        self
+    ) -> bool {
+        self.e_edge_perm_raw.0 == 0 && self.corner_perm_combo.sym_coord.0 == 0 && self.ud_edge_perm_raw.0 == 0
     }
 
     pub fn produce_next_nodes(
