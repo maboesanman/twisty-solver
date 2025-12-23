@@ -1,8 +1,8 @@
 use bitvec::field::BitField;
 use bitvec::view::BitView;
+use core::panic;
 use num_integer::Integer;
 use rayon::prelude::*;
-use core::panic;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8, Ordering, fence};
 
@@ -102,10 +102,7 @@ impl PartialPhase2 {
                 corner_perm_combo_coord: base.corner_perm_combo_coord,
                 ud_edge_perm_raw_coord: tables
                     .move_raw_ud_edge_perm
-                    .domino_conjugate(
-                        base.ud_edge_perm_raw_coord,
-                        sym,
-                    ),
+                    .domino_conjugate(base.ud_edge_perm_raw_coord, sym),
             })
     }
 
@@ -163,10 +160,7 @@ impl PartialPhase2 {
                 corner_perm_combo_coord: rep.corner_perm_combo_coord,
                 ud_edge_perm_raw_coord: tables
                     .move_raw_ud_edge_perm
-                    .domino_conjugate(
-                        rep.ud_edge_perm_raw_coord,
-                        sym,
-                    ),
+                    .domino_conjugate(rep.ud_edge_perm_raw_coord, sym),
             })
     }
 
@@ -291,21 +285,26 @@ impl PrunePhase2Table {
             frontier_level += 1;
         }
 
-        let mut out_string = "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
+        let mut out_string =
+            "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
         for (k, v) in shortcut_map.iter() {
-            out_string.push_str(&format!("    {} => {},\n", itertools::Itertools::join(&mut v.into_iter().map(|x|format!("{x}")), " | "), k));
+            out_string.push_str(&format!(
+                "    {} => {},\n",
+                itertools::Itertools::join(&mut v.iter().map(|x| format!("{x}")), " | "),
+                k
+            ));
         }
         out_string.push_str("};");
 
-        for (k, v) in shortcut_map.into_iter().flat_map(|(k, v)| v.into_iter().map(move |v| (k, v))) {
-            if PRUNE_TABLE_SHORTCUTS
-                .get(&(v as u32))
-                .copied() != Some(k) {
-                    println!("{out_string}");
-                    panic!();
-                }
+        for (k, v) in shortcut_map
+            .into_iter()
+            .flat_map(|(k, v)| v.into_iter().map(move |v| (k, v)))
+        {
+            if PRUNE_TABLE_SHORTCUTS.get(&(v as u32)).copied() != Some(k) {
+                println!("{out_string}");
+                panic!();
+            }
         }
-
 
         let bits = buffer.view_bits_mut::<bitvec::order::Lsb0>();
 

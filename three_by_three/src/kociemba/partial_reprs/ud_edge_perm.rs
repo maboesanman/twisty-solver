@@ -1,5 +1,13 @@
 use crate::{
-    EdgePerm, cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry}, kociemba::{coords::coords::UDEdgePermRawCoord, partial_reprs::edge_positions::{DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions, combine_edge_positions, split_edge_positions}}, permutation_math::permutation::Permutation
+    EdgePerm,
+    cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry},
+    kociemba::{
+        coords::coords::UDEdgePermRawCoord,
+        partial_reprs::edge_positions::{
+            DEdgePositions, EEdgePositions, UEdgePositions, combine_edge_positions,
+            split_edge_positions,
+        },
+    },
 };
 
 /// The slot representation for corner permutation.
@@ -38,7 +46,7 @@ impl UDEdgePerm {
         let d_group = self.1.into_inner() / 24;
         let d_perm = self.1.into_inner() % 24;
         let d_group_residue = d_group - 425; // 0..70
-        UDEdgePermRawCoord((d_group_residue * 24 + u_perm ) * 24 + d_perm)
+        UDEdgePermRawCoord((d_group_residue * 24 + u_perm) * 24 + d_perm)
     }
 
     const fn into_full_perm(self) -> EdgePerm {
@@ -99,7 +107,8 @@ impl UDEdgePerm {
     }
 
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
-        let perm = split_edge_positions(crate::cube_ops::cube_sym::EDGE_PERM_LOOKUP[sym.0 as usize]);
+        let perm =
+            split_edge_positions(crate::cube_ops::cube_sym::EDGE_PERM_LOOKUP[sym.0 as usize]);
         let perm = Self(perm.0, perm.1);
         let inv_perm = perm.inverse();
         inv_perm.then(self).then(perm)

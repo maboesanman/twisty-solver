@@ -1,4 +1,7 @@
-use crate::{cube, kociemba::partial_reprs::{edge_group::EdgeGroup, edge_positions::split_edge_positions}};
+use crate::{
+    cube,
+    kociemba::partial_reprs::{edge_group::EdgeGroup, edge_positions::split_edge_positions},
+};
 
 use super::{
     cube_move::CubeMove,

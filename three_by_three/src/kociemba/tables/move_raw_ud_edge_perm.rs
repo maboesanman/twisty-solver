@@ -5,9 +5,8 @@ use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::{
-    cube_ops::{
-        cube_move::{CubeMove, DominoMove}, cube_sym::DominoSymmetry, partial_reprs::corner_orient::CornerOrient,
-    }, kociemba::{coords::coords::UDEdgePermRawCoord, partial_reprs::{e_edge_perm::EEdgePerm, ud_edge_perm::UDEdgePerm}},
+    cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry},
+    kociemba::{coords::coords::UDEdgePermRawCoord, partial_reprs::ud_edge_perm::UDEdgePerm},
 };
 
 use super::table_loader::{as_u16_slice, as_u16_slice_mut, load_table};
@@ -33,11 +32,7 @@ impl MoveRawUDEdgePermTable {
         &self.chunks()[coord.0 as usize]
     }
 
-    pub fn apply_cube_move(
-        &self,
-        coord: UDEdgePermRawCoord,
-        mv: DominoMove,
-    ) -> UDEdgePermRawCoord {
+    pub fn apply_cube_move(&self, coord: UDEdgePermRawCoord, mv: DominoMove) -> UDEdgePermRawCoord {
         self.chunk(coord)[mv.into_index()]
     }
 
@@ -58,9 +53,7 @@ impl MoveRawUDEdgePermTable {
             let perm = UDEdgePerm::from_coord(UDEdgePermRawCoord(i as u16));
             for (j, coord) in DominoMove::all_iter()
                 .map(move |mv| perm.apply_domino_move(mv))
-                .chain(
-                    DominoSymmetry::nontrivial_iter().map(move |sym| perm.domino_conjugate(sym)),
-                )
+                .chain(DominoSymmetry::nontrivial_iter().map(move |sym| perm.domino_conjugate(sym)))
                 .map(|perm| perm.into_coord())
                 .enumerate()
             {

@@ -1,25 +1,18 @@
-use std::{ops::Index, path::Path};
+use std::path::Path;
 
 use anyhow::Result;
-use bitvec::{field::BitField, order::Msb0, slice::BitSlice, view::BitView};
+use bitvec::{field::BitField, order::Msb0, view::BitView};
 use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::{
-    EdgePerm,
-    cube_ops::{
-        cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::corner_orient::CornerOrient,
-    },
-    kociemba::{
-        coords::coords::CornerOrientRawCoord,
-        partial_reprs::edge_positions::{
-            DEdgePositions, EEdgePositions, UEdgePositions, combine_edge_positions,
-            split_edge_positions,
-        },
+    cube_ops::cube_move::CubeMove,
+    kociemba::partial_reprs::edge_positions::{
+        DEdgePositions, EEdgePositions, UEdgePositions, split_edge_positions,
     },
 };
 
-use super::table_loader::{as_u16_slice, as_u16_slice_mut, load_table};
+use super::table_loader::load_table;
 
 const TABLE_SIZE_BYTES: usize = 495 * 24 * 32;
 const FILE_CHECKSUM: u32 = 3288712858;
@@ -91,7 +84,8 @@ impl MoveEdgePositions {
 
 #[cfg(test)]
 mod test {
-    use crate::Permutation;
+    use crate::{EdgePerm, Permutation};
+    use crate::kociemba::partial_reprs::edge_positions::combine_edge_positions;
     use crate::kociemba::tables::Tables;
 
     use super::*;

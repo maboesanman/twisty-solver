@@ -86,4 +86,3 @@ impl CubePreviousAxis {
         LOOKUP[((self as u8 as usize) << 4) + (sym.0 as usize)]
     }
 }
-

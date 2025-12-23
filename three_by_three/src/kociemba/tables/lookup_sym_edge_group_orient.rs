@@ -6,6 +6,7 @@ use rayon::prelude::*;
 
 use crate::{
     cube_ops::cube_sym::DominoSymmetry,
+    kociemba::tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
     kociemba::{
         coords::{
             coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
@@ -13,7 +14,6 @@ use crate::{
         },
         partial_reprs::edge_group_orient::EdgeGroupOrient,
     },
-    kociemba::tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
 };
 
 use super::table_loader::{as_u32_slice_mut, load_table};

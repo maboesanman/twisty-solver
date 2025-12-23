@@ -1,8 +1,8 @@
-use num_integer::div_rem;
-
-use crate::{EdgePerm, Permutation, kociemba::{coords::coords::{EEdgePermRawCoord, EdgeGroupRawCoord}, partial_reprs::{e_edge_perm::EEdgePerm, ud_edge_perm::UDEdgePerm}}, permutation_math::grouping::EdgeCombination};
-
-
+use crate::{
+    EdgePerm, Permutation,
+    kociemba::coords::coords::{EEdgePermRawCoord, EdgeGroupRawCoord},
+    permutation_math::grouping::EdgeCombination,
+};
 
 // 495 * 24 = 11880 -> 14 bit
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -17,15 +17,15 @@ impl EEdgePositions {
         EEdgePermRawCoord(self.0.0 as u8)
     }
 
-    pub const  fn into_index(self) -> usize {
+    pub const fn into_index(self) -> usize {
         self.0.0 as usize
     }
 
-    pub const  fn into_inner(self) -> u16 {
+    pub const fn into_inner(self) -> u16 {
         self.0.0
     }
 
-    pub const  fn from_inner(inner: u16) -> Self {
+    pub const fn from_inner(inner: u16) -> Self {
         Self(EdgePositions(inner))
     }
 
@@ -33,7 +33,7 @@ impl EEdgePositions {
         let (pos_a, pos_b) = self.0.valid_sibling_pair();
         combine_edge_positions(UEdgePositions(pos_a), DEdgePositions(pos_b), self)
     }
-    
+
     pub const fn const_eq(self, other: Self) -> bool {
         self.0.const_eq(other.0)
     }
@@ -49,7 +49,7 @@ pub struct UEdgePositions(pub EdgePositions);
 impl UEdgePositions {
     pub const SOLVED: Self = Self(EdgePositions(0));
 
-    pub  const fn into_index(self) -> usize {
+    pub const fn into_index(self) -> usize {
         self.0.0 as usize
     }
 
@@ -57,7 +57,7 @@ impl UEdgePositions {
         self.0.0
     }
 
-    pub const  fn from_inner(inner: u16) -> Self {
+    pub const fn from_inner(inner: u16) -> Self {
         Self(EdgePositions(inner))
     }
 
@@ -85,11 +85,11 @@ impl UEdgePositions {
 
             table
         };
-        let group = GROUP_LOOKUP[d_group_residue as usize] as u16;
+        let group = GROUP_LOOKUP[d_group_residue as usize];
 
         Self(EdgePositions(group * 24 + perm))
     }
-    
+
     pub const fn const_eq(self, other: Self) -> bool {
         self.0.const_eq(other.0)
     }
@@ -117,12 +117,11 @@ impl DEdgePositions {
         let (pos_a, pos_b) = self.0.valid_sibling_pair();
         combine_edge_positions(UEdgePositions(pos_a), self, EEdgePositions(pos_b))
     }
-    
+
     pub const fn const_eq(self, other: Self) -> bool {
         self.0.const_eq(other.0)
     }
 }
-
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct EdgePositions(pub u16);
@@ -131,7 +130,10 @@ impl EdgePositions {
     pub const fn split(self) -> (EdgeCombination, Permutation<4>) {
         let combo = self.0 / 24;
         let perm = self.0 % 24;
-        (EdgeCombination::from_coord(combo), Permutation::<4>::const_from_coord(perm as u8))
+        (
+            EdgeCombination::from_coord(combo),
+            Permutation::<4>::const_from_coord(perm as u8),
+        )
     }
 
     pub const fn join(combo: EdgeCombination, perm: Permutation<4>) -> Self {
@@ -158,7 +160,7 @@ impl EdgePositions {
 
         (
             Self::join(EdgeCombination(sib_combo_a), Permutation::IDENTITY),
-            Self::join(EdgeCombination(sib_combo_b), Permutation::IDENTITY)
+            Self::join(EdgeCombination(sib_combo_b), Permutation::IDENTITY),
         )
     }
 
@@ -177,13 +179,17 @@ impl EdgePositions {
 
         Self::join(EdgeCombination(new_sib_combo), Permutation::IDENTITY)
     }
-    
+
     pub const fn const_eq(self, other: Self) -> bool {
         self.0 == other.0
     }
 }
 
-pub const fn combine_edge_positions(u: UEdgePositions, d: DEdgePositions, e: EEdgePositions) -> EdgePerm {
+pub const fn combine_edge_positions(
+    u: UEdgePositions,
+    d: DEdgePositions,
+    e: EEdgePositions,
+) -> EdgePerm {
     let (u_combo, u_perm) = u.0.split();
     let u_combo = u_combo.0;
     let u_perm = u_perm.0;
@@ -230,7 +236,7 @@ pub const fn combine_edge_positions(u: UEdgePositions, d: DEdgePositions, e: EEd
 pub const fn split_edge_positions(
     perm: EdgePerm,
 ) -> (UEdgePositions, DEdgePositions, EEdgePositions) {
-    let array = perm.0 .0;
+    let array = perm.0.0;
 
     let mut u_combo = [false; 12];
     let mut d_combo = [false; 12];
@@ -268,9 +274,18 @@ pub const fn split_edge_positions(
     }
 
     (
-        UEdgePositions(EdgePositions::join(EdgeCombination(u_combo), Permutation(u_perm))),
-        DEdgePositions(EdgePositions::join(EdgeCombination(d_combo), Permutation(d_perm))),
-        EEdgePositions(EdgePositions::join(EdgeCombination(e_combo), Permutation(e_perm))),
+        UEdgePositions(EdgePositions::join(
+            EdgeCombination(u_combo),
+            Permutation(u_perm),
+        )),
+        DEdgePositions(EdgePositions::join(
+            EdgeCombination(d_combo),
+            Permutation(d_perm),
+        )),
+        EEdgePositions(EdgePositions::join(
+            EdgeCombination(e_combo),
+            Permutation(e_perm),
+        )),
     )
 }
 
@@ -279,8 +294,8 @@ mod tests {
     use super::*;
     use num_integer::div_rem;
 
-    use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
     use rayon::prelude::*;
 
     #[test]
@@ -293,14 +308,10 @@ mod tests {
             let (combo, perm) = egp.split();
             let rejoined = EdgePositions::join(combo, perm);
 
-            assert_eq!(
-                egp.0, rejoined.0,
-                "split/join failed at coord {}",
-                coord
-            );
+            assert_eq!(egp.0, rejoined.0, "split/join failed at coord {}", coord);
         }
     }
-    
+
     #[test]
     fn edge_perm_combine_split_seeded_parallel() {
         // Deterministic RNG
@@ -317,11 +328,7 @@ mod tests {
             let (u, d, e) = split_edge_positions(perm);
             let recombined = combine_edge_positions(u, d, e);
 
-            assert_eq!(
-                perm, recombined,
-                "combine/split failed at coord {}",
-                coord
-            );
+            assert_eq!(perm, recombined, "combine/split failed at coord {}", coord);
         });
     }
 }

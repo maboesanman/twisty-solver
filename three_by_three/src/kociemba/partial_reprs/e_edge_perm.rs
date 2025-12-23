@@ -77,7 +77,13 @@ impl EEdgePerm {
     }
 
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
-        let perm = Self(split_edge_positions(crate::cube_ops::cube_sym::EDGE_PERM_LOOKUP[sym.0 as usize]).1.0.split().1);
+        let perm = Self(
+            split_edge_positions(crate::cube_ops::cube_sym::EDGE_PERM_LOOKUP[sym.0 as usize])
+                .1
+                .0
+                .split()
+                .1,
+        );
         let inv_perm = perm.inverse();
         inv_perm.then(self).then(perm)
     }

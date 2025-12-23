@@ -1,8 +1,17 @@
 use crate::{
-    CornerOrient, CornerPerm, EdgeOrient, ReprCube, Tables, cube_ops::{cube_move::DominoMove, cube_prev_axis::CubePreviousAxis}, kociemba::{coords::{
-        coords::{EEdgePermRawCoord, UDEdgePermRawCoord},
-        corner_perm_combo_coord::CornerPermComboCoord,
-    }, partial_reprs::{edge_positions::{EEdgePositions, combine_edge_positions}, ud_edge_perm::UDEdgePerm}, search::phase_1_node::Phase1Node}
+    CornerOrient, CornerPerm, EdgeOrient, ReprCube, Tables,
+    cube_ops::cube_move::DominoMove,
+    kociemba::{
+        coords::{
+            coords::{EEdgePermRawCoord, UDEdgePermRawCoord},
+            corner_perm_combo_coord::CornerPermComboCoord,
+        },
+        partial_reprs::{
+            edge_positions::{EEdgePositions, combine_edge_positions},
+            ud_edge_perm::UDEdgePerm,
+        },
+        search::phase_1_node::Phase1Node,
+    },
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -34,7 +43,8 @@ impl Phase2Node {
     }
 
     pub fn into_cube(self, tables: &Tables) -> ReprCube {
-        let UDEdgePerm(u_edge_positions, d_edge_positions) = UDEdgePerm::from_coord(self.ud_edge_perm_raw);
+        let UDEdgePerm(u_edge_positions, d_edge_positions) =
+            UDEdgePerm::from_coord(self.ud_edge_perm_raw);
         let edge_perm = combine_edge_positions(
             u_edge_positions,
             d_edge_positions,
@@ -50,42 +60,34 @@ impl Phase2Node {
         }
     }
 
-    pub fn distance_heuristic(
-        self,
-        tables: &Tables,
-    ) -> u8 {
+    pub fn distance_heuristic(self, tables: &Tables) -> u8 {
         let ud_edge_perm_adjusted = tables.move_raw_ud_edge_perm.domino_conjugate(
             self.ud_edge_perm_raw,
             self.corner_perm_combo.domino_conjugation,
         );
-        tables.get_prune_phase_2().get_value(
-            self.corner_perm_combo.sym_coord,
-            ud_edge_perm_adjusted,
-        )
+        tables
+            .get_prune_phase_2()
+            .get_value(self.corner_perm_combo.sym_coord, ud_edge_perm_adjusted)
     }
 
-    pub fn is_solved(
-        self
-    ) -> bool {
-        self.e_edge_perm_raw.0 == 0 && self.corner_perm_combo.sym_coord.0 == 0 && self.ud_edge_perm_raw.0 == 0
+    pub fn is_solved(self) -> bool {
+        self.e_edge_perm_raw.0 == 0
+            && self.corner_perm_combo.sym_coord.0 == 0
+            && self.ud_edge_perm_raw.0 == 0
     }
 
-    pub fn produce_next_nodes(
-        self,
-        tables: &Tables,
-    ) -> impl Iterator<Item = Self> {
-
+    pub fn produce_next_nodes(self, tables: &Tables) -> impl Iterator<Item = Self> {
         // perform all new axis moves on all coords
         let move_iter = || DominoMove::all_iter();
 
-        move_iter().map(
-                move |mv| {
-                    Phase2Node {
-                        corner_perm_combo: self.corner_perm_combo.apply_cube_move(tables, mv.into()),
-                        ud_edge_perm_raw: tables.move_raw_ud_edge_perm.apply_cube_move(self.ud_edge_perm_raw, mv),
-                        e_edge_perm_raw: tables.move_raw_e_edge_perm.apply_cube_move(self.e_edge_perm_raw, mv),
-                    }
-                },
-            )
+        move_iter().map(move |mv| Phase2Node {
+            corner_perm_combo: self.corner_perm_combo.apply_cube_move(tables, mv.into()),
+            ud_edge_perm_raw: tables
+                .move_raw_ud_edge_perm
+                .apply_cube_move(self.ud_edge_perm_raw, mv),
+            e_edge_perm_raw: tables
+                .move_raw_e_edge_perm
+                .apply_cube_move(self.e_edge_perm_raw, mv),
+        })
     }
 }

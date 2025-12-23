@@ -7,10 +7,7 @@ use crate::{
     cube_ops::cube_prev_axis::CubePreviousAxis,
     kociemba::{
         coords::{
-            coords::{
-                CornerOrientRawCoord, EEdgePermRawCoord, EdgeGroupOrientRawCoord,
-                UDEdgePermRawCoord,
-            },
+            coords::{CornerOrientRawCoord, EdgeGroupOrientRawCoord},
             corner_perm_combo_coord::CornerPermComboCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         },
@@ -27,13 +24,13 @@ pub struct Phase1Node {
 
     // corners
     pub corner_orient_raw: CornerOrientRawCoord, // 12 bits
-    pub corner_perm_combo: CornerPermComboCoord,     // 16 bits
+    pub corner_perm_combo: CornerPermComboCoord, // 16 bits
 
     // edges
     pub edge_group_orient_combo: EdgeGroupOrientComboCoord, // 20 bits
-    pub u_edge_positions: UEdgePositions,                       // 14 bits
-    pub d_edge_positions: DEdgePositions,                       // 14 bits
-    pub e_edge_positions: EEdgePositions,                       // 14 bits
+    pub u_edge_positions: UEdgePositions,                   // 14 bits
+    pub d_edge_positions: DEdgePositions,                   // 14 bits
+    pub e_edge_positions: EEdgePositions,                   // 14 bits
 
     // bookkeeping
     pub previous_axis: CubePreviousAxis, // 4 bits
@@ -174,7 +171,7 @@ impl Phase1Node {
             .filter(move |child| {
                 // the last cube must be domino reduced, so if moves_remaining is 1,
                 // we need to filter for only cubes which are reduced already.
-                // 
+                //
                 // additionally, there's an interesting optimization here.
                 // there are no domino sequences of 7 moves or less which can be done in fewer moves when treated
                 // as a non-domino. this means that if our domino reduction is ever distance 0 at two distinct points
@@ -184,19 +181,19 @@ impl Phase1Node {
                 // than a path already found, because there would exist a solution with a shorter phase 1 ending at the
                 // first domino reduction, and staying in domino moves, likely more optimally but never longer.
                 let child_is_reduced = child.corner_orient_raw.0 == 0
-                        && child.edge_group_orient_combo.sym_coord.0 == 0;
+                    && child.edge_group_orient_combo.sym_coord.0 == 0;
 
                 let last_move = moves_remaining.get() == 1;
                 if last_move {
-                    return child_is_reduced
-                }
-                
-                let too_close_to_be_solved = moves_remaining.get() <= 8;
-                if too_close_to_be_solved {
-                    return !child_is_reduced
+                    return child_is_reduced;
                 }
 
-                return true
+                let too_close_to_be_solved = moves_remaining.get() <= 8;
+                if too_close_to_be_solved {
+                    return !child_is_reduced;
+                }
+
+                true
             });
 
         Some(Phase1FrameMetadata {
@@ -277,11 +274,19 @@ mod tests {
 
         // [R3, R2, F2, L3, R1]
 
-        let next_moves = a.produce_next_nodes(20, NonZeroU8::new(5).unwrap(), tables).unwrap();
+        let next_moves = a
+            .produce_next_nodes(20, NonZeroU8::new(5).unwrap(), tables)
+            .unwrap();
         let b = next_moves.children.skip(14).next().unwrap();
-        let next_moves = b.produce_next_nodes(next_moves.max_possible_distance + 1, NonZeroU8::new(4).unwrap(), tables).unwrap();
+        let next_moves = b
+            .produce_next_nodes(
+                next_moves.max_possible_distance + 1,
+                NonZeroU8::new(4).unwrap(),
+                tables,
+            )
+            .unwrap();
 
-        for c in  next_moves.children {
+        for c in next_moves.children {
             println!("{c:?}")
         }
 

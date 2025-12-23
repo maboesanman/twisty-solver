@@ -15,11 +15,7 @@ pub fn solve_domino(
 
     let solution = idastar_limited(
         phase_2_start,
-        |&cube| {
-            cube.produce_next_nodes(tables)
-                .into_iter()
-                .map(|c| (c, 1))
-        },
+        |&cube| cube.produce_next_nodes(tables).map(|c| (c, 1)),
         |&cube| cube.distance_heuristic(tables),
         |&cube| cube.is_solved(),
         max_moves,

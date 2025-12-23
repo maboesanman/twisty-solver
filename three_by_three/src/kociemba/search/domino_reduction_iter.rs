@@ -1,6 +1,5 @@
 use std::{num::NonZeroU8, sync::atomic::AtomicBool};
 
-use arrayvec::ArrayVec;
 use itertools::Itertools;
 use rayon::iter::{
     ParallelIterator,
@@ -8,8 +7,8 @@ use rayon::iter::{
 };
 
 use crate::{
-    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
-    kociemba::search::phase_1_node::{Phase1FrameMetadata, Phase1Node},
+    cube_ops::{cube_sym::CubeSymmetry, repr_cube::ReprCube},
+    kociemba::search::phase_1_node::Phase1Node,
     kociemba::tables::Tables,
 };
 
@@ -146,7 +145,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
     pub fn pretty_print(&self) {
         println!("=== STACK STATE ===");
 
-        let default = FrameMetadata::default();
+        let _default = FrameMetadata::default();
 
         println!("{:#?}", self.frame_metadata);
         println!(
@@ -228,7 +227,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
         let mut new_stack = Stack {
             tables: self.tables,
             cancel: self.cancel,
-            frame_metadata: self.frame_metadata.clone(),
+            frame_metadata: self.frame_metadata,
             frame_data: new_frame_data,
         };
 
@@ -267,7 +266,10 @@ impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
 #[cfg(test)]
 mod test {
 
-    use crate::{cube, kociemba::search::move_resolver::{move_resolver, move_resolver_multi_dimension_domino}};
+    use crate::{
+        cube,
+        kociemba::search::move_resolver::{move_resolver, move_resolver_multi_dimension_domino},
+    };
 
     use super::*;
 

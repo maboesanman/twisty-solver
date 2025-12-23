@@ -30,11 +30,11 @@ pub struct CornerPermRawCoord(pub u16);
 
 /// The raw coordinate for ud-edge permutation, assuming the EdgeGroupRawCoord is 0.
 /// tracks the permutation of the edges in the U and D layers amongst themselves.
-/// 
+///
 /// This is different from normal permutation coordinates, in order to avoid an additional lookup.
 /// It is a combination of the (d_group - 425) value, the d_perm value, and the u_perm value.
 /// Because of this it does not have the parity preservation property.
-/// 
+///
 /// fits in 16 bits. (40320 values)
 ///
 /// parity of coord matches parity of permutation

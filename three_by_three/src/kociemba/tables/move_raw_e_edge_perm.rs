@@ -5,14 +5,13 @@ use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::{
-    cube_ops::{
-        cube_move::{CubeMove, DominoMove}, cube_sym::DominoSymmetry, partial_reprs::corner_orient::CornerOrient,
-    }, kociemba::{coords::coords::EEdgePermRawCoord, partial_reprs::e_edge_perm::EEdgePerm},
+    cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry},
+    kociemba::{coords::coords::EEdgePermRawCoord, partial_reprs::e_edge_perm::EEdgePerm},
 };
 
-use super::table_loader::{as_u16_slice, as_u16_slice_mut, load_table};
+use super::table_loader::load_table;
 
-const TABLE_SIZE_BYTES: usize = (24 * 25) * 1;
+const TABLE_SIZE_BYTES: usize = (24 * 25);
 const FILE_CHECKSUM: u32 = 1251937808;
 
 pub struct MoveRawEEdgePermTable(Mmap);
@@ -33,11 +32,7 @@ impl MoveRawEEdgePermTable {
         &self.chunks()[coord.0 as usize]
     }
 
-    pub fn apply_cube_move(
-        &self,
-        coord: EEdgePermRawCoord,
-        mv: DominoMove,
-    ) -> EEdgePermRawCoord {
+    pub fn apply_cube_move(&self, coord: EEdgePermRawCoord, mv: DominoMove) -> EEdgePermRawCoord {
         self.chunk(coord)[mv.into_index()]
     }
 
@@ -57,9 +52,7 @@ impl MoveRawEEdgePermTable {
             let perm = EEdgePerm::from_coord(EEdgePermRawCoord(i as u8));
             for (j, coord) in DominoMove::all_iter()
                 .map(move |mv| perm.apply_domino_move(mv))
-                .chain(
-                    DominoSymmetry::nontrivial_iter().map(move |sym| perm.domino_conjugate(sym)),
-                )
+                .chain(DominoSymmetry::nontrivial_iter().map(move |sym| perm.domino_conjugate(sym)))
                 .map(|perm| perm.into_coord())
                 .enumerate()
             {

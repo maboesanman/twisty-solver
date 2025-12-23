@@ -6,18 +6,20 @@ use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
 use crate::kociemba::tables::{
-    move_edge_positions::MoveEdgePositions, move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table
+    move_edge_positions::MoveEdgePositions, move_raw_e_edge_perm::MoveRawEEdgePermTable,
+    move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable,
+    prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table,
 };
 
 pub mod lookup_sym_corner_perm;
 pub mod lookup_sym_edge_group_orient;
 
-pub mod move_raw_corner_orient;
-pub mod move_sym_corner_perm;
-pub mod move_sym_edge_group_orient;
 pub mod move_edge_positions;
+pub mod move_raw_corner_orient;
 pub mod move_raw_e_edge_perm;
 pub mod move_raw_ud_edge_perm;
+pub mod move_sym_corner_perm;
+pub mod move_sym_edge_group_orient;
 
 pub mod prune_phase_1;
 pub mod prune_phase_2;
@@ -76,10 +78,13 @@ impl Tables {
             &lookup_sym_corner_perm,
         )?;
 
-        let move_edge_position = MoveEdgePositions::load(folder.join(MOVE_EDGE_POSITION_TABLE_NAME))?;
+        let move_edge_position =
+            MoveEdgePositions::load(folder.join(MOVE_EDGE_POSITION_TABLE_NAME))?;
 
-        let move_raw_e_edge_perm = MoveRawEEdgePermTable::load(folder.join(MOVE_E_EDGE_PERM_TABLE_NAME))?;
-        let move_raw_ud_edge_perm = MoveRawUDEdgePermTable::load(folder.join(MOVE_UD_EDGE_PERM_TABLE_NAME))?;
+        let move_raw_e_edge_perm =
+            MoveRawEEdgePermTable::load(folder.join(MOVE_E_EDGE_PERM_TABLE_NAME))?;
+        let move_raw_ud_edge_perm =
+            MoveRawUDEdgePermTable::load(folder.join(MOVE_UD_EDGE_PERM_TABLE_NAME))?;
 
         let mut working = Tables {
             move_raw_corner_orient,

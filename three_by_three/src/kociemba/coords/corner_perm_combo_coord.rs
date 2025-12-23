@@ -10,7 +10,10 @@ pub struct CornerPermComboCoord {
 }
 
 impl CornerPermComboCoord {
-    pub fn from_raw(tables: &crate::kociemba::tables::Tables, raw_coord: CornerPermRawCoord) -> Self {
+    pub fn from_raw(
+        tables: &crate::kociemba::tables::Tables,
+        raw_coord: CornerPermRawCoord,
+    ) -> Self {
         tables.lookup_sym_corner_perm.get_combo_from_raw(raw_coord)
     }
 
@@ -18,7 +21,11 @@ impl CornerPermComboCoord {
         tables.lookup_sym_corner_perm.get_raw_from_combo(self)
     }
 
-    pub fn apply_cube_move(self, tables: &crate::kociemba::tables::Tables, cube_move: CubeMove) -> Self {
+    pub fn apply_cube_move(
+        self,
+        tables: &crate::kociemba::tables::Tables,
+        cube_move: CubeMove,
+    ) -> Self {
         let preimage_move = cube_move.domino_conjugate(self.domino_conjugation);
         let mut result = tables
             .move_sym_corner_perm

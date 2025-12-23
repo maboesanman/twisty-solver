@@ -83,46 +83,44 @@ impl CubeEntry {
         Self::default()
     }
 
-    pub fn get_options(&self, i: usize) -> Option<ArrayVec<Color, 6>> {
-        let mut corner_slot_options: [ArrayVec<(usize, u8), 24>; 8] = [const { ArrayVec::new_const() }; 8];
+    pub fn get_options(&self, _i: usize) -> Option<ArrayVec<Color, 6>> {
+        let mut corner_slot_options: [ArrayVec<(usize, u8), 24>; 8] =
+            [const { ArrayVec::new_const() }; 8];
 
         for (slot_i, slot) in CORNER_INDICES.iter().enumerate() {
             let slot = slot.map(|x| self.0[x]);
             for (corner, colors) in CORNER_COLORS.iter().enumerate() {
-                let mut colors = colors.clone();
-                (0..3).into_iter().filter(|orient| {
-                    colors.rotate_left(1);
-                    slot.iter().zip(colors).all(|(slot, piece)| {
-                        match slot {
+                let mut colors = *colors;
+                (0..3)
+                    .filter(|_orient| {
+                        colors.rotate_left(1);
+                        slot.iter().zip(colors).all(|(slot, piece)| match slot {
                             Some(c) => piece == *c,
                             None => true,
-                        }
+                        })
                     })
-                }).for_each(|orient| {
-                    corner_slot_options[slot_i].push((corner, orient))
-                });
+                    .for_each(|orient| corner_slot_options[slot_i].push((corner, orient)));
             }
         }
         hone(&mut corner_slot_options);
         println!("{corner_slot_options:?}");
 
-        let mut edge_slot_options: [ArrayVec<(usize, u8), 24>; 8] = [const { ArrayVec::new_const() }; 8];
+        let mut edge_slot_options: [ArrayVec<(usize, u8), 24>; 8] =
+            [const { ArrayVec::new_const() }; 8];
 
         for (slot_i, slot) in EDGE_INDICES.iter().enumerate() {
             let slot = slot.map(|x| self.0[x]);
             for (edge, colors) in EDGE_COLORS.iter().enumerate() {
-                let mut colors = colors.clone();
-                (0..2).into_iter().filter(|orient| {
-                    colors.rotate_left(1);
-                    slot.iter().zip(colors).all(|(slot, piece)| {
-                        match slot {
+                let mut colors = *colors;
+                (0..2)
+                    .filter(|_orient| {
+                        colors.rotate_left(1);
+                        slot.iter().zip(colors).all(|(slot, piece)| match slot {
                             Some(c) => piece == *c,
                             None => true,
-                        }
+                        })
                     })
-                }).for_each(|orient| {
-                    edge_slot_options[slot_i].push((edge, orient))
-                });
+                    .for_each(|orient| edge_slot_options[slot_i].push((edge, orient)));
             }
         }
         hone(&mut edge_slot_options);
@@ -131,7 +129,7 @@ impl CubeEntry {
         todo!()
     }
 
-    pub fn set_color(&mut self, i: usize, color: Color) -> Result<bool, ()> {
+    pub fn set_color(&mut self, _i: usize, _color: Color) -> Result<bool, ()> {
         todo!()
     }
 
@@ -154,19 +152,32 @@ fn hone<const N: usize>(slot_options: &mut [ArrayVec<(usize, u8), 24>; N]) {
     hone_inner(slot_options, &mut focus_columns);
 }
 
-fn hone_inner<const N: usize>(slot_options: &mut [ArrayVec<(usize, u8), 24>; N], focus_columns: &mut [usize]) {
+fn hone_inner<const N: usize>(
+    slot_options: &mut [ArrayVec<(usize, u8), 24>; N],
+    focus_columns: &mut [usize],
+) {
     if focus_columns.len() == 1 {
         return;
     }
-    let naked_group = (1..focus_columns.len()).flat_map(|k| focus_columns.iter().copied().combinations(k)).filter_map(|slots| {
-        let set = slots.iter().flat_map(|x| (&slot_options[*x]).into_iter().map(|(corner, _orient)| *corner)).collect::<HashSet<_>>();
-        
-        if set.len() == slots.len() {
-            Some((slots, set))
-        } else {
-            None
-        }
-    }).next();
+    let naked_group = (1..focus_columns.len())
+        .flat_map(|k| focus_columns.iter().copied().combinations(k))
+        .filter_map(|slots| {
+            let set = slots
+                .iter()
+                .flat_map(|x| {
+                    (&slot_options[*x])
+                        .into_iter()
+                        .map(|(corner, _orient)| *corner)
+                })
+                .collect::<HashSet<_>>();
+
+            if set.len() == slots.len() {
+                Some((slots, set))
+            } else {
+                None
+            }
+        })
+        .next();
 
     println!("{naked_group:?}");
 
@@ -206,9 +217,7 @@ mod test {
         entry.0[19] = Some(Color::U);
         entry.0[20] = Some(Color::U);
         entry.0[22] = Some(Color::U);
-        
 
         entry.get_options(15);
-
     }
 }
