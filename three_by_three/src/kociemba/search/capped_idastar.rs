@@ -34,7 +34,7 @@ where
         ) {
             Path::Found(path, cost) => return Some((path, cost)),
             Path::Minimum(min) => {
-                if bound == min {
+                if min > max_bound {
                     return None;
                 }
                 bound = min;

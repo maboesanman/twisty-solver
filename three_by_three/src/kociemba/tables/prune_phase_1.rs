@@ -320,13 +320,20 @@ impl PrunePhase1Table {
             frontier_level += 1;
         }
 
-        // let mut out_string = "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
-        // for (k, v) in shortcut_map {
-        //     out_string.push_str(&format!("    {} => {},\n", v.into_iter().map(|x| format!("{x}")).join(" | "), k));
-        // }
-        // out_string.push_str("};");
+        let mut out_string = "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
+        for (k, v) in shortcut_map.iter() {
+            out_string.push_str(&format!("    {} => {},\n", itertools::Itertools::join(&mut v.into_iter().map(|x|format!("{x}")), " | "), k));
+        }
+        out_string.push_str("};");
 
-        // println!("{out_string}");
+        for (k, v) in shortcut_map.into_iter().flat_map(|(k, v)| v.into_iter().map(move |v| (k, v))) {
+            if PRUNE_TABLE_SHORTCUTS
+                .get(&(v as u32))
+                .copied() != Some(k) {
+                    println!("{out_string}");
+                    panic!();
+                }
+        }
 
         let bits = buffer.view_bits_mut::<bitvec::order::Lsb0>();
 

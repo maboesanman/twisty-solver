@@ -13,7 +13,7 @@ pub fn solve_domino(
         return None;
     }
 
-    idastar_limited(
+    let solution = idastar_limited(
         phase_2_start,
         |&cube| {
             cube.produce_next_nodes(tables)
@@ -24,5 +24,9 @@ pub fn solve_domino(
         |&cube| cube.is_solved(),
         max_moves,
     )
-    .map(|(solution, _len)| solution)
+    .map(|(solution, _len)| solution)?;
+
+    debug_assert!(phase_2_prune as usize >= solution.len() - 1);
+
+    Some(solution)
 }

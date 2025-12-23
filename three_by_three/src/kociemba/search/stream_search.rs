@@ -17,13 +17,12 @@ use rayon::iter::ParallelIterator;
 use crate::{
     cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
     kociemba::{
-        coords::repr_coord::{SymReducedRepr, SymReducedReprPhase2},
         search::{
             move_resolver, solve_domino::solve_domino,
             solve_with_fixed_len_phase_1::produce_solutions_par,
         },
     },
-    tables::Tables,
+    kociemba::tables::Tables,
 };
 
 fn solver_thread(
@@ -39,91 +38,66 @@ fn solver_thread(
         let _ = send.send(Vec::new());
         return;
     }
-
-    let sym_red = SymReducedRepr::from_cube(cube, tables);
-
-    if sym_red.0[0] == 0 && sym_red.0[1] == 0 {
-        let phase_2_start = SymReducedReprPhase2([sym_red.0[2], sym_red.0[3]]);
-        let phase_1_solution = solve_domino(phase_2_start, tables, *best.get_mut() as u8);
-        if let Some(phase_1_solution) = phase_1_solution {
-            let solution = (move_resolver::move_resolver(cube, tables))(
-                phase_1_solution[1..]
-                    .iter()
-                    .map(|SymReducedReprPhase2([c, d])| SymReducedRepr([0, 0, *c, *d])),
-            );
-            let _ = send.send(solution);
-        }
-    } else {
-        if *(best.get_mut()) <= 1 {
-            return;
-        }
-        if cancel.load(std::sync::atomic::Ordering::Acquire) {
-            return;
-        }
-        produce_solutions_par::<0, true>(cube, &best, tables, &cancel).for_each(|solution| {
-            let _ = send.send(solution);
-        });
-
-        if *(best.get_mut()) <= 1 + 1 {
-            return;
-        }
-        if cancel.load(std::sync::atomic::Ordering::Acquire) {
-            return;
-        }
-        produce_solutions_par::<1, true>(cube, &best, tables, &cancel).for_each(|solution| {
-            let _ = send.send(solution);
-        });
-
-        if *(best.get_mut()) <= 2 + 1 {
-            return;
-        }
-        if cancel.load(std::sync::atomic::Ordering::Acquire) {
-            return;
-        }
-        produce_solutions_par::<2, true>(cube, &best, tables, &cancel).for_each(|solution| {
-            let _ = send.send(solution);
-        });
-
-        if *(best.get_mut()) <= 3 + 1 {
-            return;
-        }
-        if cancel.load(std::sync::atomic::Ordering::Acquire) {
-            return;
-        }
-        produce_solutions_par::<3, true>(cube, &best, tables, &cancel).for_each(|solution| {
-            let _ = send.send(solution);
-        });
-
-        if *(best.get_mut()) <= 4 + 1 {
-            return;
-        }
-        if cancel.load(std::sync::atomic::Ordering::Acquire) {
-            return;
-        }
-        produce_solutions_par::<4, true>(cube, &best, tables, &cancel).for_each(|solution| {
-            let _ = send.send(solution);
-        });
-
-        if *(best.get_mut()) <= 5 + 1 {
-            return;
-        }
-        if cancel.load(std::sync::atomic::Ordering::Acquire) {
-            return;
-        }
-        produce_solutions_par::<5, true>(cube, &best, tables, &cancel).for_each(|solution| {
-            let _ = send.send(solution);
-        });
-
-        if *(best.get_mut()) <= 6 + 1 {
-            return;
-        }
-        if cancel.load(std::sync::atomic::Ordering::Acquire) {
-            return;
-        }
-        produce_solutions_par::<6, true>(cube, &best, tables, &cancel).for_each(|solution| {
-            let _ = send.send(solution);
-        });
+    
+    if *(best.get_mut()) <= 1 {
+        return;
     }
+    if cancel.load(std::sync::atomic::Ordering::Acquire) {
+        return;
+    }
+    produce_solutions_par::<1>(cube, &best, tables, &cancel).for_each(|solution| {
+        let _ = send.send(solution);
+    });
+
+    if *(best.get_mut()) <= 2 + 1 {
+        return;
+    }
+    if cancel.load(std::sync::atomic::Ordering::Acquire) {
+        return;
+    }
+    produce_solutions_par::<2>(cube, &best, tables, &cancel).for_each(|solution| {
+        let _ = send.send(solution);
+    });
+
+    if *(best.get_mut()) <= 3 + 1 {
+        return;
+    }
+    if cancel.load(std::sync::atomic::Ordering::Acquire) {
+        return;
+    }
+    produce_solutions_par::<3>(cube, &best, tables, &cancel).for_each(|solution| {
+        let _ = send.send(solution);
+    });
+
+    if *(best.get_mut()) <= 4 + 1 {
+        return;
+    }
+    if cancel.load(std::sync::atomic::Ordering::Acquire) {
+        return;
+    }
+    produce_solutions_par::<4>(cube, &best, tables, &cancel).for_each(|solution| {
+        let _ = send.send(solution);
+    });
+
+    if *(best.get_mut()) <= 5 + 1 {
+        return;
+    }
+    if cancel.load(std::sync::atomic::Ordering::Acquire) {
+        return;
+    }
+    produce_solutions_par::<5>(cube, &best, tables, &cancel).for_each(|solution| {
+        let _ = send.send(solution);
+    });
+
+    if *(best.get_mut()) <= 6 + 1 {
+        return;
+    }
+    if cancel.load(std::sync::atomic::Ordering::Acquire) {
+        return;
+    }
+    produce_solutions_par::<6>(cube, &best, tables, &cancel).for_each(|solution| {
+        let _ = send.send(solution);
+    });
 
     if *(best.get_mut()) <= 7 + 1 {
         return;
@@ -131,7 +105,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<7, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<7>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -141,7 +115,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<8, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<8>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -151,7 +125,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<9, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<9>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -161,7 +135,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<10, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<10>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -171,7 +145,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<11, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<11>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -181,7 +155,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<12, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<12>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -191,7 +165,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<13, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<13>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -201,7 +175,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<14, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<14>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -211,7 +185,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<15, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<15>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -221,7 +195,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<16, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<16>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -231,7 +205,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<17, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<17>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -241,7 +215,7 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<18, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<18>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 
@@ -251,7 +225,17 @@ fn solver_thread(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<19, true>(cube, &best, tables, &cancel).for_each(|solution| {
+    produce_solutions_par::<19>(cube, &best, tables, &cancel).for_each(|solution| {
+        let _ = send.send(solution);
+    });
+
+    if *(best.get_mut()) <= 20 + 1 {
+        return;
+    }
+    if cancel.load(std::sync::atomic::Ordering::Acquire) {
+        return;
+    }
+    produce_solutions_par::<20>(cube, &best, tables, &cancel).for_each(|solution| {
         let _ = send.send(solution);
     });
 }
@@ -364,7 +348,7 @@ mod test {
         let stream = get_incremental_solutions_stream(
             cube![R U Rp Up R U Rp Up R U Rp Up ],
             tables,
-            Some(12),
+            Some(20),
         );
 
         for solution in futures::executor::block_on_stream(stream) {
@@ -374,6 +358,54 @@ mod test {
             }
             println!("");
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_stream_random() -> anyhow::Result<()> {
+        let tables = Box::leak(Box::new(Tables::new("tables")?));
+        let mut rng = ChaCha8Rng::seed_from_u64(1);
+
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+
+        let cube = cube.apply_cube_move(CubeMove::D2);
+        cube.pretty_print();
+        let stream = get_incremental_solutions_stream(
+            cube,
+            tables,
+            Some(20),
+        );
+
+        for solution in futures::executor::block_on_stream(stream) 
+            {
+                print!("{:02} ", solution.len());
+                for m in solution.into_iter().rev() {
+                    let m = match m {
+                        CubeMove::U1 => CubeMove::U3,
+                        CubeMove::U2 => CubeMove::U2,
+                        CubeMove::U3 => CubeMove::U1,
+                        CubeMove::D1 => CubeMove::D3,
+                        CubeMove::D2 => CubeMove::D2,
+                        CubeMove::D3 => CubeMove::D1,
+                        CubeMove::F1 => CubeMove::F3,
+                        CubeMove::F2 => CubeMove::F2,
+                        CubeMove::F3 => CubeMove::F1,
+                        CubeMove::B1 => CubeMove::B3,
+                        CubeMove::B2 => CubeMove::B2,
+                        CubeMove::B3 => CubeMove::B1,
+                        CubeMove::R1 => CubeMove::R3,
+                        CubeMove::R2 => CubeMove::R2,
+                        CubeMove::R3 => CubeMove::R1,
+                        CubeMove::L1 => CubeMove::L3,
+                        CubeMove::L2 => CubeMove::L2,
+                        CubeMove::L3 => CubeMove::L1,
+                    };
+                    print!("{m} ");
+                }
+                println!("");
+            }
 
         Ok(())
     }

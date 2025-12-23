@@ -2,6 +2,7 @@ use bitvec::field::BitField;
 use bitvec::view::BitView;
 use num_integer::Integer;
 use rayon::prelude::*;
+use core::panic;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8, Ordering, fence};
 
@@ -24,9 +25,9 @@ const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
 const FILE_CHECKSUM: u32 = 1262550731;
 
 static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {
-    241926 | 282257 | 12902505 => 1,
+    282648 | 242064 | 12905160 => 1,
     0 => 0,
-    7177047 | 11733190 | 12418671 | 12781540 | 32742948 | 83393416 | 83433727 | 83474062 | 106208046 | 110799952 => 2,
+    83382185 | 83422241 | 83462969 | 11735664 | 106203030 | 7179624 | 12782568 | 12420768 | 110807808 | 32753355 => 2,
 };
 
 struct WorkingTable<'a>(&'a [AtomicU8]);
@@ -290,13 +291,21 @@ impl PrunePhase2Table {
             frontier_level += 1;
         }
 
-        // let mut out_string = "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
-        // for (k, v) in shortcut_map {
-        //     out_string.push_str(&format!("    {} => {},\n", v.into_iter().map(|x| format!("{x}")).join(" | "), k));
-        // }
-        // out_string.push_str("};");
+        let mut out_string = "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
+        for (k, v) in shortcut_map.iter() {
+            out_string.push_str(&format!("    {} => {},\n", itertools::Itertools::join(&mut v.into_iter().map(|x|format!("{x}")), " | "), k));
+        }
+        out_string.push_str("};");
 
-        // println!("{out_string}");
+        for (k, v) in shortcut_map.into_iter().flat_map(|(k, v)| v.into_iter().map(move |v| (k, v))) {
+            if PRUNE_TABLE_SHORTCUTS
+                .get(&(v as u32))
+                .copied() != Some(k) {
+                    println!("{out_string}");
+                    panic!();
+                }
+        }
+
 
         let bits = buffer.view_bits_mut::<bitvec::order::Lsb0>();
 

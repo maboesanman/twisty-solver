@@ -313,7 +313,7 @@ mod test {
     fn domino_reduce_test_superflip_2_single() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
-        let stack = all_domino_reductions::<10>(
+        let stack = all_domino_reductions::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
         );
@@ -329,7 +329,7 @@ mod test {
 
         let cancel = AtomicBool::new(false);
 
-        let stack = all_domino_reductions_par::<14>(
+        let stack = all_domino_reductions_par::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
             &cancel,
