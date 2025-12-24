@@ -1,6 +1,6 @@
 use crate::{
     CornerOrient, CornerPerm, EdgeOrient, ReprCube, Tables,
-    cube_ops::cube_move::DominoMove,
+    cube_ops::{cube_move::DominoMove, cube_prev_axis::CubePreviousAxis},
     kociemba::{
         coords::{
             coords::{EEdgePermRawCoord, UDEdgePermRawCoord},
@@ -19,6 +19,7 @@ pub struct Phase2Node {
     pub corner_perm_combo: CornerPermComboCoord,
     pub ud_edge_perm_raw: UDEdgePermRawCoord,
     pub e_edge_perm_raw: EEdgePermRawCoord,
+    pub previous_axis: CubePreviousAxis,
 }
 
 impl Phase2Node {
@@ -29,7 +30,7 @@ impl Phase2Node {
             d_edge_positions,
             e_edge_positions,
 
-            previous_axis: _,
+            previous_axis,
             corner_orient_raw: _,
             edge_group_orient_combo: _,
             skip: _,
@@ -39,6 +40,7 @@ impl Phase2Node {
             corner_perm_combo,
             ud_edge_perm_raw: UDEdgePerm(u_edge_positions, d_edge_positions).into_coord(),
             e_edge_perm_raw: EEdgePermRawCoord(e_edge_positions.0.0 as u8),
+            previous_axis,
         }
     }
 
@@ -77,10 +79,7 @@ impl Phase2Node {
     }
 
     pub fn produce_next_nodes(self, tables: &Tables) -> impl Iterator<Item = Self> {
-        // perform all new axis moves on all coords
-        let move_iter = || DominoMove::all_iter();
-
-        move_iter().map(move |mv| Phase2Node {
+        DominoMove::new_axis_iter(self.previous_axis).into_iter().map(move |mv| Phase2Node {
             corner_perm_combo: self.corner_perm_combo.apply_cube_move(tables, mv.into()),
             ud_edge_perm_raw: tables
                 .move_raw_ud_edge_perm
@@ -88,6 +87,7 @@ impl Phase2Node {
             e_edge_perm_raw: tables
                 .move_raw_e_edge_perm
                 .apply_cube_move(self.e_edge_perm_raw, mv),
+            previous_axis: self.previous_axis.update_with_new_domino_move(mv.into()),
         })
     }
 }

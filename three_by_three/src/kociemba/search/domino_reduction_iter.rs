@@ -81,7 +81,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
     const FRAME_DATA_CAP: usize = 3 + 15 * N;
 
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Self {
-        let options = (0..2)
+        let options = (0..3)
             .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables))
             .collect();
         // let options = vec![Phase1Node::from_cube(cube, tables)];

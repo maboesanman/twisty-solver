@@ -134,7 +134,7 @@ impl Phase1Node {
         let max_possible_distance = max_possible_current_distance + 1;
 
         // perform all new axis moves on all coords
-        let move_iter = || CubeMove::new_axis_iter(self.previous_axis);
+        let move_iter = || CubeMove::new_axis_iter(self.previous_axis, moves_remaining.get() == 1);
 
         let children = tables
             .move_edge_position
@@ -238,7 +238,7 @@ mod tests {
         // ---- Path A: cube -> move -> cube -> phase1 ----
         let mut from_cube = BTreeSet::new();
 
-        for mv in CubeMove::new_axis_iter(CubePreviousAxis::None) {
+        for mv in CubeMove::new_axis_iter(CubePreviousAxis::None, false) {
             let moved_cube = cube.apply_move(mv);
             let node = Phase1Node::from_cube(moved_cube, &tables);
             from_cube.insert(phase1_key(&node, &tables));
