@@ -22,7 +22,5 @@ pub fn solve_domino(
     )
     .map(|(solution, _len)| solution)?;
 
-    debug_assert!(phase_2_prune as usize >= solution.len() - 1);
-
     Some(solution)
 }

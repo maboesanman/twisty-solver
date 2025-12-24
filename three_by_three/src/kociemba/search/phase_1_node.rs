@@ -18,7 +18,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Phase1Node {
     // could make this fit in 16 bytes instead of 20
 
@@ -98,6 +98,31 @@ impl Phase1Node {
         }
     }
 
+    #[inline]
+    pub fn distance_heuristic(
+        self,
+        tables: &Tables,
+    ) -> u8 {
+        let corner_orient_adjusted = tables.move_raw_corner_orient.domino_conjugate(
+            self.corner_orient_raw,
+            self.edge_group_orient_combo.domino_conjugation,
+        );
+        let distance = tables.get_prune_phase_1().get_value(
+            self.edge_group_orient_combo.sym_coord,
+            corner_orient_adjusted,
+        );
+
+        distance
+    }
+
+    #[inline]
+    pub fn is_domino_reduced(
+        self,
+    ) -> bool {
+        self.corner_orient_raw.0 == 0 && self.edge_group_orient_combo.sym_coord.0 == 0
+    }
+
+    #[inline]
     pub fn produce_next_nodes(
         self,
         max_possible_distance: u8,
@@ -113,14 +138,8 @@ impl Phase1Node {
         // [min_allowed_distance, max_allowed_distance], then we look up the actual distance to solved and
         // return a legal single point range or return None because we're outside the range and must be pruned.
         let max_possible_current_distance = if max_possible_distance > moves_remaining.get() {
-            let corner_orient_adjusted = tables.move_raw_corner_orient.domino_conjugate(
-                self.corner_orient_raw,
-                self.edge_group_orient_combo.domino_conjugation,
-            );
-            let distance = tables.get_prune_phase_1().get_value(
-                self.edge_group_orient_combo.sym_coord,
-                corner_orient_adjusted,
-            );
+            let distance = self.distance_heuristic(tables);
+
             if distance > moves_remaining.get() {
                 return None;
             }
@@ -180,8 +199,7 @@ impl Phase1Node {
                 // of the final position, that sequence could be replaced by domino moves, which means it will not be shorter
                 // than a path already found, because there would exist a solution with a shorter phase 1 ending at the
                 // first domino reduction, and staying in domino moves, likely more optimally but never longer.
-                let child_is_reduced = child.corner_orient_raw.0 == 0
-                    && child.edge_group_orient_combo.sym_coord.0 == 0;
+                let child_is_reduced = child.is_domino_reduced();
 
                 let last_move = moves_remaining.get() == 1;
                 if last_move {

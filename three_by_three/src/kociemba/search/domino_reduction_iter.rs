@@ -1,4 +1,7 @@
-use std::{num::NonZeroU8, sync::atomic::AtomicBool};
+use std::{
+    num::NonZeroU8,
+    sync::atomic::AtomicBool,
+};
 
 use itertools::Itertools;
 use rayon::iter::{
@@ -7,10 +10,16 @@ use rayon::iter::{
 };
 
 use crate::{
-    cube_ops::{cube_sym::CubeSymmetry, repr_cube::ReprCube},
-    kociemba::search::phase_1_node::Phase1Node,
-    kociemba::tables::Tables,
+    cube_ops::{
+        cube_sym::{CubeSymmetry, DominoSymmetry},
+        repr_cube::ReprCube,
+    },
+    kociemba::{search::phase_1_node::Phase1Node, tables::Tables},
 };
+
+/// How many levels from the beginning should ensure children are unique up to domino conjugation.
+/// 0 means none. 1 means the root is deduped (if the 3 )
+const DEDUPE_DEPTH: usize = 1;
 
 /// returns all sequences of sym cubes which correspond with a
 /// domino reduction of exactly N + 1 moves.
@@ -81,15 +90,42 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
     const FRAME_DATA_CAP: usize = 3 + 15 * N;
 
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Self {
-        let options = (0..3)
-            .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables))
-            .collect();
-        // let options = vec![Phase1Node::from_cube(cube, tables)];
+        let mut options =
+            [0, 1, 2].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
+        options.sort_by_key(|n| n.distance_heuristic(tables));
         Self::new_from_frame_0(options, tables, cancel)
     }
 
-    fn new_from_frame_0(starts: Vec<Phase1Node>, tables: &'t Tables, cancel: C) -> Self {
-        let mut frame_data = starts;
+    fn new_from_frame_0(
+        starts: impl IntoIterator<Item = Phase1Node>,
+        tables: &'t Tables,
+        cancel: C,
+    ) -> Self {
+        let frame_data = if N == 0 {
+            starts
+                .into_iter()
+                .filter(|n| n.is_domino_reduced())
+                .collect_vec()
+        } else {
+            starts.into_iter().collect_vec()
+        };
+
+        let mut frame_data = if DEDUPE_DEPTH > 0 {
+            frame_data
+                .into_iter()
+                .unique_by(|c| {
+                    let cube = c.into_cube(tables);
+                    let rep_cube = DominoSymmetry::all_iter()
+                        .map(|sym| cube.domino_conjugate(sym))
+                        .min()
+                        .unwrap();
+                    rep_cube
+                })
+                .collect_vec()
+        } else {
+            frame_data
+        };
+
         frame_data.reserve_exact(Self::FRAME_DATA_CAP);
 
         let mut stack = Self {
@@ -131,7 +167,18 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
 
             if let Some(incoming) = incoming {
                 self.frame_metadata[i].max_distance = incoming.max_possible_distance;
-                self.frame_data.extend(incoming.children);
+                if i + 1 < DEDUPE_DEPTH {
+                    self.frame_data.extend(incoming.children.unique_by(|c| {
+                        let cube = c.into_cube(self.tables);
+                        let rep_cube = DominoSymmetry::all_iter()
+                            .map(|sym| cube.domino_conjugate(sym))
+                            .min()
+                            .unwrap();
+                        rep_cube
+                    }));
+                } else {
+                    self.frame_data.extend(incoming.children);
+                }
             }
 
             i += 1;
@@ -195,7 +242,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 
         let mut i = 0;
         let (frame_start, frame_end) = loop {
-            if i > N {
+            if i + 2 > N {
                 return (self, None);
             }
             let mut start = self.get_frame_metadata_i(i).start;
@@ -274,11 +321,23 @@ mod test {
     use super::*;
 
     #[test]
+    fn domino_reduce_empty() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let table_ref = &tables;
+        let cube = cube![R U Rp Up];
+        let stack = all_domino_reductions::<0>(cube, &tables).collect_vec();
+
+        println!("{stack:#?}");
+
+        Ok(())
+    }
+
+    #[test]
     fn domino_reduce_test_iter_2() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
         let table_ref = &tables;
         let cube = cube![R U Rp Up];
-        // let cube = cube![D R2 L];
+        let cube = cube![D R2 L];
         let stack = all_domino_reductions::<1>(cube, &tables);
         let res = move |path: &[Phase1Node], last: &Phase1Node| {
             let cubes = path
