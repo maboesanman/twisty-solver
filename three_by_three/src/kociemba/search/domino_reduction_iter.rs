@@ -145,6 +145,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
     }
 
     /// drop the frame at the top (belonging to frame i)
+    #[inline]
     fn drop_recurse(&mut self, i: &mut usize) -> Option<()> {
         while self.get_frame_metadata_i(*i).start == self.frame_data.len() as u16 {
             self.frame_data.pop()?;
@@ -181,7 +182,25 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
                         rep_cube
                     }));
                 } else {
-                    self.frame_data.extend(incoming.children);
+                    // this is all equivalent to this line:
+                    // 
+                    // self.frame_data.extend(incoming.children)
+                    //
+                    // only it's way faster because we don't check any bounds at all
+                    let dst = self.frame_data.as_mut_ptr();
+                    let mut len = self.frame_data.len();
+                    unsafe {
+                        let mut out = dst.add(len);
+
+                        for item in incoming.children {
+                            // SAFETY: caller guarantees capacity
+                            std::ptr::write(out, item);
+                            out = out.add(1);
+                            len += 1;
+                        }
+
+                        self.frame_data.set_len(len);
+                    }
                 }
             }
 

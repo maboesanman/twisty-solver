@@ -193,6 +193,9 @@ pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<It
 pub struct PrunePhase2Table(Mmap);
 
 impl PrunePhase2Table {
+
+
+    #[inline(always)]
     pub fn get_value(
         &self,
         corner_perm_combo_coord: CornerPermSymCoord,
@@ -210,11 +213,9 @@ impl PrunePhase2Table {
             .get(&(i as u32))
             .copied()
             .unwrap_or_else(|| {
-                let bits = self.0.view_bits::<bitvec::order::Lsb0>();
-
-                let start = i * 4;
-                let chunk = &bits[start..start + 4];
-                4 + (chunk.load_le::<u8>() & 0b1111)
+                let byte = self.0[i >> 1];
+                let shift = (i & 1) << 2;
+                4 + ((byte >> shift) & 0b1111)
             })
     }
 

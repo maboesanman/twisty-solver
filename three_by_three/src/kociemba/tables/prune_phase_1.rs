@@ -20,8 +20,8 @@ use super::table_loader::{as_atomic_u8_slice, load_table};
 
 const TABLE_ENTRY_COUNT: usize = 64430 * 2187;
 const WORKING_TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
-const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT * 3 / 8 + 1;
-const FILE_CHECKSUM: u32 = 1885600379;
+const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
+const FILE_CHECKSUM: u32 = 1275974730;
 
 static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {
     0 => 0,
@@ -225,30 +225,20 @@ pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<It
 pub struct PrunePhase1Table(Mmap);
 
 impl PrunePhase1Table {
+
+    #[inline(always)]
     pub fn get_value(
         &self,
         edge_group_orient_sym_coord: EdgeGroupOrientSymCoord,
         corner_orient_raw_coord: CornerOrientRawCoord,
     ) -> u8 {
-        let partial = PartialPhase1 {
-            edge_group_orient_combo_coord: EdgeGroupOrientComboCoord {
-                sym_coord: edge_group_orient_sym_coord,
-                domino_conjugation: DominoSymmetry::IDENTITY,
-            },
-            corner_orient_raw_coord,
-        };
-        let i = partial.into_index();
+        let a = edge_group_orient_sym_coord.0;
+        let b = corner_orient_raw_coord.0;
+        let i = (a as usize) * 2187 + (b as usize);
 
-        PRUNE_TABLE_SHORTCUTS
-            .get(&(i as u32))
-            .copied()
-            .unwrap_or_else(|| {
-                let bits = self.0.view_bits::<bitvec::order::Lsb0>();
-
-                let start = i * 3;
-                let chunk = &bits[start..start + 3];
-                4 + (chunk.load_le::<u8>() & 0b111)
-            })
+        let byte = self.0[i >> 1];
+        let shift = (i & 1) << 2;
+        (byte >> shift) & 0b1111
     }
 
     fn generate(buffer: &mut [u8], tables: &Tables) {
@@ -274,7 +264,7 @@ impl PrunePhase1Table {
                 shortcut_map.insert(frontier_level, frontier.clone());
             }
             let next_level = frontier_level + 1;
-            // println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
+            println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
 
             // we tested all thresholds to determine this is the fastest on my laptop (very scientific)
             let use_bottom_up = frontier_level > 6;
@@ -344,14 +334,14 @@ impl PrunePhase1Table {
         let bits = buffer.view_bits_mut::<bitvec::order::Lsb0>();
 
         let mut set = |i: usize, val: u8| {
-            assert!(val < 8);
-            let start = i * 3;
-            bits[start..start + 3].store_le::<u8>(val);
+            assert!(val < 16);
+            let start = i * 4;
+            bits[start..start + 4].store_le::<u8>(val);
         };
 
         for i in 0..TABLE_ENTRY_COUNT {
             let x = working.read(i);
-            (set)(i, x.clamp(4, 11) - 4);
+            (set)(i, x);
         }
     }
 
