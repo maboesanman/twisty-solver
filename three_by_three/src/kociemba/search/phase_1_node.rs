@@ -98,7 +98,7 @@ impl Phase1Node {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn distance_heuristic(
         self,
         tables: &Tables,
@@ -115,7 +115,7 @@ impl Phase1Node {
         distance
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_domino_reduced(
         self,
     ) -> bool {

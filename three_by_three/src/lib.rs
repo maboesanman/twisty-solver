@@ -1,5 +1,6 @@
 #![feature(test)]
 #![feature(slice_swap_unchecked)]
+#![feature(likely_unlikely)]
 #![allow(long_running_const_eval)]
 
 mod cube_entry;

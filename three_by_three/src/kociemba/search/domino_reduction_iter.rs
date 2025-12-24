@@ -81,6 +81,12 @@ impl FrameMetadata {
             max_distance: 20,
         }
     }
+
+    #[cold]
+    #[inline(never)]
+    fn cold_default() -> FrameMetadata {
+        FrameMetadata::default()
+    }
 }
 
 impl Default for FrameMetadata {
@@ -172,16 +178,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
 
             if let Some(incoming) = incoming {
                 self.frame_metadata[i].max_distance = incoming.max_possible_distance;
-                if i + 1 < DEDUPE_DEPTH {
-                    self.frame_data.extend(incoming.children.unique_by(|c| {
-                        let cube = c.into_cube(self.tables);
-                        let rep_cube = DominoSymmetry::all_iter()
-                            .map(|sym| cube.domino_conjugate(sym))
-                            .min()
-                            .unwrap();
-                        rep_cube
-                    }));
-                } else {
+                if std::hint::likely(i + 1 >= DEDUPE_DEPTH) {
                     // this is all equivalent to this line:
                     // 
                     // self.frame_data.extend(incoming.children)
@@ -191,16 +188,18 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
                     let mut len = self.frame_data.len();
                     unsafe {
                         let mut out = dst.add(len);
-
+                        
                         for item in incoming.children {
                             // SAFETY: caller guarantees capacity
                             std::ptr::write(out, item);
                             out = out.add(1);
                             len += 1;
                         }
-
+                        
                         self.frame_data.set_len(len);
                     }
+                } else {
+                    self.extend_unique(incoming.children);
                 }
             }
 
@@ -230,10 +229,26 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
         );
     }
 
+    #[inline(always)]
     fn get_frame_metadata_i(&self, i: usize) -> FrameMetadata {
-        i.checked_sub(1)
-            .map(|j| self.frame_metadata[j])
-            .unwrap_or_default()
+        if std::hint::likely(i != 0) {
+            unsafe { *self.frame_metadata.get_unchecked(i - 1) }
+        } else {
+            FrameMetadata::cold_default()
+        }
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn extend_unique(&mut self, children: impl Iterator<Item = Phase1Node>) {
+        self.frame_data.extend(children.unique_by(|c| {
+            let cube = c.into_cube(self.tables);
+            let rep_cube = DominoSymmetry::all_iter()
+                .map(|sym| cube.domino_conjugate(sym))
+                .min()
+                .unwrap();
+            rep_cube
+        }));
     }
 }
 
