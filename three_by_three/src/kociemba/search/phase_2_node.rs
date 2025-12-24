@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Phase2Node {
     pub corner_perm_combo: CornerPermComboCoord,
     pub ud_edge_perm_raw: UDEdgePermRawCoord,

@@ -7,8 +7,8 @@ pub fn solve_domino(
     phase_2_start: Phase2Node,
     tables: &Tables,
     max_moves: u8,
+    phase_2_prune: u8,
 ) -> Option<Vec<Phase2Node>> {
-    let phase_2_prune = phase_2_start.distance_heuristic(tables);
     if phase_2_prune > max_moves {
         return None;
     }

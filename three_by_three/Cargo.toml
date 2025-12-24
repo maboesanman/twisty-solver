@@ -9,6 +9,7 @@ edition = "2024"
 [lib]
 name = "three_by_three"
 
+
 [dependencies]
 smallvec = "1.10.0"
 num_enum = "0.7.3"
@@ -37,4 +38,4 @@ futures = "0.3.31"
 opt-level = 3
 codegen-units = 1
 panic = "abort"
-
+lto = "fat"

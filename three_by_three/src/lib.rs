@@ -1,8 +1,5 @@
-#![feature(portable_simd)]
-#![feature(slice_as_array)]
+#![feature(test)]
 #![feature(slice_swap_unchecked)]
-#![feature(hash_set_entry)]
-#![feature(const_precise_live_drops)]
 #![allow(long_running_const_eval)]
 
 mod cube_entry;
@@ -23,4 +20,4 @@ pub use cube_ops::cube_move::CubeMove;
 
 pub use kociemba::tables::Tables;
 
-// pub use kociemba::search::get_incremental_solutions_stream;
+pub use kociemba::search::get_incremental_solutions_stream;
