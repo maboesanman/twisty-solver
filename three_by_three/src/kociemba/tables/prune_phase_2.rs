@@ -1,5 +1,6 @@
 use bitvec::field::BitField;
 use bitvec::view::BitView;
+use core::panic;
 use num_integer::Integer;
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -14,19 +15,19 @@ use crate::cube_ops::cube_move::DominoMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
 use crate::kociemba::coords::corner_perm_combo_coord::CornerPermComboCoord;
-use crate::tables::Tables;
+use crate::kociemba::tables::Tables;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
 const TABLE_ENTRY_COUNT: usize = 2768 * 40320;
 const WORKING_TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT;
 const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
-const FILE_CHECKSUM: u32 = 796939987;
+const FILE_CHECKSUM: u32 = 1262550731;
 
 static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {
-    241926 | 282257 | 12902505 => 1,
+    282648 | 242064 | 12905160 => 1,
     0 => 0,
-    7177047 | 11733190 | 12418671 | 12781540 | 32742948 | 83393416 | 83433727 | 83474062 | 106208046 | 110799952 => 2,
+    83382185 | 83422241 | 83462969 | 11735664 | 106203030 | 7179624 | 12782568 | 12420768 | 110807808 | 32753355 => 2,
 };
 
 struct WorkingTable<'a>(&'a [AtomicU8]);
@@ -100,11 +101,8 @@ impl PartialPhase2 {
             .map(move |sym| Self {
                 corner_perm_combo_coord: base.corner_perm_combo_coord,
                 ud_edge_perm_raw_coord: tables
-                    .grouped_edge_moves
-                    .update_edge_perm_phase_2_partial_domino_symmetry(
-                        sym,
-                        base.ud_edge_perm_raw_coord,
-                    ),
+                    .move_raw_ud_edge_perm
+                    .domino_conjugate(base.ud_edge_perm_raw_coord, sym),
             })
     }
 
@@ -125,8 +123,8 @@ impl PartialPhase2 {
             .apply_cube_move(tables, domino_move.into());
 
         let ud_edge_perm_raw_coord = tables
-            .grouped_edge_moves
-            .update_edge_perm_phase_2_partial_domino_move(domino_move, self.ud_edge_perm_raw_coord);
+            .move_raw_ud_edge_perm
+            .apply_cube_move(self.ud_edge_perm_raw_coord, domino_move);
 
         Self {
             corner_perm_combo_coord,
@@ -142,8 +140,8 @@ impl PartialPhase2 {
         let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
 
         let ud_edge_perm_raw_coord = tables
-            .grouped_edge_moves
-            .update_edge_perm_phase_2_partial_domino_symmetry(sym, self.ud_edge_perm_raw_coord);
+            .move_raw_ud_edge_perm
+            .domino_conjugate(self.ud_edge_perm_raw_coord, sym);
 
         Self {
             corner_perm_combo_coord,
@@ -161,11 +159,8 @@ impl PartialPhase2 {
             .map(move |sym| PartialPhase2 {
                 corner_perm_combo_coord: rep.corner_perm_combo_coord,
                 ud_edge_perm_raw_coord: tables
-                    .grouped_edge_moves
-                    .update_edge_perm_phase_2_partial_domino_symmetry(
-                        sym,
-                        rep.ud_edge_perm_raw_coord,
-                    ),
+                    .move_raw_ud_edge_perm
+                    .domino_conjugate(rep.ud_edge_perm_raw_coord, sym),
             })
     }
 
@@ -246,7 +241,7 @@ impl PrunePhase2Table {
                 shortcut_map.insert(frontier_level, frontier.clone());
             }
             let next_level = frontier_level + 1;
-            println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
+            // println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
             let use_bottom_up = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 18];
 
             let next = if use_bottom_up.contains(&frontier_level) {
@@ -290,13 +285,26 @@ impl PrunePhase2Table {
             frontier_level += 1;
         }
 
-        // let mut out_string = "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
-        // for (k, v) in shortcut_map {
-        //     out_string.push_str(&format!("    {} => {},\n", v.into_iter().map(|x| format!("{x}")).join(" | "), k));
-        // }
-        // out_string.push_str("};");
+        let mut out_string =
+            "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
+        for (k, v) in shortcut_map.iter() {
+            out_string.push_str(&format!(
+                "    {} => {},\n",
+                itertools::Itertools::join(&mut v.iter().map(|x| format!("{x}")), " | "),
+                k
+            ));
+        }
+        out_string.push_str("};");
 
-        // println!("{out_string}");
+        for (k, v) in shortcut_map
+            .into_iter()
+            .flat_map(|(k, v)| v.into_iter().map(move |v| (k, v)))
+        {
+            if PRUNE_TABLE_SHORTCUTS.get(&(v as u32)).copied() != Some(k) {
+                println!("{out_string}");
+                panic!();
+            }
+        }
 
         let bits = buffer.view_bits_mut::<bitvec::order::Lsb0>();
 
@@ -310,9 +318,6 @@ impl PrunePhase2Table {
             let x = working.read(i);
             (set)(i, x.clamp(3, 18) - 3);
         }
-
-        println!("{:?}", frontier.len());
-        println!("{frontier_level:?}");
     }
 
     pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {

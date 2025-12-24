@@ -1,4 +1,7 @@
-use crate::cube;
+use crate::{
+    cube,
+    kociemba::partial_reprs::{edge_group::EdgeGroup, edge_positions::split_edge_positions},
+};
 
 use super::{
     cube_move::CubeMove,
@@ -284,7 +287,7 @@ impl ReprCube {
             corner_orient: self.corner_orient.domino_conjugate(sym),
             edge_perm: self.edge_perm.domino_conjugate(sym),
             edge_orient: crate::kociemba::partial_reprs::edge_group_orient::EdgeGroupOrient(
-                self.edge_perm.split().0,
+                EdgeGroup(split_edge_positions(self.edge_perm).2.0.split().0),
                 self.edge_orient,
             )
             .domino_conjugate(sym)

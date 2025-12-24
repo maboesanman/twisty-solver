@@ -114,28 +114,6 @@ pub fn as_u16_slice(bytes: &[u8]) -> &[u16] {
     unsafe { std::slice::from_raw_parts(ptr as *mut u16, len_u16) }
 }
 
-// pub fn as_u16_2_slice(bytes: &[u8]) -> &[[u16; 2]] {
-//     // 1) length must be a multiple of 4 bytes
-//     assert!(
-//         bytes.len() % std::mem::size_of::<[u16; 2]>() == 0,
-//         "length not a multiple of 4"
-//     );
-//     // 2) pointer must be aligned for [u16;2] (same as u16)
-//     let ptr = bytes.as_ptr();
-//     assert!(
-//         (ptr as usize) % std::mem::align_of::<[u16; 2]>() == 0,
-//         "pointer not aligned for u16"
-//     );
-//     // 3) reinterpret as &[ [u16;2] ]
-//     let count = bytes.len() / std::mem::size_of::<[u16; 2]>();
-//     unsafe {
-//         std::slice::from_raw_parts(
-//             ptr as *const [u16; 2], // cast straight to array‐of‐2
-//             count,
-//         )
-//     }
-// }
-
 pub fn as_u16_slice_mut(bytes: &mut [u8]) -> &mut [u16] {
     // 1) length must be even
     debug_assert!(bytes.len().is_multiple_of(2), "length not a multiple of 2");
@@ -177,47 +155,6 @@ pub fn as_u32_slice_mut(bytes: &mut [u8]) -> &mut [u32] {
     let len_u32 = bytes.len() / 4;
     unsafe { std::slice::from_raw_parts_mut(ptr as *mut u32, len_u32) }
 }
-
-// pub fn generate_cube_move_and_domino_sym_table<const SIZE: usize, T, F>(
-//     buffer: &mut [u8],
-//     to_fn: T,
-//     from_fn: F,
-// ) where
-//     T: Send + Sync + Fn(usize) -> ReprCube,
-//     F: Send + Sync + Fn(ReprCube) -> u16,
-// {
-//     assert_eq!(buffer.len(), SIZE);
-//     let buffer = as_u16_slice_mut(buffer);
-
-//     buffer.par_chunks_mut(33).enumerate().for_each(|(i, row)| {
-//         for (j, coord) in to_fn(i)
-//             .phase_1_move_table_entry_cubes()
-//             .map(&from_fn)
-//             .enumerate()
-//         {
-//             row[j] = coord
-//         }
-//     });
-// }
-
-// pub fn generate_domino_move_and_domino_sym_table<const SIZE: usize, T, F>(buffer: &mut [u8], to_fn: T, from_fn: F)
-// where
-//     T: Send + Sync + Fn(usize) -> ReprCube,
-//     F: Send + Sync + Fn(ReprCube) -> u16,
-// {
-//     assert_eq!(buffer.len(), SIZE);
-//     let buffer = as_u16_slice_mut(buffer);
-
-//     buffer.par_chunks_mut(25).enumerate().for_each(|(i, row)| {
-//         for (j, coord) in to_fn(i)
-//             .phase_2_move_table_entry_cubes()
-//             .map(&from_fn)
-//             .enumerate()
-//         {
-//             row[j] = coord
-//         }
-//     });
-// }
 
 /// # Safety
 /// * `data` must not be accessed again through the old `[u8]` view

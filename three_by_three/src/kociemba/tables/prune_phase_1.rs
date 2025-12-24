@@ -14,7 +14,7 @@ use crate::cube_ops::cube_move::CubeMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
 use crate::kociemba::coords::edge_group_orient_combo_coord::EdgeGroupOrientComboCoord;
-use crate::tables::Tables;
+use crate::kociemba::tables::Tables;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
@@ -274,7 +274,7 @@ impl PrunePhase1Table {
                 shortcut_map.insert(frontier_level, frontier.clone());
             }
             let next_level = frontier_level + 1;
-            println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
+            // println!("level: {:?} frontier: {:?}", frontier_level, frontier.len());
 
             // we tested all thresholds to determine this is the fastest on my laptop (very scientific)
             let use_bottom_up = frontier_level > 6;
@@ -320,13 +320,26 @@ impl PrunePhase1Table {
             frontier_level += 1;
         }
 
-        // let mut out_string = "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
-        // for (k, v) in shortcut_map {
-        //     out_string.push_str(&format!("    {} => {},\n", v.into_iter().map(|x| format!("{x}")).join(" | "), k));
-        // }
-        // out_string.push_str("};");
+        let mut out_string =
+            "static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {\n".to_string();
+        for (k, v) in shortcut_map.iter() {
+            out_string.push_str(&format!(
+                "    {} => {},\n",
+                itertools::Itertools::join(&mut v.iter().map(|x| format!("{x}")), " | "),
+                k
+            ));
+        }
+        out_string.push_str("};");
 
-        // println!("{out_string}");
+        for (k, v) in shortcut_map
+            .into_iter()
+            .flat_map(|(k, v)| v.into_iter().map(move |v| (k, v)))
+        {
+            if PRUNE_TABLE_SHORTCUTS.get(&(v as u32)).copied() != Some(k) {
+                println!("{out_string}");
+                panic!();
+            }
+        }
 
         let bits = buffer.view_bits_mut::<bitvec::order::Lsb0>();
 
@@ -340,9 +353,6 @@ impl PrunePhase1Table {
             let x = working.read(i);
             (set)(i, x.clamp(4, 11) - 4);
         }
-
-        println!("{:?}", frontier.len());
-        println!("{frontier_level:?}");
     }
 
     pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {

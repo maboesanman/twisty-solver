@@ -12,8 +12,8 @@ use crate::{
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         },
         partial_reprs::edge_group_orient::EdgeGroupOrient,
+        tables::table_loader::{as_u16_slice, as_u16_slice_mut},
     },
-    tables::table_loader::{as_u16_slice, as_u16_slice_mut},
 };
 
 use super::{
@@ -40,9 +40,10 @@ impl MoveSymEdgeGroupOrientTable {
         coord: EdgeGroupOrientSymCoord,
         mv: CubeMove,
     ) -> EdgeGroupOrientComboCoord {
+        let chunk = self.chunk(coord);
         EdgeGroupOrientComboCoord {
-            sym_coord: EdgeGroupOrientSymCoord(self.chunk(coord)[mv.into_index() * 2]),
-            domino_conjugation: DominoSymmetry(self.chunk(coord)[mv.into_index() * 2 + 1] as u8),
+            sym_coord: EdgeGroupOrientSymCoord(chunk[mv.into_index() * 2]),
+            domino_conjugation: DominoSymmetry(chunk[mv.into_index() * 2 + 1] as u8),
         }
     }
 

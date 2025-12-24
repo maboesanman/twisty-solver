@@ -1,15 +1,15 @@
-use std::sync::atomic::AtomicBool;
+use std::{num::NonZeroU8, sync::atomic::AtomicBool};
 
-use arrayvec::ArrayVec;
+use itertools::Itertools;
 use rayon::iter::{
     ParallelIterator,
     plumbing::{UnindexedConsumer, UnindexedProducer, bridge_unindexed},
 };
 
 use crate::{
-    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
-    kociemba::coords::repr_coord::SymReducedRepr,
-    tables::Tables,
+    cube_ops::{cube_sym::CubeSymmetry, repr_cube::ReprCube},
+    kociemba::search::phase_1_node::Phase1Node,
+    kociemba::tables::Tables,
 };
 
 /// returns all sequences of sym cubes which correspond with a
@@ -17,11 +17,11 @@ use crate::{
 ///
 /// if S is false, the move sequence is not allowed to be domino reduced at any time before the final state.
 /// if S is true, only the second-to-last state is prevented from being domino reduced
-pub fn all_domino_reductions<const N: usize, const S: bool>(
+pub fn all_domino_reductions<const N: usize>(
     cube: ReprCube,
     tables: &Tables,
-) -> impl Iterator<Item = ([SymReducedRepr; 2], [SymReducedRepr; N])> {
-    Stack::<_, S, _>::new(cube, tables, ())
+) -> impl Iterator<Item = ([Phase1Node; N], Phase1Node)> {
+    Stack::<_, _>::new(cube, tables, ())
 }
 
 /// returns all sequences of sym cubes which correspond with a
@@ -29,364 +29,212 @@ pub fn all_domino_reductions<const N: usize, const S: bool>(
 ///
 /// if S is false, the move sequence is not allowed to be domino reduced at any time before the final state.
 /// if S is true, only the second-to-last state is prevented from being domino reduced
-pub fn all_domino_reductions_par<'a, const N: usize, const S: bool>(
+pub fn all_domino_reductions_par<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
     cancel: &'a AtomicBool,
-) -> impl 'a + ParallelIterator<Item = ([SymReducedRepr; 2], [SymReducedRepr; N])> {
-    Stack::<_, S, _>::new(cube, tables, cancel)
+) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase1Node)> {
+    Stack::<_, _>::new(cube, tables, cancel)
 }
 
-// N is number of moves - 1
+// N is number of moves
 // this doesn't work if the cube is already domino reduced.
 #[derive(Clone)]
-struct Stack<'t, const N: usize, const S: bool, C> {
+struct Stack<'t, const N: usize, C> {
     tables: &'t Tables,
     cancel: C,
 
-    // one for each S_URF3 symmetry of the starting position
-    frame_0: StackFrame<3, ()>,
+    frame_metadata: [FrameMetadata; N],
 
-    // the 18 possible moves from the starting position
-    frame_1: StackFrame<18, CubePreviousAxis>,
-
-    // the 15 possible moves from the previous position, because you can't turn the face you just turned.
-    frames_after: [StackFrame<15, CubePreviousAxis>; N],
-}
-
-impl<'t, const N: usize, const S: bool, C> std::fmt::Debug for Stack<'t, N, S, C> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut dbg = f.debug_struct("Stack");
-        dbg.field("frame_0", &self.frame_0);
-        dbg.field("frame_1", &self.frame_1);
-        for (i, frame) in self.frames_after.iter().enumerate() {
-            dbg.field(&format!("frame_{}", i + 2), frame);
-        }
-        dbg.finish()
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-struct StackFrame<const N: usize, M: Copy> {
-    next_cubes: ArrayVec<NextCubes<M>, N>,
-}
-
-impl<const N: usize, M: Copy> StackFrame<N, M> {
-    fn split(&mut self) -> Option<Self> {
-        if self.next_cubes.len() <= 1 {
-            return None;
-        }
-
-        let split_index = self.next_cubes.len().div_ceil(2);
-
-        let mut new = self.next_cubes[split_index..].iter().copied().collect();
-        self.next_cubes.truncate(split_index);
-
-        core::mem::swap(&mut new, &mut self.next_cubes);
-
-        Some(StackFrame { next_cubes: new })
-    }
+    // 3, 18, 15 * (N - 1) at most. when N=20, 306 at most
+    frame_data: Vec<Phase1Node>,
 }
 
 #[derive(Clone, Copy, Debug)]
-struct NextCubes<A: Copy> {
-    cube: SymReducedRepr,
-    previous_axis: A,
-    domino_distance: u8,
+pub struct FrameMetadata {
+    // the offset into the frame_data buffer that this begins.
+    // note that this can never be empty
+    start: u16,
+
+    // the bounds on the actual distance we know right now.
+    min_distance: u8,
+    max_distance: u8,
 }
 
-impl<'t, const N: usize, const S: bool, C> Stack<'t, N, S, C> {
+impl FrameMetadata {
+    const fn default_const() -> Self {
+        Self {
+            start: 0,
+            min_distance: 0,
+            max_distance: 20,
+        }
+    }
+}
+
+impl Default for FrameMetadata {
+    fn default() -> Self {
+        Self::default_const()
+    }
+}
+
+impl<'t, const N: usize, C> Stack<'t, N, C> {
+    const FRAME_DATA_CAP: usize = 3 + 15 * N;
+
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Self {
         let options = (0..2)
-            .map(|x| SymReducedRepr::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables))
+            .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables))
             .collect();
+        // let options = vec![Phase1Node::from_cube(cube, tables)];
         Self::new_from_frame_0(options, tables, cancel)
     }
 
-    fn new_from_frame_0(
-        frame_0: ArrayVec<SymReducedRepr, 3>,
-        tables: &'t Tables,
-        cancel: C,
-    ) -> Self {
-        let next_cubes = frame_0
-            .into_iter()
-            .map(|cube| {
-                let domino_distance = cube.prune_distance_phase_1(tables);
-
-                NextCubes {
-                    cube,
-                    previous_axis: (),
-                    domino_distance,
-                }
-            })
-            .collect();
-
-        let frame_0 = StackFrame { next_cubes };
+    fn new_from_frame_0(starts: Vec<Phase1Node>, tables: &'t Tables, cancel: C) -> Self {
+        let mut frame_data = starts;
+        frame_data.reserve_exact(Self::FRAME_DATA_CAP);
 
         let mut stack = Self {
             tables,
             cancel,
-            frame_0,
-            frame_1: StackFrame {
-                next_cubes: ArrayVec::new(),
-            },
-            frames_after: [const {
-                StackFrame {
-                    next_cubes: ArrayVec::new_const(),
-                }
-            }; _],
+            frame_data,
+            frame_metadata: [const { FrameMetadata::default_const() }; _],
         };
 
-        stack.fill_empty_frames();
+        stack.fill_recurse(0);
 
         stack
     }
 
-    /// after the
-    fn cube_child_filter(
-        parent_dist: u8,
-        parent_moves_remaining: u8,
-        iter: impl IntoIterator<Item = (SymReducedRepr, CubePreviousAxis)>,
-        tables: &Tables,
-    ) -> impl Iterator<Item = NextCubes<CubePreviousAxis>> {
-        // there's an interesting optimization here.
-        // there are no domino sequences of 7 moves or less which can be done in fewer moves when treated
-        // as a non-domino. this means that if our domino reduction is ever distance 0 at two distinct points
-        // within 7 moves, those moves could be replaced by the same number of domino moves.
-        // now consider the last position of phase 1, which is distance 0. if we are distance 0 within 7 moves
-        // of the final position, that sequence could be replaced by domino moves, which means it will not be shorter
-        // than a path already found, because it there would exist a solution with a shorter phase 1 ending at the
-        // first domino reduction, and staying in domino moves, likely more optimally but never longer.
-        let min_d = match parent_moves_remaining - 1 {
-            0 => 0,
-            1..8 => parent_dist.saturating_sub(2) + 1,
-            8.. => parent_dist.saturating_sub(1),
-        };
-        let max_d = (parent_dist + 1).min(parent_moves_remaining - 1);
-
-        iter.into_iter().filter_map(move |(cube, previous_axis)| {
-            let domino_distance = cube.prune_distance_phase_1(tables);
-
-            if !(min_d..=max_d).contains(&domino_distance) {
-                return None;
-            }
-
-            Some(NextCubes {
-                cube,
-                previous_axis,
-                domino_distance,
-            })
-        })
-    }
-
-    /// returns true if the parent has more siblings (didn't just pop the last item in the list)
-    fn pop_parent_after_m(&mut self, i: usize) -> Option<bool> {
-        let new_len = match i.checked_sub(1).map(|x| x.checked_sub(1)) {
-            None => {
-                self.frame_0.next_cubes.pop()?;
-                self.frame_0.next_cubes.len()
-            }
-            Some(None) => {
-                self.frame_1.next_cubes.pop()?;
-                self.frame_1.next_cubes.len()
-            }
-            Some(Some(i)) => {
-                if i > N {
-                    panic!()
-                }
-                let frame = self.frames_after.get_mut(i)?;
-                frame.next_cubes.pop()?;
-                frame.next_cubes.len()
-            }
-        };
-        Some(new_len > 0)
-    }
-
-    fn pop_parent_after_m_complete(&mut self, i: &mut usize) {
-        loop {
-            if self.pop_parent_after_m(*i).unwrap() {
-                break;
-            }
-
-            if *i == 0 {
-                break;
-            }
+    /// drop the frame at the top (belonging to frame i)
+    fn drop_recurse(&mut self, i: &mut usize) -> Option<()> {
+        while self.get_frame_metadata_i(*i).start == self.frame_data.len() as u16 {
+            self.frame_data.pop()?;
             *i -= 1;
         }
+
+        Some(())
     }
 
-    /// returns true if any items were written to m
-    fn set_frame_after_m_overwrite(&mut self, i: usize) -> bool {
-        match i.checked_sub(1).map(|x| x.checked_sub(1)) {
-            Some(x) => {
-                let (parent, child_frame) = match x {
-                    Some(i) => {
-                        if i > N {
-                            panic!()
-                        }
-                        let [prev, next] =
-                            unsafe { self.frames_after.get_disjoint_unchecked_mut([i, i + 1]) };
-                        (prev.next_cubes.last().unwrap(), next)
-                    }
-                    None => (
-                        self.frame_1.next_cubes.last().unwrap(),
-                        &mut self.frames_after[0],
-                    ),
-                };
+    // recurse into frames
+    fn fill_recurse(&mut self, i: usize) -> Option<()> {
+        let mut i = i;
+        while i < N {
+            let last_data = self.frame_data.last()?;
+            let last_frame = self.get_frame_metadata_i(i);
 
-                let prev_d = parent.domino_distance;
-                let prev_m_remaining = (N + 1 - i) as u8;
+            let incoming = last_data.produce_next_nodes(
+                last_frame.max_distance,
+                unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
+                self.tables,
+            );
 
-                child_frame.next_cubes.truncate(0);
-                child_frame.next_cubes.extend(Self::cube_child_filter(
-                    prev_d,
-                    prev_m_remaining,
-                    parent
-                        .cube
-                        .partial_phase_1_neighbors(self.tables, parent.previous_axis),
-                    self.tables,
-                ));
-                !child_frame.next_cubes.is_empty()
+            self.frame_metadata[i].start = self.frame_data.len() as u16;
+
+            if let Some(incoming) = incoming {
+                self.frame_metadata[i].max_distance = incoming.max_possible_distance;
+                self.frame_data.extend(incoming.children);
             }
-            None => {
-                let parent = self.frame_0.next_cubes.last().unwrap();
 
-                let prev_d = parent.domino_distance;
-                let prev_m_remaining = (N + 1 - i) as u8;
+            i += 1;
 
-                self.frame_1.next_cubes.truncate(0);
-                self.frame_1.next_cubes.extend(Self::cube_child_filter(
-                    prev_d,
-                    prev_m_remaining,
-                    parent.cube.full_phase_1_neighbors(self.tables),
-                    self.tables,
-                ));
-                !self.frame_1.next_cubes.is_empty()
-            }
+            self.drop_recurse(&mut i);
         }
+
+        Some(())
     }
 
-    fn fill_empty_frames(&mut self) {
-        let mut i = match self
-            .frames_after
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|(_, f)| !f.next_cubes.is_empty())
-        {
-            Some((i, _)) => i + 2,
-            None => {
-                if self.frame_1.next_cubes.is_empty() {
-                    if self.frame_0.next_cubes.is_empty() {
-                        return;
-                    }
-                    0
-                } else {
-                    1
-                }
-            }
-        };
+    pub fn pretty_print(&self) {
+        println!("=== STACK STATE ===");
 
-        while i < N + 1 {
-            // fill the frames, and note if there were any items that were written.
-            let any_items_written = self.set_frame_after_m_overwrite(i);
-            if any_items_written {
-                i += 1;
-                continue;
-            }
+        let _default = FrameMetadata::default();
 
-            self.pop_parent_after_m_complete(&mut i);
+        println!("{:#?}", self.frame_metadata);
+        println!(
+            "{:#?}",
+            self.frame_data
+                .iter()
+                .map(|n| format!(
+                    "{}-{}",
+                    n.edge_group_orient_combo.sym_coord.0, n.corner_orient_raw.0
+                ))
+                .collect_vec()
+        );
+    }
 
-            if self.frame_0.next_cubes.is_empty() {
-                return;
-            }
-        }
+    fn get_frame_metadata_i(&self, i: usize) -> FrameMetadata {
+        i.checked_sub(1)
+            .map(|j| self.frame_metadata[j])
+            .unwrap_or_default()
     }
 }
 
-impl<'t, const N: usize, const S: bool, C> Iterator for Stack<'t, N, S, C> {
-    type Item = ([SymReducedRepr; 2], [SymReducedRepr; N]);
+impl<'t, const N: usize, C> Iterator for Stack<'t, N, C> {
+    type Item = ([Phase1Node; N], Phase1Node);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.frame_0.next_cubes.is_empty() {
-            return None;
-        }
-        let return_value_head = [
-            self.frame_0.next_cubes.last().unwrap().cube,
-            self.frame_1.next_cubes.last().unwrap().cube,
-        ];
-        let return_value_tail: [SymReducedRepr; N] =
-            std::array::from_fn(|i| self.frames_after[i].next_cubes.last().unwrap().cube);
+        let tail = self.frame_data.pop()?;
+        let head = self
+            .frame_metadata
+            .map(|m| self.frame_data[m.start as usize - 1]);
 
-        let mut i = N + 1;
-        self.pop_parent_after_m_complete(&mut i);
-        self.fill_empty_frames();
+        let mut i = N;
+        self.drop_recurse(&mut i);
+        self.fill_recurse(i);
 
-        Some((return_value_head, return_value_tail))
+        Some((head, tail))
     }
 }
 
-impl<'t, const N: usize, const S: bool> UnindexedProducer for Stack<'t, N, S, &'t AtomicBool> {
+impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
     type Item = <Self as Iterator>::Item;
 
     fn split(mut self) -> (Self, Option<Self>) {
-        if let Some(other) = self.frame_0.split() {
-            let mut new = Self {
-                cancel: self.cancel,
-                tables: self.tables,
-                frame_0: other,
-                frame_1: StackFrame {
-                    next_cubes: ArrayVec::new(),
-                },
-                frames_after: [const {
-                    StackFrame {
-                        next_cubes: ArrayVec::new_const(),
-                    }
-                }; _],
-            };
-            new.fill_empty_frames();
-            return (self, Some(new));
+        // we've already been exhausted. nothing to split
+        if self.frame_data.is_empty() {
+            return (self, None);
         }
 
-        if let Some(other) = self.frame_1.split() {
-            let mut new = Self {
-                cancel: self.cancel,
-                tables: self.tables,
-                frame_0: self.frame_0.clone(),
-                frame_1: other,
-                frames_after: [const {
-                    StackFrame {
-                        next_cubes: ArrayVec::new_const(),
-                    }
-                }; _],
-            };
-            new.fill_empty_frames();
-            return (self, Some(new));
-        }
-
-        for (i, frame) in self.frames_after.iter_mut().enumerate() {
-            if let Some(other) = frame.split() {
-                let mut new = Self {
-                    cancel: self.cancel,
-                    tables: self.tables,
-                    frame_0: self.frame_0.clone(),
-                    frame_1: self.frame_1.clone(),
-                    frames_after: [const {
-                        StackFrame {
-                            next_cubes: ArrayVec::new_const(),
-                        }
-                    }; _],
-                };
-                for j in 0..i {
-                    new.frames_after[j] = self.frames_after[j].clone();
-                }
-                new.frames_after[i] = other;
-                new.fill_empty_frames();
-                return (self, Some(new));
+        let mut i = 0;
+        let (frame_start, frame_end) = loop {
+            if i > N {
+                return (self, None);
             }
+            let mut start = self.get_frame_metadata_i(i).start;
+            while self.frame_data[start as usize].skip {
+                start += 1;
+            }
+            let end = self.frame_metadata[i].start;
+
+            if end - start > 1 {
+                break (start as usize, end as usize);
+            }
+
+            i += 1;
+        };
+
+        // frame i has more than 1 item in it. let's produce a new frame metadata and data.
+
+        // if it's odd, the last one in the frame is alreay potentially partially expanded so we
+        // give more items to the latter half (round down)
+        let frame_split = (frame_start + frame_end) / 2;
+
+        let mut new_frame_data = Vec::with_capacity(Self::FRAME_DATA_CAP);
+        new_frame_data.extend_from_slice(&self.frame_data[0..frame_split]);
+
+        for node in self.frame_data[frame_start..frame_split].iter_mut() {
+            node.skip = true;
         }
 
-        (self, None)
+        let mut new_stack = Stack {
+            tables: self.tables,
+            cancel: self.cancel,
+            frame_metadata: self.frame_metadata,
+            frame_data: new_frame_data,
+        };
+
+        match new_stack.fill_recurse(i) {
+            Some(()) => (self, Some(new_stack)),
+            None => (self, None),
+        }
     }
 
     fn fold_with<F>(self, mut folder: F) -> F
@@ -404,8 +252,8 @@ impl<'t, const N: usize, const S: bool> UnindexedProducer for Stack<'t, N, S, &'
     }
 }
 
-impl<'t, const N: usize, const S: bool> ParallelIterator for Stack<'t, N, S, &'t AtomicBool> {
-    type Item = ([SymReducedRepr; 2], [SymReducedRepr; N]);
+impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
+    type Item = ([Phase1Node; N], Phase1Node);
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
     where
@@ -418,33 +266,56 @@ impl<'t, const N: usize, const S: bool> ParallelIterator for Stack<'t, N, S, &'t
 #[cfg(test)]
 mod test {
 
-    use crate::cube;
+    use crate::{
+        cube,
+        kociemba::search::move_resolver::{move_resolver, move_resolver_multi_dimension_domino},
+    };
 
     use super::*;
 
     #[test]
     fn domino_reduce_test_iter_2() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
+        let table_ref = &tables;
+        let cube = cube![R U Rp Up];
+        // let cube = cube![D R2 L];
+        let stack = all_domino_reductions::<1>(cube, &tables);
+        let res = move |path: &[Phase1Node], last: &Phase1Node| {
+            let cubes = path
+                .into_iter()
+                .chain(Some(last))
+                .map(|x| x.into_cube(table_ref));
 
-        let stack = all_domino_reductions::<5, false>(cube![R U Rp Up], &tables);
-
-        println!("{:?}", stack.count());
-        // loop {
-        //     if stack.next().is_none() {
-        //         break
-        //     };
-        //     println!("{stack:?}");
-        //     // println!("{x:?} ");
-        // }
+            move_resolver_multi_dimension_domino(cube, cubes)
+        };
+        stack.for_each(|(path, last)| {
+            println!("{:?}", res(&path, &last));
+        });
+        let stack = all_domino_reductions::<2>(cube, &tables);
+        stack.for_each(|(path, last)| {
+            println!("{:?}", res(&path, &last));
+        });
+        let stack = all_domino_reductions::<3>(cube, &tables);
+        stack.for_each(|(path, last)| {
+            println!("{:?}", res(&path, &last));
+        });
+        let stack = all_domino_reductions::<4>(cube, &tables);
+        stack.for_each(|(path, last)| {
+            println!("{:?}", res(&path, &last));
+        });
+        let stack = all_domino_reductions::<5>(cube, &tables);
+        stack.for_each(|(path, last)| {
+            println!("{:?}", res(&path, &last));
+        });
 
         Ok(())
     }
 
     #[test]
-    fn domino_reduce_test_superflip_2() -> anyhow::Result<()> {
+    fn domino_reduce_test_superflip_2_single() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
-        let stack = all_domino_reductions::<9, false>(
+        let stack = all_domino_reductions::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
         );
@@ -460,7 +331,7 @@ mod test {
 
         let cancel = AtomicBool::new(false);
 
-        let stack = all_domino_reductions_par::<9, false>(
+        let stack = all_domino_reductions_par::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
             &cancel,

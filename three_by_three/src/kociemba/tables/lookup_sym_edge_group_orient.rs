@@ -6,6 +6,7 @@ use rayon::prelude::*;
 
 use crate::{
     cube_ops::cube_sym::DominoSymmetry,
+    kociemba::tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
     kociemba::{
         coords::{
             coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
@@ -13,7 +14,6 @@ use crate::{
         },
         partial_reprs::edge_group_orient::EdgeGroupOrient,
     },
-    tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
 };
 
 use super::table_loader::{as_u32_slice_mut, load_table};
@@ -98,9 +98,32 @@ mod test {
 
     use itertools::Itertools;
 
-    use crate::tables::Tables;
+    use crate::{kociemba::coords::coords::EdgeGroupRawCoord, kociemba::tables::Tables};
 
     use super::*;
+
+    #[test]
+    fn edge_group_only_test() -> anyhow::Result<()> {
+        let reps = (0u32..495).into_par_iter().map(|i| {
+            let raw_coord = EdgeGroupOrientRawCoord(i << 11);
+            let edge_group_orient = EdgeGroupOrient::from_coord(raw_coord);
+            DominoSymmetry::all_iter()
+                .map(|sym| edge_group_orient.domino_conjugate(sym).into_coord())
+                .min()
+                .unwrap()
+        });
+
+        let mut buffer = Vec::new();
+
+        for (i, rep) in collect_unique_sorted_parallel(reps).enumerate() {
+            let group = rep.split().0;
+            buffer.push(group);
+        }
+
+        println!("{}", buffer.len());
+
+        Ok(())
+    }
 
     #[test]
     fn round_trip() -> anyhow::Result<()> {

@@ -10,17 +10,24 @@ pub struct EdgeGroupOrientComboCoord {
 }
 
 impl EdgeGroupOrientComboCoord {
-    pub fn from_raw(tables: &crate::tables::Tables, raw_coord: EdgeGroupOrientRawCoord) -> Self {
+    pub fn from_raw(
+        tables: &crate::kociemba::tables::Tables,
+        raw_coord: EdgeGroupOrientRawCoord,
+    ) -> Self {
         tables
             .lookup_sym_edge_group_orient
             .get_combo_from_raw(raw_coord)
     }
 
-    pub fn into_raw(self, tables: &crate::tables::Tables) -> EdgeGroupOrientRawCoord {
+    pub fn into_raw(self, tables: &crate::kociemba::tables::Tables) -> EdgeGroupOrientRawCoord {
         tables.lookup_sym_edge_group_orient.get_raw_from_combo(self)
     }
 
-    pub fn apply_cube_move(self, tables: &crate::tables::Tables, cube_move: CubeMove) -> Self {
+    pub fn apply_cube_move(
+        self,
+        tables: &crate::kociemba::tables::Tables,
+        cube_move: CubeMove,
+    ) -> Self {
         let preimage_move = cube_move.domino_conjugate(self.domino_conjugation);
         let mut result = tables
             .move_sym_edge_group_orient
@@ -43,7 +50,9 @@ impl EdgeGroupOrientComboCoord {
 mod test {
     use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 
-    use crate::{kociemba::partial_reprs::edge_group_orient::EdgeGroupOrient, tables::Tables};
+    use crate::{
+        kociemba::partial_reprs::edge_group_orient::EdgeGroupOrient, kociemba::tables::Tables,
+    };
 
     use super::*;
 
