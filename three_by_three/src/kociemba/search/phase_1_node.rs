@@ -34,8 +34,6 @@ pub struct Phase1Node {
 
     // bookkeeping
     pub previous_axis: CubePreviousAxis, // 4 bits
-
-    pub skip: bool,
 }
 
 // a set of nodes which came from the same call to `produce_next_nodes`
@@ -75,7 +73,6 @@ impl Phase1Node {
             d_edge_positions,
             e_edge_positions,
             previous_axis: CubePreviousAxis::None,
-            skip: false,
         }
     }
 
@@ -129,11 +126,6 @@ impl Phase1Node {
         moves_remaining: NonZeroU8,
         tables: &Tables,
     ) -> Option<Phase1FrameMetadata<impl Iterator<Item = Self>>> {
-        // TODO: remove skip behavior entirely. just properly split the stuff when splitting.
-        if self.skip {
-            return None;
-        }
-
         // TODO: try to do all this stuff as SIMD. seems like a good candidate.
 
         // Get bounds for the current distance from self to solved, with the restriction
@@ -186,7 +178,6 @@ impl Phase1Node {
                         previous_axis: self
                             .previous_axis
                             .update_with_new_move(cube_move, moves_remaining.get() - 1),
-                        skip: false,
                     }
                 },
             )
