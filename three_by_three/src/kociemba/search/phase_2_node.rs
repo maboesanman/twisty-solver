@@ -33,7 +33,6 @@ impl Phase2Node {
             previous_axis,
             corner_orient_raw: _,
             edge_group_orient_combo: _,
-            skip: _,
         } = node;
 
         Self {

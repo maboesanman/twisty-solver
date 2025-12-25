@@ -1,7 +1,4 @@
-use std::{
-    num::NonZeroU8,
-    sync::atomic::AtomicBool,
-};
+use std::{num::NonZeroU8, sync::atomic::AtomicBool};
 
 use arrayvec::ArrayVec;
 use itertools::Itertools;
@@ -15,7 +12,10 @@ use crate::{
         cube_sym::{CubeSymmetry, DominoSymmetry},
         repr_cube::ReprCube,
     },
-    kociemba::{search::{phase_1_node::Phase1Node, phase_2_node::Phase2Node}, tables::Tables},
+    kociemba::{
+        search::{phase_1_node::Phase1Node, phase_2_node::Phase2Node},
+        tables::Tables,
+    },
 };
 
 /// How many levels from the beginning should ensure children are unique up to domino conjugation.
@@ -185,14 +185,14 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
                 let mut len = self.frame_data.len();
                 unsafe {
                     let mut out = dst.add(len);
-                    
+
                     for item in incoming.children {
                         // SAFETY: caller guarantees capacity
                         std::ptr::write(out, item);
                         out = out.add(1);
                         len += 1;
                     }
-                    
+
                     self.frame_data.set_len(len);
                 }
             }
@@ -249,25 +249,25 @@ impl<'t, const N: usize, C> Iterator for Stack<'t, N, C> {
 
         let d = match self.cached_distances.pop() {
             Some(d) => d,
-            None => if phase_1_tail.previous_axis as u8 % 3 == 2  {
-                // double axis
-                let prune_dist = phase_2_head.distance_heuristic(self.tables);
-                self.cached_distances.extend([
-                    prune_dist.saturating_sub(1),
-                    prune_dist.saturating_sub(1),
-                    prune_dist.saturating_sub(2),
-                ]);
+            None => {
+                if phase_1_tail.previous_axis as u8 % 3 == 2 {
+                    // double axis
+                    let prune_dist = phase_2_head.distance_heuristic(self.tables);
+                    self.cached_distances.extend([
+                        prune_dist.saturating_sub(1),
+                        prune_dist.saturating_sub(1),
+                        prune_dist.saturating_sub(2),
+                    ]);
 
-                prune_dist
-            } else {
-                // single axis
-                let prune_dist = phase_2_head.distance_heuristic(self.tables);
-                self.cached_distances.extend([
-                    prune_dist.saturating_sub(1),
-                ]);
+                    prune_dist
+                } else {
+                    // single axis
+                    let prune_dist = phase_2_head.distance_heuristic(self.tables);
+                    self.cached_distances.extend([prune_dist.saturating_sub(1)]);
 
-                prune_dist
-            },
+                    prune_dist
+                }
+            }
         };
 
         Some((head, phase_2_head, d))
@@ -278,53 +278,56 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
     type Item = <Self as Iterator>::Item;
 
     fn split(mut self) -> (Self, Option<Self>) {
-        // we've already been exhausted. nothing to split
-        if self.frame_data.is_empty() {
-            return (self, None);
-        }
-
-        let mut i = 0;
-        let (frame_start, frame_end) = loop {
-            if i + 2 > N {
+        loop {
+            // we've already been exhausted. nothing to split
+            if self.frame_data.is_empty() {
                 return (self, None);
             }
-            let mut start = self.get_frame_metadata_i(i).start;
-            while self.frame_data[start as usize].skip {
-                start += 1;
+
+            let mut i = 0;
+            let (frame_start, frame_end) = loop {
+                if i + 2 > N {
+                    return (self, None);
+                }
+                let start = self.get_frame_metadata_i(i).start;
+                let end = self.frame_metadata[i].start;
+
+                if end - start > 1 {
+                    break (start as usize, end as usize);
+                }
+
+                i += 1;
+            };
+
+            // frame i has more than 1 item in it. let's produce a new frame metadata and data.
+
+            // if it's odd, the last one in the frame is alreay potentially partially expanded so we
+            // give more items to the latter half (round down)
+            let frame_split = (frame_start + frame_end) / 2;
+
+            let mut new_frame_data = Vec::with_capacity(Self::FRAME_DATA_CAP);
+            new_frame_data.extend_from_slice(&self.frame_data[0..frame_split]);
+
+            for _ in 0..frame_split - frame_start {
+                self.frame_data.remove(frame_start);
             }
-            let end = self.frame_metadata[i].start;
-
-            if end - start > 1 {
-                break (start as usize, end as usize);
+            for x in 0..N {
+                if self.frame_metadata[x].start > frame_start as u16 {
+                    self.frame_metadata[x].start -= (frame_split - frame_start) as u16;
+                }
             }
 
-            i += 1;
-        };
+            let mut new_stack = Stack {
+                tables: self.tables,
+                cancel: self.cancel,
+                frame_metadata: self.frame_metadata,
+                frame_data: new_frame_data,
+                cached_distances: ArrayVec::new(),
+            };
 
-        // frame i has more than 1 item in it. let's produce a new frame metadata and data.
-
-        // if it's odd, the last one in the frame is alreay potentially partially expanded so we
-        // give more items to the latter half (round down)
-        let frame_split = (frame_start + frame_end) / 2;
-
-        let mut new_frame_data = Vec::with_capacity(Self::FRAME_DATA_CAP);
-        new_frame_data.extend_from_slice(&self.frame_data[0..frame_split]);
-
-        for node in self.frame_data[frame_start..frame_split].iter_mut() {
-            node.skip = true;
-        }
-
-        let mut new_stack = Stack {
-            tables: self.tables,
-            cancel: self.cancel,
-            frame_metadata: self.frame_metadata,
-            frame_data: new_frame_data,
-            cached_distances: ArrayVec::new(),
-        };
-
-        match new_stack.fill_recurse(i) {
-            Some(()) => (self, Some(new_stack)),
-            None => (self, None),
+            if new_stack.fill_recurse(i).is_some() {
+                break (self, Some(new_stack));
+            };
         }
     }
 
@@ -381,12 +384,12 @@ mod test {
         let tables = Tables::new("tables")?;
         let table_ref = &tables;
         let cube = cube![R U Rp Up];
-        let cube = cube![D R2 L];
-        let stack = all_domino_reductions::<1>(cube, &tables);
+        // let cube = cube![D R2 L];
+        let stack = all_domino_reductions::<3>(cube, &tables);
         let res = move |path: &[Phase1Node], last: &Phase2Node| {
             let cubes = path
-            .into_iter()
-            .map(|x| x.into_cube(table_ref))
+                .into_iter()
+                .map(|x| x.into_cube(table_ref))
                 .chain(Some(last.into_cube(table_ref)));
 
             move_resolver_multi_dimension_domino(cube, cubes)
@@ -441,6 +444,29 @@ mod test {
         );
 
         println!("{:?}", stack.count());
+
+        Ok(())
+    }
+
+    #[test]
+    fn split_preserves_and_partitions_results() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let cube = cube![R U Rp Up];
+
+        let cancel = AtomicBool::new(false);
+        const N: usize = 4;
+
+        // --- Full serial enumeration ---
+        let full = Stack::<N, _>::new(cube, &tables, &cancel);
+
+        // --- Manually split ---
+        let (left, Some(right)) = Stack::<N, _>::new(cube, &tables, &cancel).split() else {
+            panic!()
+        };
+
+        for ((a1, a2, _), (b1, b2, _)) in full.zip(Iterator::chain(left, right)) {
+            assert_eq!((a1, a2), (b1, b2));
+        }
 
         Ok(())
     }
