@@ -22,10 +22,10 @@ pub fn produce_solutions<const N: usize>(
     let domino_reductions = super::domino_reduction_iter::all_domino_reductions::<N>(cube, tables);
 
     domino_reductions
-        .scan(current_best, |current_best, (phase_1, phase_2_start, init_prune)| {
+        .scan(current_best, |current_best, (phase_1, phase_2_start)| {
             let phase_2_max = *current_best - N;
 
-            let Some(phase_2) = solve_domino(phase_2_start, tables, phase_2_max as u8, init_prune) else {
+            let Some(phase_2) = solve_domino(phase_2_start, tables, phase_2_max as u8) else {
                 return Some(None);
             };
 
@@ -50,11 +50,11 @@ pub fn produce_solutions_par<'a, const N: usize>(
         super::domino_reduction_iter::all_domino_reductions_par::<N>(cube, tables, cancel);
 
     domino_reductions
-        .filter_map(|(phase_1, phase_2_start, init_prune)| {
+        .filter_map(|(phase_1, phase_2_start)| {
             let current_best = best.load(std::sync::atomic::Ordering::Relaxed);
             let phase_2_max = current_best.checked_sub(N)? as u8;
 
-            let phase_2 = solve_domino(phase_2_start, tables, phase_2_max, init_prune)?;
+            let phase_2 = solve_domino(phase_2_start, tables, phase_2_max)?;
             let new_path_len = N + phase_2.len() - 1;
 
             best.compare_exchange(

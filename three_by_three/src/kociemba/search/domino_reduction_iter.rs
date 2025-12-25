@@ -25,7 +25,7 @@ use crate::{
 pub fn all_domino_reductions<const N: usize>(
     cube: ReprCube,
     tables: &Tables,
-) -> impl Iterator<Item = ([Phase1Node; N], Phase2Node, u8)> {
+) -> impl Iterator<Item = ([Phase1Node; N], Phase2Node)> {
     Stack::<_, _>::new(cube, tables, ()).into_iter().flatten()
 }
 
@@ -38,7 +38,7 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
     cancel: &'a AtomicBool,
-) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node, u8)> {
+) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node)> {
     Stack::<'a, N, &'a AtomicBool>::new(cube, tables, cancel).into_par_iter().flatten()
 }
 
@@ -221,7 +221,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 }
 
 impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
-    type Item = ([Phase1Node; N], Phase2Node, u8);
+    type Item = ([Phase1Node; N], Phase2Node);
 
     fn next(&mut self) -> Option<Self::Item> {
         let phase_1_tail = self.frame_data.pop()?;
@@ -236,30 +236,7 @@ impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
             self.fill_recurse(unsafe { NonZeroUsize::new_unchecked(i) });
         };
 
-        let d = match self.cached_distances.pop() {
-            Some(d) => d,
-            None => {
-                if phase_1_tail.previous_axis as u8 % 3 == 2 {
-                    // double axis
-                    let prune_dist = phase_2_head.distance_heuristic(self.tables);
-                    self.cached_distances.extend([
-                        prune_dist.saturating_sub(1),
-                        prune_dist.saturating_sub(1),
-                        prune_dist.saturating_sub(2),
-                    ]);
-
-                    prune_dist
-                } else {
-                    // single axis
-                    let prune_dist = phase_2_head.distance_heuristic(self.tables);
-                    self.cached_distances.extend([prune_dist.saturating_sub(1)]);
-
-                    prune_dist
-                }
-            }
-        };
-
-        Some((head, phase_2_head, d))
+        Some((head, phase_2_head))
     }
 }
 
@@ -336,7 +313,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 }
 
 impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
-    type Item = ([Phase1Node; N], Phase2Node, u8);
+    type Item = ([Phase1Node; N], Phase2Node);
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
     where
@@ -383,23 +360,23 @@ mod test {
 
             move_resolver_multi_dimension_domino(cube, cubes)
         };
-        stack.for_each(|(path, last, _)| {
+        stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<2>(cube, &tables);
-        stack.for_each(|(path, last, _)| {
+        stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<3>(cube, &tables);
-        stack.for_each(|(path, last, _)| {
+        stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<4>(cube, &tables);
-        stack.for_each(|(path, last, _)| {
+        stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<5>(cube, &tables);
-        stack.for_each(|(path, last, _)| {
+        stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
 
