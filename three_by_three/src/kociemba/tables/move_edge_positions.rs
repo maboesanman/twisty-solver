@@ -7,28 +7,25 @@ use rayon::prelude::*;
 
 use crate::{
     cube_ops::cube_move::CubeMove,
-    kociemba::partial_reprs::edge_positions::{
+    kociemba::{partial_reprs::edge_positions::{
         DEdgePositions, EEdgePositions, UEdgePositions, split_edge_positions,
-    },
+    }, tables::table_loader::as_u16_slice_mut},
 };
 
 use super::table_loader::load_table;
 
-const TABLE_SIZE_BYTES: usize = 495 * 24 * 32;
-const FILE_CHECKSUM: u32 = 3288712858;
+const TABLE_SIZE_BYTES: usize = 495 * 24 * 64;
+const FILE_CHECKSUM: u32 = 524334554;
 
 pub struct MoveEdgePositions(Mmap);
 
-#[repr(transparent)]
-struct PackedEdgePositionRow([u8; 32]);
+#[repr(align(64))]
+struct PackedEdgePositionRow([u16; 18]);
 
 impl PackedEdgePositionRow {
-    #[inline]
+    #[inline(always)]
     fn get(&self, index: CubeMove) -> u16 {
-        let bits = self.0.view_bits::<Msb0>();
-        let start = index.into_index() * 14;
-        let end = start + 14;
-        bits[start..end].load::<u16>()
+        self.0[index as u8 as usize]
     }
 }
 
@@ -40,6 +37,7 @@ impl MoveEdgePositions {
         }
     }
 
+    #[inline(always)]
     pub fn apply_all_cube_moves(
         &self,
         u_coord: UEdgePositions,
@@ -63,16 +61,14 @@ impl MoveEdgePositions {
     }
 
     fn generate(buffer: &mut [u8]) {
-        buffer.par_chunks_mut(32).enumerate().for_each(|(i, row)| {
+        as_u16_slice_mut(buffer).
+        par_chunks_mut(32).enumerate().for_each(|(i, row)| {
             let u_coord = UEdgePositions::from_inner(i as u16);
             let edge_perm = u_coord.rep_edge_perm();
-            let bits = row.view_bits_mut::<Msb0>();
 
             for mv in CubeMove::all_iter() {
                 let (new_u_coord, _, _) = split_edge_positions(edge_perm.apply_cube_move(mv));
-                let start = mv.into_index() * 14;
-                let end = start + 14;
-                bits[start..end].store::<u16>(new_u_coord.into_inner());
+                row[mv.into_index()] = new_u_coord.into_inner();
             }
         });
     }

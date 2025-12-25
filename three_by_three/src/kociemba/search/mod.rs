@@ -7,7 +7,7 @@ mod solve_domino;
 mod solve_with_fixed_len_phase_1;
 mod stream_search;
 
-// pub use stream_search::get_incremental_solutions_stream;
+pub use stream_search::get_incremental_solutions_stream;
 
 // #[cfg(test)]
 // mod test {

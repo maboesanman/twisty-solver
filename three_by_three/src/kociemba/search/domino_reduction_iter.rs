@@ -1,5 +1,9 @@
-use std::{num::NonZeroU8, sync::atomic::AtomicBool};
+use std::{
+    num::NonZeroU8,
+    sync::atomic::AtomicBool,
+};
 
+use arrayvec::ArrayVec;
 use itertools::Itertools;
 use rayon::iter::{
     ParallelIterator,
@@ -7,10 +11,16 @@ use rayon::iter::{
 };
 
 use crate::{
-    cube_ops::{cube_sym::CubeSymmetry, repr_cube::ReprCube},
-    kociemba::search::phase_1_node::Phase1Node,
-    kociemba::tables::Tables,
+    cube_ops::{
+        cube_sym::{CubeSymmetry, DominoSymmetry},
+        repr_cube::ReprCube,
+    },
+    kociemba::{search::{phase_1_node::Phase1Node, phase_2_node::Phase2Node}, tables::Tables},
 };
+
+/// How many levels from the beginning should ensure children are unique up to domino conjugation.
+/// 0 means none. 1 means the root is deduped (if the 3 )
+const DEDUPE_DEPTH: usize = 2;
 
 /// returns all sequences of sym cubes which correspond with a
 /// domino reduction of exactly N + 1 moves.
@@ -20,7 +30,7 @@ use crate::{
 pub fn all_domino_reductions<const N: usize>(
     cube: ReprCube,
     tables: &Tables,
-) -> impl Iterator<Item = ([Phase1Node; N], Phase1Node)> {
+) -> impl Iterator<Item = ([Phase1Node; N], Phase2Node, u8)> {
     Stack::<_, _>::new(cube, tables, ())
 }
 
@@ -33,7 +43,7 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
     cancel: &'a AtomicBool,
-) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase1Node)> {
+) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node, u8)> {
     Stack::<_, _>::new(cube, tables, cancel)
 }
 
@@ -48,6 +58,8 @@ struct Stack<'t, const N: usize, C> {
 
     // 3, 18, 15 * (N - 1) at most. when N=20, 306 at most
     frame_data: Vec<Phase1Node>,
+
+    cached_distances: ArrayVec<u8, 3>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -57,7 +69,6 @@ pub struct FrameMetadata {
     start: u16,
 
     // the bounds on the actual distance we know right now.
-    min_distance: u8,
     max_distance: u8,
 }
 
@@ -65,9 +76,14 @@ impl FrameMetadata {
     const fn default_const() -> Self {
         Self {
             start: 0,
-            min_distance: 0,
             max_distance: 20,
         }
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn cold_default() -> FrameMetadata {
+        FrameMetadata::default()
     }
 }
 
@@ -81,15 +97,42 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
     const FRAME_DATA_CAP: usize = 3 + 15 * N;
 
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Self {
-        let options = (0..2)
-            .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables))
-            .collect();
-        // let options = vec![Phase1Node::from_cube(cube, tables)];
+        let mut options =
+            [0, 1, 2].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
+        options.sort_by_key(|n| n.distance_heuristic(tables));
         Self::new_from_frame_0(options, tables, cancel)
     }
 
-    fn new_from_frame_0(starts: Vec<Phase1Node>, tables: &'t Tables, cancel: C) -> Self {
-        let mut frame_data = starts;
+    fn new_from_frame_0(
+        starts: impl IntoIterator<Item = Phase1Node>,
+        tables: &'t Tables,
+        cancel: C,
+    ) -> Self {
+        let frame_data = if N == 0 {
+            starts
+                .into_iter()
+                .filter(|n| n.is_domino_reduced())
+                .collect_vec()
+        } else {
+            starts.into_iter().collect_vec()
+        };
+
+        let mut frame_data = if DEDUPE_DEPTH > 0 {
+            frame_data
+                .into_iter()
+                .unique_by(|c| {
+                    let cube = c.into_cube(tables);
+                    let rep_cube = DominoSymmetry::all_iter()
+                        .map(|sym| cube.domino_conjugate(sym))
+                        .min()
+                        .unwrap();
+                    rep_cube
+                })
+                .collect_vec()
+        } else {
+            frame_data
+        };
+
         frame_data.reserve_exact(Self::FRAME_DATA_CAP);
 
         let mut stack = Self {
@@ -97,6 +140,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
             cancel,
             frame_data,
             frame_metadata: [const { FrameMetadata::default_const() }; _],
+            cached_distances: ArrayVec::new(),
         };
 
         stack.fill_recurse(0);
@@ -105,6 +149,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
     }
 
     /// drop the frame at the top (belonging to frame i)
+    #[inline(always)]
     fn drop_recurse(&mut self, i: &mut usize) -> Option<()> {
         while self.get_frame_metadata_i(*i).start == self.frame_data.len() as u16 {
             self.frame_data.pop()?;
@@ -114,13 +159,18 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
         Some(())
     }
 
+    // THIS IS THE HOTTEST OF HOT LOOPS. MOST OF THE ALGORITHM IS SPENT IN THIS FUNCTION
+    // 39 % of program runtime is spent in fill_recurse's implementation (not counting other function calls)
     // recurse into frames
+
+    #[inline(always)]
     fn fill_recurse(&mut self, i: usize) -> Option<()> {
         let mut i = i;
         while i < N {
             let last_data = self.frame_data.last()?;
             let last_frame = self.get_frame_metadata_i(i);
 
+            // 34 % of program runtime is spent in produce_next_nodes
             let incoming = last_data.produce_next_nodes(
                 last_frame.max_distance,
                 unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
@@ -131,7 +181,20 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
 
             if let Some(incoming) = incoming {
                 self.frame_metadata[i].max_distance = incoming.max_possible_distance;
-                self.frame_data.extend(incoming.children);
+                let dst = self.frame_data.as_mut_ptr();
+                let mut len = self.frame_data.len();
+                unsafe {
+                    let mut out = dst.add(len);
+                    
+                    for item in incoming.children {
+                        // SAFETY: caller guarantees capacity
+                        std::ptr::write(out, item);
+                        out = out.add(1);
+                        len += 1;
+                    }
+                    
+                    self.frame_data.set_len(len);
+                }
             }
 
             i += 1;
@@ -160,18 +223,22 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
         );
     }
 
+    #[inline(always)]
     fn get_frame_metadata_i(&self, i: usize) -> FrameMetadata {
-        i.checked_sub(1)
-            .map(|j| self.frame_metadata[j])
-            .unwrap_or_default()
+        if std::hint::likely(i != 0) {
+            unsafe { *self.frame_metadata.get_unchecked(i - 1) }
+        } else {
+            FrameMetadata::cold_default()
+        }
     }
 }
 
 impl<'t, const N: usize, C> Iterator for Stack<'t, N, C> {
-    type Item = ([Phase1Node; N], Phase1Node);
+    type Item = ([Phase1Node; N], Phase2Node, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let tail = self.frame_data.pop()?;
+        let phase_1_tail = self.frame_data.pop()?;
+        let phase_2_head = Phase2Node::from_phase_1_node(phase_1_tail);
         let head = self
             .frame_metadata
             .map(|m| self.frame_data[m.start as usize - 1]);
@@ -180,7 +247,30 @@ impl<'t, const N: usize, C> Iterator for Stack<'t, N, C> {
         self.drop_recurse(&mut i);
         self.fill_recurse(i);
 
-        Some((head, tail))
+        let d = match self.cached_distances.pop() {
+            Some(d) => d,
+            None => if phase_1_tail.previous_axis as u8 % 3 == 2  {
+                // double axis
+                let prune_dist = phase_2_head.distance_heuristic(self.tables);
+                self.cached_distances.extend([
+                    prune_dist.saturating_sub(1),
+                    prune_dist.saturating_sub(1),
+                    prune_dist.saturating_sub(2),
+                ]);
+
+                prune_dist
+            } else {
+                // single axis
+                let prune_dist = phase_2_head.distance_heuristic(self.tables);
+                self.cached_distances.extend([
+                    prune_dist.saturating_sub(1),
+                ]);
+
+                prune_dist
+            },
+        };
+
+        Some((head, phase_2_head, d))
     }
 }
 
@@ -195,7 +285,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 
         let mut i = 0;
         let (frame_start, frame_end) = loop {
-            if i > N {
+            if i + 2 > N {
                 return (self, None);
             }
             let mut start = self.get_frame_metadata_i(i).start;
@@ -229,6 +319,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
             cancel: self.cancel,
             frame_metadata: self.frame_metadata,
             frame_data: new_frame_data,
+            cached_distances: ArrayVec::new(),
         };
 
         match new_stack.fill_recurse(i) {
@@ -253,7 +344,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 }
 
 impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
-    type Item = ([Phase1Node; N], Phase1Node);
+    type Item = ([Phase1Node; N], Phase2Node, u8);
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
     where
@@ -274,37 +365,49 @@ mod test {
     use super::*;
 
     #[test]
+    fn domino_reduce_empty() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let table_ref = &tables;
+        let cube = cube![R U Rp Up];
+        let stack = all_domino_reductions::<0>(cube, &tables).collect_vec();
+
+        println!("{stack:#?}");
+
+        Ok(())
+    }
+
+    #[test]
     fn domino_reduce_test_iter_2() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
         let table_ref = &tables;
         let cube = cube![R U Rp Up];
-        // let cube = cube![D R2 L];
+        let cube = cube![D R2 L];
         let stack = all_domino_reductions::<1>(cube, &tables);
-        let res = move |path: &[Phase1Node], last: &Phase1Node| {
+        let res = move |path: &[Phase1Node], last: &Phase2Node| {
             let cubes = path
-                .into_iter()
-                .chain(Some(last))
-                .map(|x| x.into_cube(table_ref));
+            .into_iter()
+            .map(|x| x.into_cube(table_ref))
+                .chain(Some(last.into_cube(table_ref)));
 
             move_resolver_multi_dimension_domino(cube, cubes)
         };
-        stack.for_each(|(path, last)| {
+        stack.for_each(|(path, last, _)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<2>(cube, &tables);
-        stack.for_each(|(path, last)| {
+        stack.for_each(|(path, last, _)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<3>(cube, &tables);
-        stack.for_each(|(path, last)| {
+        stack.for_each(|(path, last, _)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<4>(cube, &tables);
-        stack.for_each(|(path, last)| {
+        stack.for_each(|(path, last, _)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<5>(cube, &tables);
-        stack.for_each(|(path, last)| {
+        stack.for_each(|(path, last, _)| {
             println!("{:?}", res(&path, &last));
         });
 

@@ -18,7 +18,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Phase1Node {
     // could make this fit in 16 bytes instead of 20
 
@@ -98,29 +98,51 @@ impl Phase1Node {
         }
     }
 
+    #[inline(always)]
+    pub fn distance_heuristic(
+        self,
+        tables: &Tables,
+    ) -> u8 {
+        let corner_orient_adjusted = tables.move_raw_corner_orient.domino_conjugate(
+            self.corner_orient_raw,
+            self.edge_group_orient_combo.domino_conjugation,
+        );
+        let distance = tables.get_prune_phase_1().get_value(
+            self.edge_group_orient_combo.sym_coord,
+            corner_orient_adjusted,
+        );
+
+        distance
+    }
+
+    #[inline(always)]
+    pub fn is_domino_reduced(
+        self,
+    ) -> bool {
+        self.corner_orient_raw.0 == 0 && self.edge_group_orient_combo.sym_coord.0 == 0
+    }
+
+    #[inline(always)]
     pub fn produce_next_nodes(
         self,
         max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         tables: &Tables,
     ) -> Option<Phase1FrameMetadata<impl Iterator<Item = Self>>> {
+        // TODO: remove skip behavior entirely. just properly split the stuff when splitting.
         if self.skip {
             return None;
         }
+
+        // TODO: try to do all this stuff as SIMD. seems like a good candidate.
 
         // Get bounds for the current distance from self to solved, with the restriction
         // that the range must be within the allowed. If the range we have is not a subset of
         // [min_allowed_distance, max_allowed_distance], then we look up the actual distance to solved and
         // return a legal single point range or return None because we're outside the range and must be pruned.
         let max_possible_current_distance = if max_possible_distance > moves_remaining.get() {
-            let corner_orient_adjusted = tables.move_raw_corner_orient.domino_conjugate(
-                self.corner_orient_raw,
-                self.edge_group_orient_combo.domino_conjugation,
-            );
-            let distance = tables.get_prune_phase_1().get_value(
-                self.edge_group_orient_combo.sym_coord,
-                corner_orient_adjusted,
-            );
+            let distance = self.distance_heuristic(tables);
+
             if distance > moves_remaining.get() {
                 return None;
             }
@@ -134,7 +156,7 @@ impl Phase1Node {
         let max_possible_distance = max_possible_current_distance + 1;
 
         // perform all new axis moves on all coords
-        let move_iter = || CubeMove::new_axis_iter(self.previous_axis);
+        let move_iter = || CubeMove::new_axis_iter(self.previous_axis, moves_remaining.get() == 1);
 
         let children = tables
             .move_edge_position
@@ -180,8 +202,7 @@ impl Phase1Node {
                 // of the final position, that sequence could be replaced by domino moves, which means it will not be shorter
                 // than a path already found, because there would exist a solution with a shorter phase 1 ending at the
                 // first domino reduction, and staying in domino moves, likely more optimally but never longer.
-                let child_is_reduced = child.corner_orient_raw.0 == 0
-                    && child.edge_group_orient_combo.sym_coord.0 == 0;
+                let child_is_reduced = child.is_domino_reduced();
 
                 let last_move = moves_remaining.get() == 1;
                 if last_move {
@@ -238,7 +259,7 @@ mod tests {
         // ---- Path A: cube -> move -> cube -> phase1 ----
         let mut from_cube = BTreeSet::new();
 
-        for mv in CubeMove::new_axis_iter(CubePreviousAxis::None) {
+        for mv in CubeMove::new_axis_iter(CubePreviousAxis::None, false) {
             let moved_cube = cube.apply_move(mv);
             let node = Phase1Node::from_cube(moved_cube, &tables);
             from_cube.insert(phase1_key(&node, &tables));

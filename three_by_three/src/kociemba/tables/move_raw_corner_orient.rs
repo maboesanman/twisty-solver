@@ -19,6 +19,7 @@ const FILE_CHECKSUM: u32 = 1089186443;
 pub struct MoveRawCornerOrientTable(Mmap);
 
 impl MoveRawCornerOrientTable {
+    #[inline(always)]
     fn chunks(&self) -> &[[CornerOrientRawCoord; 33]] {
         let buffer = as_u16_slice(&self.0);
         unsafe {
@@ -30,10 +31,12 @@ impl MoveRawCornerOrientTable {
         }
     }
 
+    #[inline(always)]
     fn chunk(&self, coord: CornerOrientRawCoord) -> &[CornerOrientRawCoord; 33] {
         &self.chunks()[coord.0 as usize]
     }
 
+    #[inline(always)]
     pub fn apply_cube_move(
         &self,
         coord: CornerOrientRawCoord,
@@ -42,6 +45,7 @@ impl MoveRawCornerOrientTable {
         self.chunk(coord)[mv.into_index()]
     }
 
+    #[inline(always)]
     pub fn domino_conjugate(
         &self,
         coord: CornerOrientRawCoord,

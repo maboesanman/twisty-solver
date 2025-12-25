@@ -1,4 +1,4 @@
-use crate::{CubeMove, cube_ops::cube_sym::DominoSymmetry};
+use crate::{CubeMove, cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry}};
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -26,6 +26,33 @@ impl CubePreviousAxis {
             }
         }
         match (mv as u8 / 3, self) {
+            (0, Self::D) | (1, Self::U) | (0, Self::UD) | (1, Self::UD) => Self::UD,
+            (2, Self::B) | (3, Self::F) | (2, Self::FB) | (3, Self::FB) => Self::FB,
+            (4, Self::L) | (5, Self::R) | (4, Self::RL) | (5, Self::RL) => Self::RL,
+            (0, _) => Self::U,
+            (1, _) => Self::D,
+            (2, _) => Self::F,
+            (3, _) => Self::B,
+            (4, _) => Self::R,
+            (5, _) => Self::L,
+            _ => unreachable!(),
+        }
+    }
+
+    pub const fn update_with_new_domino_move(self, mv: DominoMove) -> Self {
+        let x = match mv {
+            DominoMove::U1 => 0,
+            DominoMove::U2 => 0,
+            DominoMove::U3 => 0,
+            DominoMove::D1 => 1,
+            DominoMove::D2 => 1,
+            DominoMove::D3 => 1,
+            DominoMove::F2 => 2,
+            DominoMove::B2 => 3,
+            DominoMove::R2 => 4,
+            DominoMove::L2 => 5,
+        };
+        match (x, self) {
             (0, Self::D) | (1, Self::U) | (0, Self::UD) | (1, Self::UD) => Self::UD,
             (2, Self::B) | (3, Self::F) | (2, Self::FB) | (3, Self::FB) => Self::FB,
             (4, Self::L) | (5, Self::R) | (4, Self::RL) | (5, Self::RL) => Self::RL,
