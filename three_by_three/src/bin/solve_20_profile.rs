@@ -15,7 +15,6 @@ pub fn main() {
 
         let mut stream = get_incremental_solutions_stream(cube, tables, Some(20), false);
         let future = stream.next();
-        // assert!(futures::executor::block_on(future).is_some());
 
         let solution = futures::executor::block_on(future).unwrap();
         {
