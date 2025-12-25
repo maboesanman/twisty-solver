@@ -69,7 +69,6 @@ pub struct FrameMetadata {
     start: u16,
 
     // the bounds on the actual distance we know right now.
-    min_distance: u8,
     max_distance: u8,
 }
 
@@ -77,7 +76,6 @@ impl FrameMetadata {
     const fn default_const() -> Self {
         Self {
             start: 0,
-            min_distance: 0,
             max_distance: 20,
         }
     }
