@@ -122,16 +122,19 @@ impl Phase1Node {
         self.corner_orient_raw.0 == 0 && self.edge_group_orient_combo.sym_coord.0 == 0
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn produce_next_nodes(
         self,
         max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         tables: &Tables,
     ) -> Option<Phase1FrameMetadata<impl Iterator<Item = Self>>> {
+        // TODO: remove skip behavior entirely. just properly split the stuff when splitting.
         if self.skip {
             return None;
         }
+
+        // TODO: try to do all this stuff as SIMD. seems like a good candidate.
 
         // Get bounds for the current distance from self to solved, with the restriction
         // that the range must be within the allowed. If the range we have is not a subset of

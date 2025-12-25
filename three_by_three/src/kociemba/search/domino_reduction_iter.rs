@@ -151,7 +151,7 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
     }
 
     /// drop the frame at the top (belonging to frame i)
-    #[inline]
+    #[inline(always)]
     fn drop_recurse(&mut self, i: &mut usize) -> Option<()> {
         while self.get_frame_metadata_i(*i).start == self.frame_data.len() as u16 {
             self.frame_data.pop()?;
@@ -161,13 +161,18 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
         Some(())
     }
 
+    // THIS IS THE HOTTEST OF HOT LOOPS. MOST OF THE ALGORITHM IS SPENT IN THIS FUNCTION
+    // 39 % of program runtime is spent in fill_recurse's implementation (not counting other function calls)
     // recurse into frames
+
+    #[inline(always)]
     fn fill_recurse(&mut self, i: usize) -> Option<()> {
         let mut i = i;
         while i < N {
             let last_data = self.frame_data.last()?;
             let last_frame = self.get_frame_metadata_i(i);
 
+            // 34 % of program runtime is spent in produce_next_nodes
             let incoming = last_data.produce_next_nodes(
                 last_frame.max_distance,
                 unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
@@ -178,28 +183,19 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
 
             if let Some(incoming) = incoming {
                 self.frame_metadata[i].max_distance = incoming.max_possible_distance;
-                if std::hint::likely(i + 1 >= DEDUPE_DEPTH) {
-                    // this is all equivalent to this line:
-                    // 
-                    // self.frame_data.extend(incoming.children)
-                    //
-                    // only it's way faster because we don't check any bounds at all
-                    let dst = self.frame_data.as_mut_ptr();
-                    let mut len = self.frame_data.len();
-                    unsafe {
-                        let mut out = dst.add(len);
-                        
-                        for item in incoming.children {
-                            // SAFETY: caller guarantees capacity
-                            std::ptr::write(out, item);
-                            out = out.add(1);
-                            len += 1;
-                        }
-                        
-                        self.frame_data.set_len(len);
+                let dst = self.frame_data.as_mut_ptr();
+                let mut len = self.frame_data.len();
+                unsafe {
+                    let mut out = dst.add(len);
+                    
+                    for item in incoming.children {
+                        // SAFETY: caller guarantees capacity
+                        std::ptr::write(out, item);
+                        out = out.add(1);
+                        len += 1;
                     }
-                } else {
-                    self.extend_unique(incoming.children);
+                    
+                    self.frame_data.set_len(len);
                 }
             }
 
@@ -236,19 +232,6 @@ impl<'t, const N: usize, C> Stack<'t, N, C> {
         } else {
             FrameMetadata::cold_default()
         }
-    }
-
-    #[cold]
-    #[inline(never)]
-    fn extend_unique(&mut self, children: impl Iterator<Item = Phase1Node>) {
-        self.frame_data.extend(children.unique_by(|c| {
-            let cube = c.into_cube(self.tables);
-            let rep_cube = DominoSymmetry::all_iter()
-                .map(|sym| cube.domino_conjugate(sym))
-                .min()
-                .unwrap();
-            rep_cube
-        }));
     }
 }
 

@@ -23,15 +23,18 @@ const FILE_CHECKSUM: u32 = 2840872813;
 pub struct MoveSymCornerPermTable(Mmap);
 
 impl MoveSymCornerPermTable {
+    #[inline(always)]
     fn chunks(&self) -> &[[u16; 36]] {
         let buffer = as_u16_slice(&self.0);
         unsafe { buffer.as_chunks_unchecked() }
     }
 
+    #[inline(always)]
     fn chunk(&self, coord: CornerPermSymCoord) -> &[u16; 36] {
         &self.chunks()[coord.0 as usize]
     }
 
+    #[inline(always)]
     pub fn apply_cube_move(&self, coord: CornerPermSymCoord, mv: CubeMove) -> CornerPermComboCoord {
         CornerPermComboCoord {
             sym_coord: CornerPermSymCoord(self.chunk(coord)[mv.into_index() * 2]),

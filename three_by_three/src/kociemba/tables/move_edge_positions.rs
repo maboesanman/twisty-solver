@@ -23,7 +23,7 @@ pub struct MoveEdgePositions(Mmap);
 struct PackedEdgePositionRow([u16; 18]);
 
 impl PackedEdgePositionRow {
-    #[inline]
+    #[inline(always)]
     fn get(&self, index: CubeMove) -> u16 {
         self.0[index as u8 as usize]
     }
@@ -37,6 +37,7 @@ impl MoveEdgePositions {
         }
     }
 
+    #[inline(always)]
     pub fn apply_all_cube_moves(
         &self,
         u_coord: UEdgePositions,

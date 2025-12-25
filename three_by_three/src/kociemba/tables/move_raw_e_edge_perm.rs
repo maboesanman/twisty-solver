@@ -17,6 +17,7 @@ const FILE_CHECKSUM: u32 = 1251937808;
 pub struct MoveRawEEdgePermTable(Mmap);
 
 impl MoveRawEEdgePermTable {
+    #[inline(always)]
     fn chunks(&self) -> &[[EEdgePermRawCoord; 25]] {
         let buffer = &self.0;
         unsafe {
@@ -28,14 +29,17 @@ impl MoveRawEEdgePermTable {
         }
     }
 
+    #[inline(always)]
     fn chunk(&self, coord: EEdgePermRawCoord) -> &[EEdgePermRawCoord; 25] {
         &self.chunks()[coord.0 as usize]
     }
 
+    #[inline(always)]
     pub fn apply_cube_move(&self, coord: EEdgePermRawCoord, mv: DominoMove) -> EEdgePermRawCoord {
         self.chunk(coord)[mv.into_index()]
     }
 
+    #[inline(always)]
     pub fn domino_conjugate(
         &self,
         coord: EEdgePermRawCoord,
