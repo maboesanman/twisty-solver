@@ -30,6 +30,10 @@ impl PackedEdgePositionRow {
 }
 
 impl MoveEdgePositions {
+    pub unsafe fn as_ptr(&self) -> *const u16 {
+        self.0.as_ptr() as *const u16
+    }
+
     fn chunks(table: &Mmap) -> &[PackedEdgePositionRow] {
         unsafe {
             let slice: &[[u8; 32]] = table.as_chunks_unchecked();

@@ -1,9 +1,13 @@
-use std::{num::{NonZeroU8, NonZeroUsize}, sync::atomic::AtomicBool};
+use std::{
+    num::{NonZeroU8, NonZeroUsize},
+    sync::{Arc, atomic::AtomicBool},
+};
 
 use arrayvec::ArrayVec;
 use itertools::Itertools;
 use rayon::iter::{
-    self, IntoParallelIterator, ParallelBridge, ParallelIterator, plumbing::{UnindexedConsumer, UnindexedProducer, bridge_unindexed}
+    self, IntoParallelIterator, ParallelBridge, ParallelIterator,
+    plumbing::{UnindexedConsumer, UnindexedProducer, bridge_unindexed},
 };
 
 use crate::{
@@ -12,7 +16,10 @@ use crate::{
         repr_cube::ReprCube,
     },
     kociemba::{
-        search::{phase_1_node::Phase1Node, phase_2_node::Phase2Node},
+        search::{
+            phase_1_node::{Phase1Node, TableOffsets},
+            phase_2_node::Phase2Node,
+        },
         tables::Tables,
     },
 };
@@ -39,7 +46,9 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
     tables: &'a Tables,
     cancel: &'a AtomicBool,
 ) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node)> {
-    Stack::<'a, N, &'a AtomicBool>::new(cube, tables, cancel).into_par_iter().flatten()
+    Stack::<'a, N, &'a AtomicBool>::new(cube, tables, cancel)
+        .into_par_iter()
+        .flatten()
 }
 
 // N is number of moves
@@ -47,6 +56,8 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
 #[derive(Clone)]
 struct Stack<'t, const N: usize, C> {
     tables: &'t Tables,
+    table_offsets: Arc<TableOffsets<'t>>,
+
     cancel: C,
 
     frame_metadata: [FrameMetadata; N],
@@ -95,14 +106,13 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         let mut options =
             [0, 1, 2].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
         options.sort_by_key(|n| n.distance_heuristic(tables));
-        options.into_iter().map(|node| Self::new_inner(node, tables, cancel.clone())).collect_vec()
+        options
+            .into_iter()
+            .map(|node| Self::new_inner(node, tables, cancel.clone()))
+            .collect_vec()
     }
 
-    fn new_inner(
-        start: Phase1Node,
-        tables: &'t Tables,
-        cancel: C,
-    ) -> Self {
+    fn new_inner(start: Phase1Node, tables: &'t Tables, cancel: C) -> Self {
         let starts = Some(start);
         let mut frame_data = if N == 0 {
             starts
@@ -117,6 +127,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 
         let mut stack = Self {
             tables,
+            table_offsets: Arc::new(TableOffsets::new(tables)),
             cancel,
             frame_data,
             frame_metadata: [const { FrameMetadata::default_const() }; _],
@@ -140,8 +151,8 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     }
 
     #[inline(always)]
-    fn fill_recurse(&mut self, i: NonZeroUsize) -> Option<()> {
-        self.fill_recurse_no_simd(i.get())
+    fn fill_recurse(&mut self, i: NonZeroUsize) {
+        self.fill_recurse_simd(i)
     }
 
     // THIS IS THE HOTTEST OF HOT LOOPS. MOST OF THE ALGORITHM IS SPENT IN THIS FUNCTION
@@ -151,7 +162,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     // ASSUMES frame_data is non-empty
 
     #[inline(always)]
-    fn fill_recurse_no_simd(&mut self, i: usize) -> Option<()> {
+    fn fill_recurse_no_simd(&mut self, i: usize) {
         let mut i = i;
         while i < N {
             let last_data = self.frame_data.last().unwrap();
@@ -186,10 +197,40 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 
             i += 1;
 
-            self.drop_recurse(&mut i)?;
+            if self.drop_recurse(&mut i).is_none() {
+                return;
+            }
         }
+    }
 
-        Some(())
+    #[inline(always)]
+    fn fill_recurse_simd(&mut self, i: NonZeroUsize) {
+        let mut i = i.get();
+        while i < N {
+            let len = self.frame_data.len();
+            self.frame_metadata[i].start = len as u16;
+            let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
+            let last_frame = unsafe { *self.frame_metadata.get_unchecked(i - 1) };
+
+            let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
+
+            let (added, new_max_dist) = Phase1Node::produce_next_nodes_simd(
+                slice,
+                last_frame.max_distance,
+                unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
+                &self.table_offsets,
+                self.tables,
+            );
+
+            self.frame_metadata[i].max_distance = new_max_dist;
+            unsafe { self.frame_data.set_len(len + added); }
+
+            i += 1;
+
+            if self.drop_recurse(&mut i).is_none() {
+                return;
+            }
+        }
     }
 
     pub fn pretty_print(&self) {
@@ -202,10 +243,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             "{:#?}",
             self.frame_data
                 .iter()
-                .map(|n| format!(
-                    "{}-{}",
-                    n.edge_group_orient_combo.sym_coord.0, n.corner_orient_raw.0
-                ))
+                .map(|n| format!("{}-{}", n.edge_group_orient_sym.0, n.corner_orient_raw.0))
                 .collect_vec()
         );
     }
@@ -285,13 +323,16 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 
             let mut new_stack = Stack {
                 tables: self.tables,
+                table_offsets: self.table_offsets.clone(),
                 cancel: self.cancel,
                 frame_metadata: self.frame_metadata,
                 frame_data: new_frame_data,
                 cached_distances: ArrayVec::new(),
             };
 
-            if new_stack.fill_recurse(NonZeroUsize::new(i).unwrap()).is_some() {
+            new_stack.fill_recurse(NonZeroUsize::new(i).unwrap());
+
+            if !new_stack.frame_data.is_empty() {
                 break (self, Some(new_stack));
             };
         }

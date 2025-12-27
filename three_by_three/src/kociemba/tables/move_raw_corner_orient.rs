@@ -19,6 +19,10 @@ const FILE_CHECKSUM: u32 = 1089186443;
 pub struct MoveRawCornerOrientTable(Mmap);
 
 impl MoveRawCornerOrientTable {
+    pub unsafe fn as_ptr(&self) -> *const u16 {
+        self.0.as_ptr() as *const u16
+    }
+
     #[inline(always)]
     fn chunks(&self) -> &[[CornerOrientRawCoord; 33]] {
         let buffer = as_u16_slice(&self.0);
