@@ -26,6 +26,10 @@ const FILE_CHECKSUM: u32 = 3661454509;
 pub struct MoveSymEdgeGroupOrientTable(Mmap);
 
 impl MoveSymEdgeGroupOrientTable {
+    pub unsafe fn as_ptr(&self) -> *const u16 {
+        self.0.as_ptr() as *const u16
+    }
+
     #[inline(always)]
     fn chunks(&self) -> &[[u16; 36]] {
         let buffer = as_u16_slice(&self.0);

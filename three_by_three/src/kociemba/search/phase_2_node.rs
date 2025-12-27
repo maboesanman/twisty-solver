@@ -25,15 +25,19 @@ pub struct Phase2Node {
 impl Phase2Node {
     pub fn from_phase_1_node(node: Phase1Node) -> Self {
         let Phase1Node {
-            corner_perm_combo,
+            corner_perm_sym,
             u_edge_positions,
             d_edge_positions,
             e_edge_positions,
-
+            corner_perm_correct,
             previous_axis,
-            corner_orient_raw: _,
-            edge_group_orient_combo: _,
+            ..
         } = node;
+
+        let corner_perm_combo = CornerPermComboCoord {
+            sym_coord: corner_perm_sym,
+            domino_conjugation: corner_perm_correct,
+        };
 
         Self {
             corner_perm_combo,

@@ -11,7 +11,7 @@ use crate::{
 
 use super::table_loader::load_table;
 
-const TABLE_SIZE_BYTES: usize = (24 * 25);
+const TABLE_SIZE_BYTES: usize = 24 * 25;
 const FILE_CHECKSUM: u32 = 1251937808;
 
 pub struct MoveRawEEdgePermTable(Mmap);
