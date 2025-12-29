@@ -25,25 +25,21 @@ pub struct Phase2Node {
 impl Phase2Node {
     pub fn from_phase_1_node(node: Phase1Node) -> Self {
         let Phase1Node {
-            corner_perm_sym,
+            corner_perm_combo,
             u_edge_positions,
             d_edge_positions,
             e_edge_positions,
-            corner_perm_correct,
             previous_axis,
             ..
         } = node;
 
-        let corner_perm_combo = CornerPermComboCoord {
-            sym_coord: corner_perm_sym,
-            domino_conjugation: corner_perm_correct,
-        };
+        let corner_perm_combo = CornerPermComboCoord::from_dense(corner_perm_combo);
 
         Self {
             corner_perm_combo,
             ud_edge_perm_raw: UDEdgePerm(u_edge_positions, d_edge_positions).into_coord(),
             e_edge_perm_raw: EEdgePermRawCoord(e_edge_positions.0.0 as u8),
-            previous_axis,
+            previous_axis: unsafe { core::mem::transmute(previous_axis as u8)},
         }
     }
 

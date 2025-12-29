@@ -104,7 +104,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Vec<Self> {
         let mut options =
-            [0, 1, 2].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
+            [0].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
         options.sort_by_key(|n| n.distance_heuristic(tables));
         options
             .into_iter()
@@ -153,6 +153,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     #[inline(always)]
     fn fill_recurse(&mut self, i: NonZeroUsize) {
         self.fill_recurse_simd(i)
+        // self.fill_recurse_no_simd(i.get())
     }
 
     // THIS IS THE HOTTEST OF HOT LOOPS. MOST OF THE ALGORITHM IS SPENT IN THIS FUNCTION

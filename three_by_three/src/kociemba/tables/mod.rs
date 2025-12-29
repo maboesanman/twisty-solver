@@ -6,8 +6,6 @@ use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
 use crate::kociemba::tables::{
-    move_combo_corner_perm::MoveComboCornerPermTable,
-    move_combo_edge_group_orient::MoveComboEdgeGroupOrientTable,
     move_edge_positions::MoveEdgePositions, move_raw_e_edge_perm::MoveRawEEdgePermTable,
     move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable,
     prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table,
@@ -16,8 +14,6 @@ use crate::kociemba::tables::{
 pub mod lookup_sym_corner_perm;
 pub mod lookup_sym_edge_group_orient;
 
-pub mod move_combo_corner_perm;
-pub mod move_combo_edge_group_orient;
 pub mod move_edge_positions;
 pub mod move_raw_corner_orient;
 pub mod move_raw_e_edge_perm;
@@ -54,8 +50,6 @@ pub struct Tables {
     pub(crate) move_raw_e_edge_perm: MoveRawEEdgePermTable,
     pub(crate) move_raw_ud_edge_perm: MoveRawUDEdgePermTable,
 
-    pub(crate) move_combo_corner_perm: MoveComboCornerPermTable,
-    pub(crate) move_combo_edge_group_orient: MoveComboEdgeGroupOrientTable,
 
     pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
     pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
@@ -95,16 +89,6 @@ impl Tables {
         let move_raw_ud_edge_perm =
             MoveRawUDEdgePermTable::load(folder.join(MOVE_UD_EDGE_PERM_TABLE_NAME))?;
 
-        let move_combo_corner_perm = MoveComboCornerPermTable::load(
-            folder.join(MOVE_COMBO_CORNER_PERM_TABLE_NAME),
-            &lookup_sym_corner_perm,
-        )?;
-
-        let move_combo_edge_group_orient = MoveComboEdgeGroupOrientTable::load(
-            folder.join(MOVE_COMBO_EDGE_GROUP_ORIENT_TABLE_NAME),
-            &lookup_sym_edge_group_orient,
-        )?;
-
         let mut working = Tables {
             move_raw_corner_orient,
             move_sym_edge_group_orient,
@@ -114,9 +98,6 @@ impl Tables {
             move_edge_position,
             move_raw_e_edge_perm,
             move_raw_ud_edge_perm,
-
-            move_combo_corner_perm,
-            move_combo_edge_group_orient,
 
             prune_phase_1: MaybeUninit::uninit(),
             prune_phase_2: MaybeUninit::uninit(),
