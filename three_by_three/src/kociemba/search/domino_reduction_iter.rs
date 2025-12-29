@@ -53,7 +53,7 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
 
 // N is number of moves
 // this doesn't work if the cube is already domino reduced.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct Stack<'t, const N: usize, C> {
     tables: &'t Tables,
     table_offsets: Arc<TableOffsets<'t>>,
@@ -64,11 +64,9 @@ struct Stack<'t, const N: usize, C> {
 
     // 3, 18, 15 * (N - 1) at most. when N=20, 306 at most
     frame_data: Vec<Phase1Node>,
-
-    cached_distances: ArrayVec<u8, 3>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FrameMetadata {
     // the offset into the frame_data buffer that this begins.
     // note that this can never be empty
@@ -104,7 +102,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Vec<Self> {
         let mut options =
-            [0].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
+            [0, 1, 2].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
         options.sort_by_key(|n| n.distance_heuristic(tables));
         options
             .into_iter()
@@ -130,8 +128,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             table_offsets: Arc::new(TableOffsets::new(tables)),
             cancel,
             frame_data,
-            frame_metadata: [const { FrameMetadata::default_const() }; _],
-            cached_distances: ArrayVec::new(),
+            frame_metadata: [const { FrameMetadata::default_const() }; _]
         };
 
         stack.fill_recurse_no_simd(0);
@@ -140,20 +137,34 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     }
 
     /// drop the frame at the top (belonging to frame i)
-    #[inline(always)]
-    fn drop_recurse(&mut self, i: &mut usize) -> Option<()> {
-        while self.get_frame_metadata_i(*i).start == self.frame_data.len() as u16 {
-            self.frame_data.pop()?;
+    #[inline]
+    fn drop_recurse(&mut self, i: &mut usize) -> bool {
+        debug_assert!(*i > 0);
+
+        let mut len = self.frame_data.len() as u16;
+        let frame_metadata = self.frame_metadata.as_ptr();
+
+        while unsafe { (*frame_metadata.add(*i - 1)).start } == len {
+            len -= 1;
+            if *i == 1 {
+                unsafe {
+                    self.frame_data.set_len(0);
+                }
+                return false;
+            }
             *i -= 1;
         }
 
-        Some(())
+        unsafe {
+            self.frame_data.set_len(len as usize);
+        }
+
+        true
     }
 
-    #[inline(always)]
+    #[inline]
     fn fill_recurse(&mut self, i: NonZeroUsize) {
         self.fill_recurse_simd(i)
-        // self.fill_recurse_no_simd(i.get())
     }
 
     // THIS IS THE HOTTEST OF HOT LOOPS. MOST OF THE ALGORITHM IS SPENT IN THIS FUNCTION
@@ -162,7 +173,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 
     // ASSUMES frame_data is non-empty
 
-    #[inline(always)]
+    #[inline]
     fn fill_recurse_no_simd(&mut self, i: usize) {
         let mut i = i;
         while i < N {
@@ -198,13 +209,107 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 
             i += 1;
 
-            if self.drop_recurse(&mut i).is_none() {
+            if !self.drop_recurse(&mut i) {
                 return;
             }
         }
     }
 
-    #[inline(always)]
+    #[inline]
+    fn fill_recurse_simd_compat(&mut self, i: NonZeroUsize) {
+        let mut i = i.get();
+        while i < N {
+            {
+                let mut a = self.clone();
+                a.frame_data.reserve_exact(15);
+
+                let len = a.frame_data.len();
+                a.frame_metadata[i].start = len as u16;
+                let last_data = unsafe { a.frame_data.last_mut().unwrap_unchecked() };
+                let last_frame = unsafe { *a.frame_metadata.get_unchecked(i - 1) };
+
+                let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
+
+                let (a_added,a_new_max_dist) = Phase1Node::produce_next_nodes_simd_compat(
+                    slice,
+                    last_frame.max_distance,
+                    unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
+                    &a.table_offsets,
+                    a.tables,
+                );
+
+
+                let mut b = self.clone();
+                b.frame_data.reserve_exact(15);
+
+                let len = b.frame_data.len();
+                b.frame_metadata[i].start = len as u16;
+                let last_data = unsafe { b.frame_data.last_mut().unwrap_unchecked() };
+                let last_frame = unsafe { *b.frame_metadata.get_unchecked(i - 1) };
+
+                let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
+
+                let (b_added,b_new_max_dist) = Phase1Node::produce_next_nodes_simd(
+                    slice,
+                    last_frame.max_distance,
+                    unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
+                    &b.table_offsets,
+                    b.tables,
+                );
+
+
+                if a_added != b_added {
+                    let mut b = self.clone();
+                    b.frame_data.reserve_exact(15);
+    
+                    let len = b.frame_data.len();
+                    b.frame_metadata[i].start = len as u16;
+                    let last_data = unsafe { b.frame_data.last_mut().unwrap_unchecked() };
+                    let last_frame = unsafe { *b.frame_metadata.get_unchecked(i - 1) };
+    
+                    let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
+    
+                    let (b_added,b_new_max_dist) = Phase1Node::produce_next_nodes_simd(
+                        slice,
+                        last_frame.max_distance,
+                        unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
+                        &b.table_offsets,
+                        b.tables,
+                    );
+                }
+
+                assert_eq!(a_added, b_added);
+                assert_eq!(a_new_max_dist, b_new_max_dist);
+                assert_eq!(a.frame_data, b.frame_data);
+            }
+
+            let len = self.frame_data.len();
+            self.frame_metadata[i].start = len as u16;
+            let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
+            let last_frame = unsafe { *self.frame_metadata.get_unchecked(i - 1) };
+
+            let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
+
+            let (added, new_max_dist) = Phase1Node::produce_next_nodes_simd_compat(
+                slice,
+                last_frame.max_distance,
+                unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
+                &self.table_offsets,
+                self.tables,
+            );
+
+            self.frame_metadata[i].max_distance = new_max_dist;
+            unsafe { self.frame_data.set_len(len + added); }
+
+            i += 1;
+
+            if !self.drop_recurse(&mut i) {
+                return;
+            }
+        }
+    }
+
+    #[inline]
     fn fill_recurse_simd(&mut self, i: NonZeroUsize) {
         let mut i = i.get();
         while i < N {
@@ -228,7 +333,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 
             i += 1;
 
-            if self.drop_recurse(&mut i).is_none() {
+            if !self.drop_recurse(&mut i) {
                 return;
             }
         }
@@ -249,7 +354,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         );
     }
 
-    #[inline(always)]
+    #[inline]
     fn get_frame_metadata_i(&self, i: usize) -> FrameMetadata {
         if std::hint::likely(i != 0) {
             unsafe { *self.frame_metadata.get_unchecked(i - 1) }
@@ -270,9 +375,9 @@ impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
             .map(|m| self.frame_data[m.start as usize - 1]);
 
         let mut i = N;
-        if self.drop_recurse(&mut i).is_some() {
+        if self.drop_recurse(&mut i) {
             // TODO: Think about if this is valid under the assumption that there is only one root node.
-            self.fill_recurse(unsafe { NonZeroUsize::new_unchecked(i) });
+            self.fill_recurse_simd(unsafe { NonZeroUsize::new_unchecked(i) });
         };
 
         Some((head, phase_2_head))
@@ -328,7 +433,6 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
                 cancel: self.cancel,
                 frame_metadata: self.frame_metadata,
                 frame_data: new_frame_data,
-                cached_distances: ArrayVec::new(),
             };
 
             new_stack.fill_recurse(NonZeroUsize::new(i).unwrap());
@@ -367,6 +471,9 @@ impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
 
 #[cfg(test)]
 mod test {
+
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     use crate::{
         cube,
@@ -478,4 +585,37 @@ mod test {
 
     //     Ok(())
     // }
+
+    #[test]
+    fn domino_reduction_length_chart() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(2);
+        let cube: ReprCube = rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let cancel = AtomicBool::new(false);
+
+        println!("0: {}", all_domino_reductions_par::<0>(cube, &tables, &cancel).count());
+        println!("1: {}", all_domino_reductions_par::<1>(cube, &tables, &cancel).count());
+        println!("2: {}", all_domino_reductions_par::<2>(cube, &tables, &cancel).count());
+        println!("3: {}", all_domino_reductions_par::<3>(cube, &tables, &cancel).count());
+        println!("4: {}", all_domino_reductions_par::<4>(cube, &tables, &cancel).count());
+        println!("5: {}", all_domino_reductions_par::<5>(cube, &tables, &cancel).count());
+        println!("6: {}", all_domino_reductions_par::<6>(cube, &tables, &cancel).count());
+        println!("7: {}", all_domino_reductions_par::<7>(cube, &tables, &cancel).count());
+        println!("8: {}", all_domino_reductions_par::<8>(cube, &tables, &cancel).count());
+        println!("9: {}", all_domino_reductions_par::<9>(cube, &tables, &cancel).count());
+        println!("10: {}", all_domino_reductions_par::<10>(cube, &tables, &cancel).count());
+        println!("11: {}", all_domino_reductions_par::<11>(cube, &tables, &cancel).count());
+        println!("12: {}", all_domino_reductions_par::<12>(cube, &tables, &cancel).count());
+        println!("13: {}", all_domino_reductions_par::<13>(cube, &tables, &cancel).count());
+        println!("14: {}", all_domino_reductions_par::<14>(cube, &tables, &cancel).count());
+        println!("15: {}", all_domino_reductions_par::<15>(cube, &tables, &cancel).count());
+        println!("16: {}", all_domino_reductions_par::<16>(cube, &tables, &cancel).count());
+        println!("17: {}", all_domino_reductions_par::<17>(cube, &tables, &cancel).count());
+        println!("18: {}", all_domino_reductions_par::<18>(cube, &tables, &cancel).count());
+        println!("19: {}", all_domino_reductions_par::<19>(cube, &tables, &cancel).count());
+        println!("20: {}", all_domino_reductions_par::<20>(cube, &tables, &cancel).count());
+
+        Ok(())
+    }
 }
