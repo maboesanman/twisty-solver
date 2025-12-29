@@ -20,7 +20,7 @@ use super::{
     lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, table_loader::load_table,
 };
 
-const TABLE_SIZE_BYTES: usize = (64430 * 18) * 2 * 2;
+const TABLE_SIZE_BYTES: usize = (64430 * 18 * 2) * 2;
 const FILE_CHECKSUM: u32 = 3661454509;
 
 pub struct MoveSymEdgeGroupOrientTable(Mmap);

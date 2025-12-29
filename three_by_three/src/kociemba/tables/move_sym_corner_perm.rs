@@ -17,8 +17,8 @@ use crate::{
 
 use super::table_loader::load_table;
 
-const TABLE_SIZE_BYTES: usize = (2768 * 18) * 2 * 2;
-const FILE_CHECKSUM: u32 = 2840872813;
+const TABLE_SIZE_BYTES: usize = (2768 * 18) * 2;
+const FILE_CHECKSUM: u32 = 2474571839;
 
 pub struct MoveSymCornerPermTable(Mmap);
 
@@ -28,22 +28,19 @@ impl MoveSymCornerPermTable {
     }
 
     #[inline(always)]
-    fn chunks(&self) -> &[[u16; 36]] {
+    fn chunks(&self) -> &[[u16; 18]] {
         let buffer = as_u16_slice(&self.0);
         unsafe { buffer.as_chunks_unchecked() }
     }
 
     #[inline(always)]
-    fn chunk(&self, coord: CornerPermSymCoord) -> &[u16; 36] {
+    fn chunk(&self, coord: CornerPermSymCoord) -> &[u16; 18] {
         &self.chunks()[coord.0 as usize]
     }
 
     #[inline(always)]
     pub fn apply_cube_move(&self, coord: CornerPermSymCoord, mv: CubeMove) -> CornerPermComboCoord {
-        CornerPermComboCoord {
-            sym_coord: CornerPermSymCoord(self.chunk(coord)[mv.into_index() * 2]),
-            domino_conjugation: DominoSymmetry(self.chunk(coord)[mv.into_index() * 2 + 1] as u8),
-        }
+        CornerPermComboCoord::from_dense(self.chunk(coord)[mv.into_index()])
     }
 
     fn generate(buffer: &mut [u8], sym_lookup_table: &LookupSymCornerPermTable) {
@@ -51,7 +48,7 @@ impl MoveSymCornerPermTable {
         let buffer = as_u16_slice_mut(buffer);
 
         buffer
-            .par_chunks_mut(36)
+            .par_chunks_mut(18)
             .enumerate()
             .for_each(|(i, store)| {
                 let sym_coord = CornerPermSymCoord(i as u16);
@@ -63,11 +60,11 @@ impl MoveSymCornerPermTable {
                 let corner_perm = CornerPerm::from_coord(raw);
 
                 CubeMove::all_iter()
-                    .zip(store.as_chunks_mut::<2>().0)
+                    .zip(store)
                     .for_each(|(mv, slot)| {
                         let new_raw = corner_perm.apply_cube_move(mv).into_coord();
                         let new_combo = sym_lookup_table.get_combo_from_raw(new_raw);
-                        *slot = [new_combo.sym_coord.0, new_combo.domino_conjugation.0 as u16];
+                        *slot = new_combo.sym_coord.0 | ((new_combo.domino_conjugation.0 as u16) << 12);
                     });
             })
     }
