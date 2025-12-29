@@ -36,8 +36,6 @@ const MOVE_UD_EDGE_PERM_TABLE_NAME: &str = "move_raw_ud_edge_perm.dat";
 const MOVE_SYM_CORNER_PERM_TABLE_NAME: &str = "move_sym_corner_perm_table.dat";
 const PRUNE_PHASE_2_TABLE_NAME: &str = "prune_phase_2_table.dat";
 const MOVE_EDGE_POSITION_TABLE_NAME: &str = "move_raw_edge_position_table.dat";
-const MOVE_COMBO_CORNER_PERM_TABLE_NAME: &str = "move_combo_corner_perm_table.dat";
-const MOVE_COMBO_EDGE_GROUP_ORIENT_TABLE_NAME: &str = "move_combo_edge_group_orient_table.dat";
 
 pub struct Tables {
     pub(crate) lookup_sym_edge_group_orient: LookupSymEdgeGroupOrientTable,
@@ -53,6 +51,12 @@ pub struct Tables {
 
     pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
     pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
+}
+
+impl std::fmt::Debug for Tables {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Tables").finish()
+    }
 }
 
 impl Tables {

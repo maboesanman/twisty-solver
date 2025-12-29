@@ -30,7 +30,6 @@ use crate::{
 };
 
 #[repr(C)]
-#[repr(align(4))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Phase1Node {
     // corners
@@ -114,7 +113,7 @@ impl Phase1Node {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn distance_heuristic(self, tables: &Tables) -> u8 {
         let corner_orient_adjusted = tables
             .move_raw_corner_orient
@@ -126,12 +125,12 @@ impl Phase1Node {
         distance
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn is_domino_reduced(self) -> bool {
         self.corner_orient_raw.0 == 0 && self.edge_group_orient_sym.0 == 0
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn produce_next_nodes(
         self,
         max_possible_distance: u8,
@@ -231,8 +230,38 @@ impl Phase1Node {
         })
     }
 
+    #[inline]
+    pub fn produce_next_nodes_simd_compat(
+        slice: &mut [Phase1Node; 16],
+        max_possible_distance: u8,
+        moves_remaining: NonZeroU8,
+        _table_offsets: &TableOffsets, // intentionally unused
+        tables: &Tables,
+    ) -> (usize, u8) {
+        let start_node = slice[0];
+
+        let Some(frame) = start_node.produce_next_nodes(
+            max_possible_distance,
+            moves_remaining,
+            tables,
+        ) else {
+            return (0, 0);
+        };
+
+        let mut count = 0usize;
+
+        for child in frame.children {
+            // contract: children are written starting at index 1
+            slice[count + 1] = child;
+            count += 1;
+        }
+
+        (count, frame.max_possible_distance)
+    }
+
     /// Places the children from the first item in the array into the remainder of the array in place.
     /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
+    #[inline]
     pub fn produce_next_nodes_simd(
         slice: &mut [Phase1Node; 16],
         max_possible_distance: u8,
@@ -269,17 +298,25 @@ impl Phase1Node {
         let ego_sym_start = DominoSymmetry(start_node.edge_group_orient_correct as u8);
         let cp_sym_start = DominoSymmetry((start_node.corner_perm_combo >> 12) as u8);
 
-        let mut count = subtable.count;
-        let mut i = 0;
-        while i < count {
-            let a = (move_offsets.ego_sym_coord[i] << 1) as usize;
-            let b = move_offsets.cp_sym_coord[i] as usize;
-            let c = move_offsets.raw_coord[i] as usize;
-            let offsets = Simd::from_array([a, a, b, c, c, c, c, i]);
+        let mut i = 1; // output pointer
+        let mut j = 0; // input pointer
+        let last_move = moves_remaining.get() == 1;
+        let too_close_to_be_reduced = moves_remaining.get() <= 8;
+
+        const CP_MASK: u16 = 0x0FFF;
+        const CP_SHIFT: u32 = 12;
+
+        while j < subtable.count {
+            let a = (move_offsets.ego_sym_coord[j] << 1) as usize;
+            let b = move_offsets.cp_sym_coord[j] as usize;
+            let c = move_offsets.raw_coord[j] as usize;
+            let offsets = Simd::from_array([a, a, b, c, c, c, c, j]);
+            j += 1;
             let source = row_starts.wrapping_add(offsets);
+            let out_slot = &mut slice[i];
             unsafe { 
                 let out = Simd::gather_ptr(source).to_array();
-                slice[i + 1] = core::mem::transmute(out);
+                *out_slot = core::mem::transmute(out);
             }
 
 
@@ -294,30 +331,32 @@ impl Phase1Node {
             // of the final position, that sequence could be replaced by domino moves, which means it will not be shorter
             // than a path already found, because there would exist a solution with a shorter phase 1 ending at the
             // first domino reduction, and staying in domino moves, likely more optimally but never longer.
-            let child_is_reduced = slice[i + 1].corner_orient_raw.0 == 0 && slice[i + 1].edge_group_orient_sym.0 == 0;
-            let last_move = moves_remaining.get() == 1;
-            let too_close_to_be_reduced = moves_remaining.get() <= 8;
-            if too_close_to_be_reduced && child_is_reduced || last_move && !child_is_reduced {
-                count -= 1;
+            let child_is_reduced = out_slot.corner_orient_raw.0 == 0 && out_slot.edge_group_orient_sym.0 == 0;
+
+            let should_handle =
+                (last_move && child_is_reduced)
+                || (!last_move && (!too_close_to_be_reduced || !child_is_reduced));
+
+            if !should_handle {
                 continue;
             }
 
-            let ego_sym = DominoSymmetry(slice[i + 1].edge_group_orient_correct as u8);
+            let ego_sym = DominoSymmetry(out_slot.edge_group_orient_correct as u8);
             let ego_sym = ego_sym_start.then(ego_sym);
-            slice[i + 1].edge_group_orient_correct = ego_sym.0 as u16;
+            out_slot.edge_group_orient_correct = ego_sym.0 as u16;
 
-            let cp_sym = DominoSymmetry((slice[i + 1].corner_perm_combo >> 12) as u8);
+            let cp_sym = DominoSymmetry((out_slot.corner_perm_combo >> CP_SHIFT) as u8);
             let cp_sym = cp_sym_start.then(cp_sym);
-            slice[i + 1].corner_perm_combo = (slice[i + 1].corner_perm_combo & 0x0FFF) | ((cp_sym.0 as u16) << 12);
+            out_slot.corner_perm_combo = (out_slot.corner_perm_combo & CP_MASK) | ((cp_sym.0 as u16) << CP_SHIFT);
 
             i += 1;
         }
 
-        (count, max_possible_distance)
+        (i - 1, max_possible_distance)
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct MoveSimd<const N: usize> {
     // base
     base_move_offsets: [u16; N],
@@ -345,7 +384,7 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
             base_move_offsets
         }
     }
-
+    #[inline]
     fn node_to_sym_move_offsets(&self, node: Phase1Node) -> Offsets<N> {
         const LOOKUP: [u16; 18 * 16] = {
             let mut table = [0u16; 18 * 16];
@@ -377,7 +416,7 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
             }
         }
     }
-
+    #[inline]
     fn node_to_row_starts(&self, table_offsets: &TableOffsets, node: Phase1Node) -> Simd<*const u16, 8> {
         let RowStartsBase {
             edge_pos,
@@ -403,7 +442,7 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Offsets<const N: usize> {
     raw_coord: [u16; N],
     ego_sym_coord: [u16; N],
@@ -411,7 +450,7 @@ struct Offsets<const N: usize> {
 }
 
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct RowStartsBase {
     edge_pos: *const u16,
     corner_orient_raw: *const u16,
@@ -420,7 +459,7 @@ struct RowStartsBase {
 }
 
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TableOffsets<'t> {
     phantom: PhantomData<&'t Tables>,
 
@@ -483,6 +522,7 @@ impl<'t> TableOffsets<'t> {
         }
     }
 
+    #[inline]
     fn get_simd_resources(&self, previous_axis: CubePreviousAxis, moves_remaining: NonZeroU8,) -> &MoveSimd<15> {
         if moves_remaining.get() == 1 {
             match previous_axis {
@@ -505,29 +545,6 @@ impl<'t> TableOffsets<'t> {
             }
         }
     }
-
-    fn node_to_offsets(&self, node: Phase1Node) -> Simd<usize, 8> {
-        let coords: [u16; 8] = unsafe { core::mem::transmute(node) };
-        let v16 = Simd::<u16, 8>::from_array(coords);
-        let v: Simd<usize, 8> = SimdUint::cast(v16);
-
-        // let row_multiplier_base = ;
-
-        const ROW_MULT: Simd<usize, 8> = Simd::from_array([
-            33,     // corner orient
-            18 * 2, // edge group orient
-            18 * 2, // corner perm
-            32,     // edge pos
-            32,     // edge pos
-            32,     // edge pos
-            18 * 2, // edge group orient sym
-            18 * 2, // corner perm sym
-        ]);
-
-        v * ROW_MULT
-    }
-
-
 }
 
 #[cfg(test)]
@@ -536,10 +553,12 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
 
     use crate::cube;
+    use crate::kociemba::partial_reprs::edge_positions::EdgePositions;
 
     use super::*;
     use std::collections::BTreeSet;
     use std::num::NonZeroU8;
+    extern crate test;
 
     fn phase1_key(n: &Phase1Node, tables: &Tables) -> [u32; 6] {
         let e = EdgeGroupOrientComboCoord {
@@ -726,6 +745,42 @@ mod tests {
     }
 
     #[test]
+    fn simd_with_cancellation() -> anyhow::Result<()> {
+        let tables = Box::leak(Box::new(Tables::new("tables")?));
+        let table_offsets = TableOffsets::new(tables);
+
+        let node = Phase1Node {
+            previous_axis: CubePreviousAxis::U as u16,
+            edge_group_orient_sym: EdgeGroupOrientSymCoord(18910),
+            edge_group_orient_correct: 14,
+            corner_perm_combo: 12398,
+            corner_orient_raw: CornerOrientRawCoord(1550),
+            u_edge_positions: UEdgePositions(EdgePositions(5392)),
+            d_edge_positions: DEdgePositions(EdgePositions(10634)),
+            e_edge_positions: EEdgePositions(EdgePositions(1514)),
+        };
+
+        let moves_remaining = NonZeroU8::new(10).unwrap();
+        let max_possible_distance = 10;
+
+        let (scalar_keys, scalar_max) =
+            collect_scalar_children(node, max_possible_distance, moves_remaining, tables);
+
+        let (simd_keys, simd_max) = collect_simd_children(
+            node,
+            max_possible_distance,
+            moves_remaining,
+            &table_offsets,
+            tables,
+        );
+
+        assert_eq!(scalar_max, simd_max, "max_possible_distance mismatch");
+        assert_eq!(scalar_keys, simd_keys, "SIMD children differ from scalar");
+
+        Ok(())
+    }
+
+    #[test]
     fn simd_matches_scalar_last_move_only() -> anyhow::Result<()> {
         let tables = Box::leak(Box::new(Tables::new("tables")?));
         let table_offsets = TableOffsets::new(tables);
@@ -751,5 +806,49 @@ mod tests {
         assert_eq!(scalar_keys, simd_keys);
 
         Ok(())
+    }
+
+    #[bench]
+    fn simd_micro_incremental_solutions(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let table_offsets = TableOffsets::new(tables);
+        let mut rng = ChaCha8Rng::seed_from_u64(3);
+        let cube: ReprCube = rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let mut phase_1 = Phase1Node::from_cube(cube, tables);
+        phase_1.previous_axis = CubePreviousAxis::B as u8 as u16;
+
+        let mut buf = [phase_1; 16];
+
+        bench.iter(|| {
+            let (count, new_max) = Phase1Node::produce_next_nodes_simd(
+                &mut buf,
+                20,
+                unsafe { NonZeroU8::new_unchecked(30) },
+                &table_offsets,
+                tables,
+            );
+        });
+    }
+
+    #[bench]
+    fn no_simd_micro_incremental_solutions(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let table_offsets = TableOffsets::new(tables);
+        let mut rng = ChaCha8Rng::seed_from_u64(2);
+        let cube: ReprCube = rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let mut phase_1 = Phase1Node::from_cube(cube, tables);
+        phase_1.previous_axis = CubePreviousAxis::B as u8 as u16;
+
+        let mut buf = [phase_1; 16];
+
+        bench.iter(|| {
+            let (count, new_max) = Phase1Node::produce_next_nodes_simd_compat(
+                &mut buf,
+                20,
+                unsafe { NonZeroU8::new_unchecked(30) },
+                &table_offsets,
+                tables,
+            );
+        });
     }
 }
