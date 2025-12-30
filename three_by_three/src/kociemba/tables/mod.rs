@@ -120,10 +120,12 @@ impl Tables {
         Ok(working)
     }
 
+    #[inline(always)]
     pub(crate) fn get_prune_phase_1(&self) -> &PrunePhase1Table {
         unsafe { self.prune_phase_1.assume_init_ref() }
     }
 
+    #[inline(always)]
     pub(crate) fn get_prune_phase_2(&self) -> &PrunePhase2Table {
         unsafe { self.prune_phase_2.assume_init_ref() }
     }

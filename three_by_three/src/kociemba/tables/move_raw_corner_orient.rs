@@ -31,7 +31,6 @@ impl MoveRawCornerOrientTable {
         self.0.as_ptr() as *const u16
     }
 
-    #[inline(always)]
     fn chunks(&self) -> &[Row] {
         unsafe {
             let slice: &[[u8; core::mem::size_of::<Row>()]] = self.0.as_chunks_unchecked();
@@ -52,12 +51,10 @@ impl MoveRawCornerOrientTable {
         }
     }
 
-    #[inline(always)]
     fn chunk(&self, coord: CornerOrientRawCoord) -> &Row {
         &self.chunks()[coord.0 as usize]
     }
 
-    #[inline(always)]
     pub fn apply_cube_move(
         &self,
         coord: CornerOrientRawCoord,
@@ -66,7 +63,7 @@ impl MoveRawCornerOrientTable {
         CornerOrientRawCoord(self.chunk(coord).moves[mv.into_index()])
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn domino_conjugate(
         &self,
         coord: CornerOrientRawCoord,

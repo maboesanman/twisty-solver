@@ -11,24 +11,20 @@ pub struct EEdgePositions(pub EdgePositions);
 impl EEdgePositions {
     pub const SOLVED: Self = Self(EdgePositions(0));
 
-    #[inline(always)]
     pub fn into_phase_2(self) -> EEdgePermRawCoord {
         debug_assert!(self.0.0 < 24);
 
         EEdgePermRawCoord(self.0.0 as u8)
     }
 
-    #[inline(always)]
     pub const fn into_index(self) -> usize {
         self.0.0 as usize
     }
 
-    #[inline(always)]
     pub const fn into_inner(self) -> u16 {
         self.0.0
     }
 
-    #[inline(always)]
     pub const fn from_inner(inner: u16) -> Self {
         Self(EdgePositions(inner))
     }
@@ -53,17 +49,14 @@ pub struct UEdgePositions(pub EdgePositions);
 impl UEdgePositions {
     pub const SOLVED: Self = Self(EdgePositions(0));
 
-    #[inline(always)]
     pub const fn into_index(self) -> usize {
         self.0.0 as usize
     }
 
-    #[inline(always)]
     pub const fn into_inner(self) -> u16 {
         self.0.0
     }
 
-    #[inline(always)]
     pub const fn from_inner(inner: u16) -> Self {
         Self(EdgePositions(inner))
     }
@@ -108,17 +101,14 @@ pub struct DEdgePositions(pub EdgePositions);
 impl DEdgePositions {
     pub const SOLVED: Self = Self(EdgePositions(0));
 
-    #[inline(always)]
     pub const fn into_index(self) -> usize {
         self.0.0 as usize
     }
 
-    #[inline(always)]
     pub const fn into_inner(self) -> u16 {
         self.0.0
     }
 
-    #[inline(always)]
     pub const fn from_inner(inner: u16) -> Self {
         Self(EdgePositions(inner))
     }
