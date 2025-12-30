@@ -137,8 +137,6 @@ impl Phase1Node {
         moves_remaining: NonZeroU8,
         tables: &Tables,
     ) -> Option<Phase1FrameMetadata<impl Iterator<Item = Self>>> {
-        // TODO: try to do all this stuff as SIMD. seems like a good candidate.
-
         // Get bounds for the current distance from self to solved, with the restriction
         // that the range must be within the allowed. If the range we have is not a subset of
         // [min_allowed_distance, max_allowed_distance], then we look up the actual distance to solved and
@@ -306,6 +304,8 @@ impl Phase1Node {
         const CP_MASK: u16 = 0x0FFF;
         const CP_SHIFT: u32 = 12;
 
+        let mut first_valid = true;
+
         while j < subtable.count {
             let a = (move_offsets.ego_sym_coord[j] << 1) as usize;
             let b = move_offsets.cp_sym_coord[j] as usize;
@@ -314,7 +314,7 @@ impl Phase1Node {
             j += 1;
             let source = row_starts.wrapping_add(offsets);
             let out_slot = &mut slice[i];
-            unsafe { 
+            unsafe {
                 let out = Simd::gather_ptr(source).to_array();
                 *out_slot = core::mem::transmute(out);
             }
@@ -341,6 +341,32 @@ impl Phase1Node {
                 continue;
             }
 
+            // if first_valid && moves_remaining.get() != 1 {
+            //     let RowStartsBase {
+            //         edge_pos,
+            //         corner_orient_raw,
+            //         edge_group_orient,
+            //         corner_combo,
+            //     } = table_offsets.row_0_starts;
+
+            //     unsafe {
+            //         // let a = edge_group_orient
+            //         //     .add(out_slot.edge_group_orient_sym.0 as usize * 18 * 2);
+            //         // let b = corner_combo.add((out_slot.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18);
+            //         let c = corner_orient_raw.add((out_slot.corner_orient_raw.0 as usize) << 5);
+            //         // let d = edge_pos.add((out_slot.u_edge_positions.0.0 as usize) << 5);
+            //         // let e = edge_pos.add((out_slot.d_edge_positions.0.0 as usize) << 5);
+            //         // let f = edge_pos.add((out_slot.e_edge_positions.0.0 as usize) << 5);
+
+            //         std::hint::prefetch_read(c, std::hint::Locality::L1);
+
+            //         // for ptr in [a, b, c ,d, e, f] {
+            //         //     std::hint::prefetch_read(ptr, std::hint::Locality::L1);
+            //         // }
+            //     }
+            //     first_valid = false;
+            // }
+
             let ego_sym = DominoSymmetry(out_slot.edge_group_orient_correct as u8);
             let ego_sym = ego_sym_start.then(ego_sym);
             out_slot.edge_group_orient_correct = ego_sym.0 as u16;
@@ -351,6 +377,20 @@ impl Phase1Node {
 
             i += 1;
         }
+
+        // if i > 2 {
+        //     // swap slice[i - 1] and slice[1]
+        //     unsafe {
+        //         let p = slice.as_mut_ptr();
+        //         let a = p.add(i - 1);
+        //         let b = p.add(1);
+
+        //         std::ptr::swap(a, b);
+        //     }
+        // }
+        let ptr = unsafe { table_offsets.row_0_starts.edge_group_orient.add(slice[i - 1].edge_group_orient_sym.0 as usize * 18 * 2) }; 
+            //         //     .add(out_slot.edge_group_orient_sym.0 as usize * 18 * 2); 
+        std::hint::prefetch_read(ptr, std::hint::Locality::L1);
 
         (i - 1, max_possible_distance)
     }
@@ -432,10 +472,10 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
                 edge_group_orient
                     .add(node.edge_group_orient_sym.0 as usize * 18 * 2 + 1),
                 corner_combo.add((node.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18),
-                corner_orient_raw.add(node.corner_orient_raw.0 as usize * 33),
-                edge_pos.add(node.u_edge_positions.0.0 as usize * 32),
-                edge_pos.add(node.d_edge_positions.0.0 as usize * 32),
-                edge_pos.add(node.e_edge_positions.0.0 as usize * 32),
+                corner_orient_raw.add((node.corner_orient_raw.0 as usize) << 5),
+                edge_pos.add((node.u_edge_positions.0.0 as usize) << 5),
+                edge_pos.add((node.d_edge_positions.0.0 as usize) << 5),
+                edge_pos.add((node.e_edge_positions.0.0 as usize) << 5),
                 self.new_prev_moves.as_ptr(),
             ])
         }

@@ -3,6 +3,7 @@
 #![feature(likely_unlikely)]
 #![feature(portable_simd)]
 #![feature(ptr_cast_array)]
+#![feature(hint_prefetch)]
 #![allow(long_running_const_eval)]
 
 mod cube_entry;
