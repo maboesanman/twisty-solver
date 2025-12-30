@@ -113,7 +113,7 @@ impl Phase1Node {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn distance_heuristic(self, tables: &Tables) -> u8 {
         let corner_orient_adjusted = tables
             .move_raw_corner_orient
@@ -125,12 +125,11 @@ impl Phase1Node {
         distance
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn is_domino_reduced(self) -> bool {
         self.corner_orient_raw.0 == 0 && self.edge_group_orient_sym.0 == 0
     }
 
-    #[inline]
     pub fn produce_next_nodes(
         self,
         max_possible_distance: u8,
@@ -228,38 +227,9 @@ impl Phase1Node {
         })
     }
 
-    #[inline]
-    pub fn produce_next_nodes_simd_compat(
-        slice: &mut [Phase1Node; 16],
-        max_possible_distance: u8,
-        moves_remaining: NonZeroU8,
-        _table_offsets: &TableOffsets, // intentionally unused
-        tables: &Tables,
-    ) -> (usize, u8) {
-        let start_node = slice[0];
-
-        let Some(frame) = start_node.produce_next_nodes(
-            max_possible_distance,
-            moves_remaining,
-            tables,
-        ) else {
-            return (0, 0);
-        };
-
-        let mut count = 0usize;
-
-        for child in frame.children {
-            // contract: children are written starting at index 1
-            slice[count + 1] = child;
-            count += 1;
-        }
-
-        (count, frame.max_possible_distance)
-    }
-
     /// Places the children from the first item in the array into the remainder of the array in place.
     /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
-    #[inline]
+    #[inline(always)]
     pub fn produce_next_nodes_simd(
         slice: &mut [Phase1Node; 16],
         max_possible_distance: u8,
@@ -284,6 +254,25 @@ impl Phase1Node {
             max_possible_distance
         };
 
+        unsafe {
+            let RowStartsBase {
+                edge_pos,
+                corner_orient_raw: _,
+                edge_group_orient,
+                corner_combo,
+            } = table_offsets.row_0_starts;
+
+            for ptr in [
+                edge_group_orient.add(start_node.edge_group_orient_sym.0 as usize * 18 * 2),
+                corner_combo.add((start_node.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18),
+                edge_pos.add((start_node.u_edge_positions.0.0 as usize) << 5),
+                edge_pos.add((start_node.d_edge_positions.0.0 as usize) << 5),
+                edge_pos.add((start_node.e_edge_positions.0.0 as usize) << 5),
+            ] {
+                std::hint::prefetch_read(ptr, std::hint::Locality::L1);
+            }
+        }
+
         // prepare the values for feeding the child nodes.
         let max_possible_distance = max_possible_current_distance + 1;
 
@@ -303,8 +292,6 @@ impl Phase1Node {
 
         const CP_MASK: u16 = 0x0FFF;
         const CP_SHIFT: u32 = 12;
-
-        let mut first_valid = true;
 
         while j < subtable.count {
             let a = (move_offsets.ego_sym_coord[j] << 1) as usize;
@@ -341,7 +328,7 @@ impl Phase1Node {
                 continue;
             }
 
-            // if first_valid && moves_remaining.get() != 1 {
+            // if i == 1 && moves_remaining.get() != 1 {
             //     let RowStartsBase {
             //         edge_pos,
             //         corner_orient_raw,
@@ -350,21 +337,17 @@ impl Phase1Node {
             //     } = table_offsets.row_0_starts;
 
             //     unsafe {
-            //         // let a = edge_group_orient
-            //         //     .add(out_slot.edge_group_orient_sym.0 as usize * 18 * 2);
-            //         // let b = corner_combo.add((out_slot.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18);
+            //         let a = edge_group_orient.add(out_slot.edge_group_orient_sym.0 as usize * 18 * 2);
+            //         let b = corner_combo.add((out_slot.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18);
             //         let c = corner_orient_raw.add((out_slot.corner_orient_raw.0 as usize) << 5);
-            //         // let d = edge_pos.add((out_slot.u_edge_positions.0.0 as usize) << 5);
-            //         // let e = edge_pos.add((out_slot.d_edge_positions.0.0 as usize) << 5);
-            //         // let f = edge_pos.add((out_slot.e_edge_positions.0.0 as usize) << 5);
+            //         let d = edge_pos.add((out_slot.u_edge_positions.0.0 as usize) << 5);
+            //         let e = edge_pos.add((out_slot.d_edge_positions.0.0 as usize) << 5);
+            //         let f = edge_pos.add((out_slot.e_edge_positions.0.0 as usize) << 5);
 
-            //         std::hint::prefetch_read(c, std::hint::Locality::L1);
-
-            //         // for ptr in [a, b, c ,d, e, f] {
-            //         //     std::hint::prefetch_read(ptr, std::hint::Locality::L1);
-            //         // }
+            //         for ptr in [a, b, c ,d, e, f] {
+            //             std::hint::prefetch_read(ptr, std::hint::Locality::L1);
+            //         }
             //     }
-            //     first_valid = false;
             // }
 
             let ego_sym = DominoSymmetry(out_slot.edge_group_orient_correct as u8);
@@ -378,19 +361,14 @@ impl Phase1Node {
             i += 1;
         }
 
-        // if i > 2 {
-        //     // swap slice[i - 1] and slice[1]
-        //     unsafe {
-        //         let p = slice.as_mut_ptr();
-        //         let a = p.add(i - 1);
-        //         let b = p.add(1);
+        // bring the one we pre-fetched up to the top
+        // unsafe {
+        //     let p = slice.as_mut_ptr();
+        //     let a = p.add(i - 1);
+        //     let b = p.add(1);
 
-        //         std::ptr::swap(a, b);
-        //     }
+        //     std::ptr::swap(a, b);
         // }
-        let ptr = unsafe { table_offsets.row_0_starts.edge_group_orient.add(slice[i - 1].edge_group_orient_sym.0 as usize * 18 * 2) }; 
-            //         //     .add(out_slot.edge_group_orient_sym.0 as usize * 18 * 2); 
-        std::hint::prefetch_read(ptr, std::hint::Locality::L1);
 
         (i - 1, max_possible_distance)
     }
@@ -424,7 +402,8 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
             base_move_offsets
         }
     }
-    #[inline]
+
+    #[inline(always)]
     fn node_to_sym_move_offsets(&self, node: Phase1Node) -> Offsets<N> {
         const LOOKUP: [u16; 18 * 16] = {
             let mut table = [0u16; 18 * 16];
@@ -456,7 +435,8 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
             }
         }
     }
-    #[inline]
+
+    #[inline(always)]
     fn node_to_row_starts(&self, table_offsets: &TableOffsets, node: Phase1Node) -> Simd<*const u16, 8> {
         let RowStartsBase {
             edge_pos,
@@ -562,7 +542,7 @@ impl<'t> TableOffsets<'t> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn get_simd_resources(&self, previous_axis: CubePreviousAxis, moves_remaining: NonZeroU8,) -> &MoveSimd<15> {
         if moves_remaining.get() == 1 {
             match previous_axis {
@@ -861,28 +841,6 @@ mod tests {
 
         bench.iter(|| {
             let (count, new_max) = Phase1Node::produce_next_nodes_simd(
-                &mut buf,
-                20,
-                unsafe { NonZeroU8::new_unchecked(30) },
-                &table_offsets,
-                tables,
-            );
-        });
-    }
-
-    #[bench]
-    fn no_simd_micro_incremental_solutions(bench: &mut test::Bencher) {
-        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
-        let table_offsets = TableOffsets::new(tables);
-        let mut rng = ChaCha8Rng::seed_from_u64(2);
-        let cube: ReprCube = rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
-        let mut phase_1 = Phase1Node::from_cube(cube, tables);
-        phase_1.previous_axis = CubePreviousAxis::B as u8 as u16;
-
-        let mut buf = [phase_1; 16];
-
-        bench.iter(|| {
-            let (count, new_max) = Phase1Node::produce_next_nodes_simd_compat(
                 &mut buf,
                 20,
                 unsafe { NonZeroU8::new_unchecked(30) },

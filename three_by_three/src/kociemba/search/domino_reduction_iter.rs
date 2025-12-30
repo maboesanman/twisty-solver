@@ -137,7 +137,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     }
 
     /// drop the frame at the top (belonging to frame i)
-    #[inline]
+    #[inline(always)]
     fn drop_recurse(&mut self, i: &mut usize) -> bool {
         debug_assert!(*i > 0);
 
@@ -162,18 +162,12 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         true
     }
 
-    #[inline]
-    fn fill_recurse(&mut self, i: NonZeroUsize) {
-        self.fill_recurse_simd(i)
-    }
-
     // THIS IS THE HOTTEST OF HOT LOOPS. MOST OF THE ALGORITHM IS SPENT IN THIS FUNCTION
     // 39 % of program runtime is spent in fill_recurse's implementation (not counting other function calls)
     // recurse into frames
 
     // ASSUMES frame_data is non-empty
 
-    #[inline]
     fn fill_recurse_no_simd(&mut self, i: usize) {
         let mut i = i;
         while i < N {
@@ -215,101 +209,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         }
     }
 
-    #[inline]
-    fn fill_recurse_simd_compat(&mut self, i: NonZeroUsize) {
-        let mut i = i.get();
-        while i < N {
-            {
-                let mut a = self.clone();
-                a.frame_data.reserve_exact(15);
-
-                let len = a.frame_data.len();
-                a.frame_metadata[i].start = len as u16;
-                let last_data = unsafe { a.frame_data.last_mut().unwrap_unchecked() };
-                let last_frame = unsafe { *a.frame_metadata.get_unchecked(i - 1) };
-
-                let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
-
-                let (a_added,a_new_max_dist) = Phase1Node::produce_next_nodes_simd_compat(
-                    slice,
-                    last_frame.max_distance,
-                    unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
-                    &a.table_offsets,
-                    a.tables,
-                );
-
-
-                let mut b = self.clone();
-                b.frame_data.reserve_exact(15);
-
-                let len = b.frame_data.len();
-                b.frame_metadata[i].start = len as u16;
-                let last_data = unsafe { b.frame_data.last_mut().unwrap_unchecked() };
-                let last_frame = unsafe { *b.frame_metadata.get_unchecked(i - 1) };
-
-                let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
-
-                let (b_added,b_new_max_dist) = Phase1Node::produce_next_nodes_simd(
-                    slice,
-                    last_frame.max_distance,
-                    unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
-                    &b.table_offsets,
-                    b.tables,
-                );
-
-
-                if a_added != b_added {
-                    let mut b = self.clone();
-                    b.frame_data.reserve_exact(15);
-    
-                    let len = b.frame_data.len();
-                    b.frame_metadata[i].start = len as u16;
-                    let last_data = unsafe { b.frame_data.last_mut().unwrap_unchecked() };
-                    let last_frame = unsafe { *b.frame_metadata.get_unchecked(i - 1) };
-    
-                    let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
-    
-                    let (b_added,b_new_max_dist) = Phase1Node::produce_next_nodes_simd(
-                        slice,
-                        last_frame.max_distance,
-                        unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
-                        &b.table_offsets,
-                        b.tables,
-                    );
-                }
-
-                assert_eq!(a_added, b_added);
-                assert_eq!(a_new_max_dist, b_new_max_dist);
-                assert_eq!(a.frame_data, b.frame_data);
-            }
-
-            let len = self.frame_data.len();
-            self.frame_metadata[i].start = len as u16;
-            let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
-            let last_frame = unsafe { *self.frame_metadata.get_unchecked(i - 1) };
-
-            let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
-
-            let (added, new_max_dist) = Phase1Node::produce_next_nodes_simd_compat(
-                slice,
-                last_frame.max_distance,
-                unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
-                &self.table_offsets,
-                self.tables,
-            );
-
-            self.frame_metadata[i].max_distance = new_max_dist;
-            unsafe { self.frame_data.set_len(len + added); }
-
-            i += 1;
-
-            if !self.drop_recurse(&mut i) {
-                return;
-            }
-        }
-    }
-
-    #[inline]
+    #[inline(always)]
     fn fill_recurse_simd(&mut self, i: NonZeroUsize) {
         let mut i = i.get();
         while i < N {
@@ -354,7 +254,6 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         );
     }
 
-    #[inline]
     fn get_frame_metadata_i(&self, i: usize) -> FrameMetadata {
         if std::hint::likely(i != 0) {
             unsafe { *self.frame_metadata.get_unchecked(i - 1) }
@@ -435,7 +334,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
                 frame_data: new_frame_data,
             };
 
-            new_stack.fill_recurse(NonZeroUsize::new(i).unwrap());
+            new_stack.fill_recurse_no_simd(i);
 
             if !new_stack.frame_data.is_empty() {
                 break (self, Some(new_stack));

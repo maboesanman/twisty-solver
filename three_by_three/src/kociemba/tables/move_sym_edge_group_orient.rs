@@ -30,18 +30,15 @@ impl MoveSymEdgeGroupOrientTable {
         self.0.as_ptr() as *const u16
     }
 
-    #[inline(always)]
     fn chunks(&self) -> &[[u16; 36]] {
         let buffer = as_u16_slice(&self.0);
         unsafe { buffer.as_chunks_unchecked() }
     }
 
-    #[inline(always)]
     fn chunk(&self, coord: EdgeGroupOrientSymCoord) -> &[u16; 36] {
         &self.chunks()[coord.0 as usize]
     }
 
-    #[inline(always)]
     pub fn apply_cube_move(
         &self,
         coord: EdgeGroupOrientSymCoord,

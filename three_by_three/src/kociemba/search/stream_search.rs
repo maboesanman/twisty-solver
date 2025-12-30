@@ -709,6 +709,44 @@ mod test {
 
         bench.iter(|| {
             for cube in cubes.iter() {
+                let mut stream = get_incremental_solutions_stream(*cube, tables, Some(20), true);
+                let future = stream.next();
+                let solution = futures::executor::block_on(future).unwrap();
+                test::black_box(solution);
+            }
+        });
+    }
+
+    #[bench]
+    fn solve_a_cube_in_21_moves(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(1);
+        let cubes: Vec<ReprCube> = (0..1)
+            .into_iter()
+            .map(|_| rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng))
+            .collect_vec();
+
+        bench.iter(|| {
+            for cube in cubes.iter() {
+                let mut stream = get_incremental_solutions_stream(*cube, tables, Some(21), true);
+                let future = stream.next();
+                let solution = futures::executor::block_on(future).unwrap();
+                test::black_box(solution);
+            }
+        });
+    }
+
+    #[bench]
+    fn solve_a_cube_in_22_moves(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(1);
+        let cubes: Vec<ReprCube> = (0..1)
+            .into_iter()
+            .map(|_| rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng))
+            .collect_vec();
+
+        bench.iter(|| {
+            for cube in cubes.iter() {
                 let mut stream = get_incremental_solutions_stream(*cube, tables, Some(22), true);
                 let future = stream.next();
                 let solution = futures::executor::block_on(future).unwrap();

@@ -195,7 +195,6 @@ pub struct PrunePhase2Table(Mmap);
 impl PrunePhase2Table {
 
 
-    #[inline(always)]
     pub fn get_value(
         &self,
         corner_perm_combo_coord: CornerPermSymCoord,
