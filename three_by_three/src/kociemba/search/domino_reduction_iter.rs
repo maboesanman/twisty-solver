@@ -220,7 +220,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 
             let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
 
-            let (added, new_max_dist) = Phase1Node::produce_next_nodes_simd(
+            let (added, new_max_dist) = Phase1Node::produce_next_nodes_simd::<false>(
                 slice,
                 last_frame.max_distance,
                 unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
