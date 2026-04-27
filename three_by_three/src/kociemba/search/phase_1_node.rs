@@ -230,7 +230,7 @@ impl Phase1Node {
     /// Places the children from the first item in the array into the remainder of the array in place.
     /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
     #[inline(always)]
-    pub fn produce_next_nodes_simd(
+    pub fn produce_next_nodes_simd<const CACHE_PREFETCH: bool>(
         slice: &mut [Phase1Node; 16],
         max_possible_distance: u8,
         moves_remaining: NonZeroU8,
@@ -253,25 +253,6 @@ impl Phase1Node {
         } else {
             max_possible_distance
         };
-
-        unsafe {
-            let RowStartsBase {
-                edge_pos,
-                corner_orient_raw: _,
-                edge_group_orient,
-                corner_combo,
-            } = table_offsets.row_0_starts;
-
-            for ptr in [
-                edge_group_orient.add(start_node.edge_group_orient_sym.0 as usize * 18 * 2),
-                corner_combo.add((start_node.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18),
-                edge_pos.add((start_node.u_edge_positions.0.0 as usize) << 5),
-                edge_pos.add((start_node.d_edge_positions.0.0 as usize) << 5),
-                edge_pos.add((start_node.e_edge_positions.0.0 as usize) << 5),
-            ] {
-                std::hint::prefetch_read(ptr, std::hint::Locality::L1);
-            }
-        }
 
         // prepare the values for feeding the child nodes.
         let max_possible_distance = max_possible_current_distance + 1;
@@ -328,27 +309,29 @@ impl Phase1Node {
                 continue;
             }
 
-            // if i == 1 && moves_remaining.get() != 1 {
-            //     let RowStartsBase {
-            //         edge_pos,
-            //         corner_orient_raw,
-            //         edge_group_orient,
-            //         corner_combo,
-            //     } = table_offsets.row_0_starts;
-
-            //     unsafe {
-            //         let a = edge_group_orient.add(out_slot.edge_group_orient_sym.0 as usize * 18 * 2);
-            //         let b = corner_combo.add((out_slot.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18);
-            //         let c = corner_orient_raw.add((out_slot.corner_orient_raw.0 as usize) << 5);
-            //         let d = edge_pos.add((out_slot.u_edge_positions.0.0 as usize) << 5);
-            //         let e = edge_pos.add((out_slot.d_edge_positions.0.0 as usize) << 5);
-            //         let f = edge_pos.add((out_slot.e_edge_positions.0.0 as usize) << 5);
-
-            //         for ptr in [a, b, c ,d, e, f] {
-            //             std::hint::prefetch_read(ptr, std::hint::Locality::L1);
-            //         }
-            //     }
-            // }
+            if CACHE_PREFETCH {
+                if i == 1 && moves_remaining.get() != 1 {
+                    let RowStartsBase {
+                        edge_pos,
+                        corner_orient_raw,
+                        edge_group_orient,
+                        corner_combo,
+                    } = table_offsets.row_0_starts;
+    
+                    unsafe {
+                        let a = edge_group_orient.add(out_slot.edge_group_orient_sym.0 as usize * 18 * 2);
+                        let b = corner_combo.add((out_slot.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18);
+                        let c = corner_orient_raw.add((out_slot.corner_orient_raw.0 as usize) << 5);
+                        let d = edge_pos.add((out_slot.u_edge_positions.0.0 as usize) << 5);
+                        let e = edge_pos.add((out_slot.d_edge_positions.0.0 as usize) << 5);
+                        let f = edge_pos.add((out_slot.e_edge_positions.0.0 as usize) << 5);
+    
+                        for ptr in [a, b, c ,d, e, f] {
+                            std::hint::prefetch_read(ptr, std::hint::Locality::L1);
+                        }
+                    }
+                }
+            }
 
             let ego_sym = DominoSymmetry(out_slot.edge_group_orient_correct as u8);
             let ego_sym = ego_sym_start.then(ego_sym);
@@ -361,14 +344,17 @@ impl Phase1Node {
             i += 1;
         }
 
-        // bring the one we pre-fetched up to the top
-        // unsafe {
-        //     let p = slice.as_mut_ptr();
-        //     let a = p.add(i - 1);
-        //     let b = p.add(1);
 
-        //     std::ptr::swap(a, b);
-        // }
+        if CACHE_PREFETCH {
+            // bring the one we pre-fetched up to the top
+            unsafe {
+                let p = slice.as_mut_ptr();
+                let a = p.add(i - 1);
+                let b = p.add(1);
+
+                std::ptr::swap(a, b);
+            }
+        }
 
         (i - 1, max_possible_distance)
     }
@@ -451,7 +437,7 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
                     .add(node.edge_group_orient_sym.0 as usize * 18 * 2),
                 edge_group_orient
                     .add(node.edge_group_orient_sym.0 as usize * 18 * 2 + 1),
-                corner_combo.add((node.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18),
+                corner_combo.add(((node.corner_perm_combo & 0b0000_1111_1111_1111) as usize) << 5 ),
                 corner_orient_raw.add((node.corner_orient_raw.0 as usize) << 5),
                 edge_pos.add((node.u_edge_positions.0.0 as usize) << 5),
                 edge_pos.add((node.d_edge_positions.0.0 as usize) << 5),
@@ -715,7 +701,7 @@ mod tests {
         // SIMD API requires a 16-wide buffer with node in slot 0
         let mut buf = [node; 16];
 
-        let (count, new_max) = Phase1Node::produce_next_nodes_simd(
+        let (count, new_max) = Phase1Node::produce_next_nodes_simd::<false>(
             &mut buf,
             max_possible_distance,
             moves_remaining,
@@ -840,7 +826,7 @@ mod tests {
         let mut buf = [phase_1; 16];
 
         bench.iter(|| {
-            let (count, new_max) = Phase1Node::produce_next_nodes_simd(
+            let (count, new_max) = Phase1Node::produce_next_nodes_simd::<false>(
                 &mut buf,
                 20,
                 unsafe { NonZeroU8::new_unchecked(30) },

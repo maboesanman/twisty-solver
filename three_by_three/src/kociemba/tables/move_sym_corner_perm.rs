@@ -17,8 +17,12 @@ use crate::{
 
 use super::table_loader::load_table;
 
-const TABLE_SIZE_BYTES: usize = (2768 * 18) * 2;
-const FILE_CHECKSUM: u32 = 2474571839;
+const TABLE_SIZE_BYTES: usize = 2768 * core::mem::size_of::<Row>();
+const FILE_CHECKSUM: u32 = 1209655720;
+
+#[repr(C)]
+#[repr(align(64))]
+struct Row([u16; 18]);
 
 pub struct MoveSymCornerPermTable(Mmap);
 
@@ -27,13 +31,15 @@ impl MoveSymCornerPermTable {
         self.0.as_ptr() as *const u16
     }
 
-    fn chunks(&self) -> &[[u16; 18]] {
-        let buffer = as_u16_slice(&self.0);
-        unsafe { buffer.as_chunks_unchecked() }
+    fn chunks(&self) -> &[Row] {
+        unsafe {
+            let slice: &[[u8; core::mem::size_of::<Row>()]] = self.0.as_chunks_unchecked();
+            core::slice::from_raw_parts(slice.as_ptr() as *const Row, slice.len())
+        }
     }
 
     fn chunk(&self, coord: CornerPermSymCoord) -> &[u16; 18] {
-        &self.chunks()[coord.0 as usize]
+        &self.chunks()[coord.0 as usize].0
     }
 
     pub fn apply_cube_move(&self, coord: CornerPermSymCoord, mv: CubeMove) -> CornerPermComboCoord {
@@ -45,7 +51,7 @@ impl MoveSymCornerPermTable {
         let buffer = as_u16_slice_mut(buffer);
 
         buffer
-            .par_chunks_mut(18)
+            .par_chunks_mut(32)
             .enumerate()
             .for_each(|(i, store)| {
                 let sym_coord = CornerPermSymCoord(i as u16);
