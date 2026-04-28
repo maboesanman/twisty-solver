@@ -25,7 +25,7 @@ use crate::{
         partial_reprs::edge_positions::{
             DEdgePositions, EEdgePositions, UEdgePositions, combine_edge_positions,
             split_edge_positions,
-        }, tables::prune_phase_1_mod_3::PrunePhase1Mod3Table,
+        },
     },
 };
 
@@ -44,7 +44,7 @@ pub struct Phase1Node {
     pub d_edge_positions: DEdgePositions,
     pub e_edge_positions: EEdgePositions,
     // bookkeeping
-    pub distance_and_previous_axis: u16, // (distance << 8) | previous_axis
+    pub previous_axis: u16,
 }
 
 // a set of nodes which came from the same call to `produce_next_nodes`
@@ -76,23 +76,15 @@ impl Phase1Node {
         let corner_perm_combo = CornerPermComboCoord::from_raw(tables, corner_perm.into_coord());
         let corner_orient_raw = corner_orient.into_coord();
 
-        let distance = {
-            let corner_orient_adjusted = tables
-                .move_raw_corner_orient
-                .domino_conjugate(corner_orient_raw, DominoSymmetry(edge_group_orient_combo.domino_conjugation.0));
-
-            PrunePhase1Mod3Table::get_distance(edge_group_orient_combo.sym_coord, corner_orient_adjusted, tables)
-        } as u16;
-
         Self {
             corner_orient_raw,
             u_edge_positions,
             d_edge_positions,
             e_edge_positions,
+            previous_axis: CubePreviousAxis::None as u8 as u16,
             corner_perm_combo: corner_perm_combo.into_dense(),
             edge_group_orient_sym: edge_group_orient_combo.sym_coord,
             edge_group_orient_correct: edge_group_orient_combo.domino_conjugation.0 as u16,
-            distance_and_previous_axis: (distance << 8) | (CubePreviousAxis::None as u8 as u16)
         }
     }
 
@@ -122,24 +114,15 @@ impl Phase1Node {
     }
 
     #[inline(always)]
-    pub fn distance_heuristic(self) -> u8 {
-        (self.distance_and_previous_axis >> 8) as u8
-    }
-
-    #[inline(always)]
-    fn distance_mod_3(self, tables: &Tables) -> u8 {
-        if self.corner_orient_raw.0 == 0 && self.edge_group_orient_sym.0 == 0 {
-            return 0
-        }
+    pub fn distance_heuristic(self, tables: &Tables) -> u8 {
         let corner_orient_adjusted = tables
             .move_raw_corner_orient
             .domino_conjugate(self.corner_orient_raw, DominoSymmetry(self.edge_group_orient_correct as u8));
+        let distance = tables
+            .get_prune_phase_1()
+            .get_value(self.edge_group_orient_sym, corner_orient_adjusted);
 
-        tables.get_prune_phase_1_mod_3().get_value(self.edge_group_orient_sym, corner_orient_adjusted)
-    }
-
-    fn previous_axis(self) -> u8 {
-        self.distance_and_previous_axis as u8
+        distance
     }
 
     #[inline(always)]
@@ -159,7 +142,7 @@ impl Phase1Node {
         // [min_allowed_distance, max_allowed_distance], then we look up the actual distance to solved and
         // return a legal single point range or return None because we're outside the range and must be pruned.
         let max_possible_current_distance = if max_possible_distance > moves_remaining.get() {
-            let distance = self.distance_heuristic();
+            let distance = self.distance_heuristic(tables);
 
             if distance > moves_remaining.get() {
                 return None;
@@ -174,7 +157,7 @@ impl Phase1Node {
         let max_possible_distance = max_possible_current_distance + 1;
 
         // perform all new axis moves on all coords
-        let move_iter = || CubeMove::new_axis_iter(unsafe { core::mem::transmute(self.previous_axis())}, moves_remaining.get() == 1);
+        let move_iter = || CubeMove::new_axis_iter(unsafe { core::mem::transmute(self.previous_axis as u8)}, moves_remaining.get() == 1);
 
         let children = tables
             .move_edge_position
@@ -197,35 +180,18 @@ impl Phase1Node {
                     }
                     .apply_cube_move(tables, cube_move);
 
-                    let corner_orient_raw = tables
-                            .move_raw_corner_orient
-                            .apply_cube_move(self.corner_orient_raw, cube_move);
-
-                    let new_distance_mod_3 = {
-                        let corner_orient_adjusted = tables
-                            .move_raw_corner_orient
-                            .domino_conjugate(corner_orient_raw, DominoSymmetry(edge_group_orient_combo.domino_conjugation.0));
-
-                        tables.get_prune_phase_1_mod_3().get_value(edge_group_orient_combo.sym_coord, corner_orient_adjusted)
-                    };
-
-                    let distance = self.distance_heuristic();
-
-                    let possible_new_distances = [distance - 1, distance, distance + 1];
-
-                    let distance = possible_new_distances.into_iter().filter(|d| *d % 3 == new_distance_mod_3).next().unwrap();
-                    let previous_axis = unsafe { core::mem::transmute::<u8, CubePreviousAxis>(self.previous_axis())}
-                            .update_with_new_move(cube_move, moves_remaining.get() - 1) as u8;
-
                     Phase1Node {
-                        corner_orient_raw,
+                        corner_orient_raw: tables
+                            .move_raw_corner_orient
+                            .apply_cube_move(self.corner_orient_raw, cube_move),
                         u_edge_positions,
                         d_edge_positions,
                         e_edge_positions,
+                        previous_axis: unsafe { core::mem::transmute::<u8, CubePreviousAxis>(self.previous_axis as u8)}
+                            .update_with_new_move(cube_move, moves_remaining.get() - 1) as u8 as u16,
                         corner_perm_combo,
                         edge_group_orient_sym: edge_group_orient_combo.sym_coord,
                         edge_group_orient_correct: edge_group_orient_combo.domino_conjugation.0 as u16,
-                        distance_and_previous_axis: ((distance as u16) << 8) | (previous_axis as u16),
                     }
                 },
             )
@@ -264,8 +230,6 @@ impl Phase1Node {
 
     /// Places the children from the first item in the array into the remainder of the array in place.
     /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
-    // #[inline(always)]
-
     #[inline(always)]
     pub fn produce_next_nodes_simd<const CACHE_PREFETCH: bool>(
         slice: &mut [Phase1Node; 16],
@@ -279,14 +243,14 @@ impl Phase1Node {
         // that the range must be within the allowed. If the range we have is not a subset of
         // [min_allowed_distance, max_allowed_distance], then we look up the actual distance to solved and
         // return a legal single point range or return None because we're outside the range and must be pruned.
-        let start_distance = start_node.distance_heuristic();
         let max_possible_current_distance = if max_possible_distance > moves_remaining.get() {
+            let distance = start_node.distance_heuristic(tables);
 
-            if start_distance > moves_remaining.get() {
+            if distance > moves_remaining.get() {
                 return (0, 0);
             }
 
-            start_distance
+            distance
         } else {
             max_possible_distance
         };
@@ -294,7 +258,7 @@ impl Phase1Node {
         // prepare the values for feeding the child nodes.
         let max_possible_distance = max_possible_current_distance + 1;
 
-        let subtable = table_offsets.get_simd_resources(unsafe { core::mem::transmute(start_node.previous_axis())}, moves_remaining);
+        let subtable = table_offsets.get_simd_resources(unsafe { core::mem::transmute(start_node.previous_axis as u8)}, moves_remaining);
 
         let row_starts = subtable.node_to_row_starts(table_offsets, start_node);
         let move_offsets = subtable.node_to_sym_move_offsets(start_node);
@@ -310,8 +274,6 @@ impl Phase1Node {
 
         const CP_MASK: u16 = 0x0FFF;
         const CP_SHIFT: u32 = 12;
-
-        let r = start_distance % 3;
 
         while j < subtable.count {
             let a = (move_offsets.ego_sym_coord[j] << 1) as usize;
@@ -379,10 +341,6 @@ impl Phase1Node {
             let cp_sym = DominoSymmetry((out_slot.corner_perm_combo >> CP_SHIFT) as u8);
             let cp_sym = cp_sym_start.then(cp_sym);
             out_slot.corner_perm_combo = (out_slot.corner_perm_combo & CP_MASK) | ((cp_sym.0 as u16) << CP_SHIFT);
-
-            let new_distance = start_distance.wrapping_add((out_slot.distance_mod_3(tables) + 4 - r) % 3).wrapping_sub(1);
-
-            out_slot.distance_and_previous_axis |= (new_distance as u16) << 8;
 
             i += 1;
         }
@@ -762,36 +720,36 @@ mod tests {
         (keys, new_max)
     }
 
-    // #[test]
-    // fn simd_matches_scalar_single_random() -> anyhow::Result<()> {
-    //     let tables = Box::leak(Box::new(Tables::new("tables")?));
-    //     let table_offsets = TableOffsets::new(tables);
+    #[test]
+    fn simd_matches_scalar_single_random() -> anyhow::Result<()> {
+        let tables = Box::leak(Box::new(Tables::new("tables")?));
+        let table_offsets = TableOffsets::new(tables);
 
-    //     let mut rng = ChaCha8Rng::seed_from_u64(123);
-    //     let cube: ReprCube =
-    //         rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let mut rng = ChaCha8Rng::seed_from_u64(123);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
 
-    //     let mut node = Phase1Node::from_cube(cube, tables);
-    //     node.previous_axis = CubePreviousAxis::B as u8;
-    //     let moves_remaining = NonZeroU8::new(10).unwrap();
-    //     let max_possible_distance = 10;
+        let mut node = Phase1Node::from_cube(cube, tables);
+        node.previous_axis = CubePreviousAxis::B as u8 as u16;
+        let moves_remaining = NonZeroU8::new(10).unwrap();
+        let max_possible_distance = 10;
 
-    //     let (scalar_keys, scalar_max) =
-    //         collect_scalar_children(node, max_possible_distance, moves_remaining, tables);
+        let (scalar_keys, scalar_max) =
+            collect_scalar_children(node, max_possible_distance, moves_remaining, tables);
 
-    //     let (simd_keys, simd_max) = collect_simd_children(
-    //         node,
-    //         max_possible_distance,
-    //         moves_remaining,
-    //         &table_offsets,
-    //         tables,
-    //     );
+        let (simd_keys, simd_max) = collect_simd_children(
+            node,
+            max_possible_distance,
+            moves_remaining,
+            &table_offsets,
+            tables,
+        );
 
-    //     assert_eq!(scalar_max, simd_max, "max_possible_distance mismatch");
-    //     assert_eq!(scalar_keys, simd_keys, "SIMD children differ from scalar");
+        assert_eq!(scalar_max, simd_max, "max_possible_distance mismatch");
+        assert_eq!(scalar_keys, simd_keys, "SIMD children differ from scalar");
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
 
     #[test]
     fn simd_with_cancellation() -> anyhow::Result<()> {
@@ -799,7 +757,7 @@ mod tests {
         let table_offsets = TableOffsets::new(tables);
 
         let node = Phase1Node {
-            distance_and_previous_axis: (12 << 8) | (CubePreviousAxis::U as u8 as u16),
+            previous_axis: CubePreviousAxis::U as u16,
             edge_group_orient_sym: EdgeGroupOrientSymCoord(18910),
             edge_group_orient_correct: 14,
             corner_perm_combo: 12398,
@@ -857,25 +815,25 @@ mod tests {
         Ok(())
     }
 
-    // #[bench]
-    // fn simd_micro_incremental_solutions(bench: &mut test::Bencher) {
-    //     let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
-    //     let table_offsets = TableOffsets::new(tables);
-    //     let mut rng = ChaCha8Rng::seed_from_u64(3);
-    //     let cube: ReprCube = rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
-    //     let mut phase_1 = Phase1Node::from_cube(cube, tables);
-    //     phase_1.previous_axis = CubePreviousAxis::B as u8;
+    #[bench]
+    fn simd_micro_incremental_solutions(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let table_offsets = TableOffsets::new(tables);
+        let mut rng = ChaCha8Rng::seed_from_u64(3);
+        let cube: ReprCube = rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let mut phase_1 = Phase1Node::from_cube(cube, tables);
+        phase_1.previous_axis = CubePreviousAxis::B as u8 as u16;
 
-    //     let mut buf = [phase_1; 16];
+        let mut buf = [phase_1; 16];
 
-    //     bench.iter(|| {
-    //         let (count, new_max) = Phase1Node::produce_next_nodes_simd::<false>(
-    //             &mut buf,
-    //             20,
-    //             unsafe { NonZeroU8::new_unchecked(30) },
-    //             &table_offsets,
-    //             tables,
-    //         );
-    //     });
-    // }
+        bench.iter(|| {
+            let (count, new_max) = Phase1Node::produce_next_nodes_simd::<false>(
+                &mut buf,
+                20,
+                unsafe { NonZeroU8::new_unchecked(30) },
+                &table_offsets,
+                tables,
+            );
+        });
+    }
 }

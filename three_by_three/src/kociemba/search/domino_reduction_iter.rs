@@ -103,7 +103,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Vec<Self> {
         let mut options =
             [0, 1, 2].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
-        options.sort_by_key(|n| n.distance_heuristic());
+        options.sort_by_key(|n| n.distance_heuristic(tables));
         options
             .into_iter()
             .map(|node| Self::new_inner(node, tables, cancel.clone()))

@@ -49,7 +49,7 @@ pub struct Tables {
     pub(crate) move_raw_ud_edge_perm: MoveRawUDEdgePermTable,
 
 
-    // pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
+    pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
     pub(crate) prune_phase_1_mod_3: MaybeUninit<PrunePhase1Mod3Table>,
     pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
 }
@@ -104,15 +104,15 @@ impl Tables {
             move_raw_e_edge_perm,
             move_raw_ud_edge_perm,
 
-            // prune_phase_1: MaybeUninit::uninit(),
+            prune_phase_1: MaybeUninit::uninit(),
             prune_phase_1_mod_3: MaybeUninit::uninit(),
             prune_phase_2: MaybeUninit::uninit(),
         };
 
-        // working.prune_phase_1.write(PrunePhase1Table::load(
-        //     folder.join(PRUNE_PHASE_1_TABLE_NAME),
-        //     &working,
-        // )?);
+        working.prune_phase_1.write(PrunePhase1Table::load(
+            folder.join(PRUNE_PHASE_1_TABLE_NAME),
+            &working,
+        )?);
 
         working.prune_phase_1_mod_3.write(PrunePhase1Mod3Table::load(
             folder.join(PRUNE_PHASE_1_MOD_3_TABLE_NAME),
@@ -127,10 +127,10 @@ impl Tables {
         Ok(working)
     }
 
-    // #[inline(always)]
-    // pub(crate) fn get_prune_phase_1(&self) -> &PrunePhase1Table {
-    //     unsafe { self.prune_phase_1.assume_init_ref() }
-    // }
+    #[inline(always)]
+    pub(crate) fn get_prune_phase_1(&self) -> &PrunePhase1Table {
+        unsafe { self.prune_phase_1.assume_init_ref() }
+    }
 
     #[inline(always)]
     pub(crate) fn get_prune_phase_1_mod_3(&self) -> &PrunePhase1Mod3Table {
