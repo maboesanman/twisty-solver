@@ -29,7 +29,7 @@ impl Phase2Node {
             u_edge_positions,
             d_edge_positions,
             e_edge_positions,
-            previous_axis,
+            distance_and_previous_axis,
             ..
         } = node;
 
@@ -39,7 +39,7 @@ impl Phase2Node {
             corner_perm_combo,
             ud_edge_perm_raw: UDEdgePerm(u_edge_positions, d_edge_positions).into_coord(),
             e_edge_perm_raw: EEdgePermRawCoord(e_edge_positions.0.0 as u8),
-            previous_axis: unsafe { core::mem::transmute(previous_axis as u8)},
+            previous_axis: unsafe { core::mem::transmute(distance_and_previous_axis as u8)},
         }
     }
 
