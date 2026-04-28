@@ -1,8 +1,5 @@
 use bitvec::field::BitField;
-use bitvec::view::BitView;
-use num_integer::Integer;
 use rayon::prelude::*;
-use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicU8, Ordering, fence};
 
 use std::path::Path;
@@ -10,10 +7,7 @@ use std::path::Path;
 use anyhow::Result;
 use memmap2::Mmap;
 
-use crate::cube_ops::cube_move::CubeMove;
-use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
-use crate::kociemba::coords::edge_group_orient_combo_coord::EdgeGroupOrientComboCoord;
 use crate::kociemba::tables::Tables;
 use crate::kociemba::tables::prune_phase_1::{bottom_up_adjacent, top_down_adjacent};
 
@@ -95,7 +89,6 @@ impl<'a> WorkingTable<'a> {
 pub struct PrunePhase1Mod3Table(Mmap);
 
 impl PrunePhase1Mod3Table {
-
     #[inline(always)]
     pub fn get_value(
         &self,
@@ -107,10 +100,7 @@ impl PrunePhase1Mod3Table {
         self.get_value_inner((a as usize) * 2187 + (b as usize))
     }
 
-    fn get_value_inner(
-        &self,
-        i: usize,
-    ) -> u8 {
+    fn get_value_inner(&self, i: usize) -> u8 {
         let byte = self.0[i / 5];
         let divisor = [81u8, 27, 9, 3, 1][i % 5];
         (byte / divisor) % 3
@@ -229,7 +219,7 @@ impl PrunePhase1Mod3Table {
             acc += d % 3;
             acc *= 3;
             acc += e % 3;
-            
+
             buffer[i] = acc;
         }
 
@@ -246,10 +236,10 @@ impl PrunePhase1Mod3Table {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use rand::Rng;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
-    use rand::Rng;
-    use super::*;
 
     const SAMPLE_COUNT: usize = 1000;
     const SEED: u64 = 42;

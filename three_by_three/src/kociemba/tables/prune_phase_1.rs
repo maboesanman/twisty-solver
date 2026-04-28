@@ -225,7 +225,6 @@ pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<It
 pub struct PrunePhase1Table(Mmap);
 
 impl PrunePhase1Table {
-
     #[inline(always)]
     pub fn get_value(
         &self,

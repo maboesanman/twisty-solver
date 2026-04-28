@@ -98,7 +98,7 @@ mod test {
 
     use itertools::Itertools;
 
-    use crate::{kociemba::coords::coords::EdgeGroupRawCoord, kociemba::tables::Tables};
+    use crate::{kociemba::tables::Tables};
 
     use super::*;
 
@@ -115,7 +115,7 @@ mod test {
 
         let mut buffer = Vec::new();
 
-        for (i, rep) in collect_unique_sorted_parallel(reps).enumerate() {
+        for (_, rep) in collect_unique_sorted_parallel(reps).enumerate() {
             let group = rep.split().0;
             buffer.push(group);
         }

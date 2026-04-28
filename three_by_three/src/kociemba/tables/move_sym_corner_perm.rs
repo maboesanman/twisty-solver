@@ -10,8 +10,7 @@ use crate::{
     },
     kociemba::coords::{coords::CornerPermSymCoord, corner_perm_combo_coord::CornerPermComboCoord},
     kociemba::tables::{
-        lookup_sym_corner_perm::LookupSymCornerPermTable,
-        table_loader::{as_u16_slice, as_u16_slice_mut},
+        lookup_sym_corner_perm::LookupSymCornerPermTable, table_loader::as_u16_slice_mut,
     },
 };
 
@@ -62,13 +61,11 @@ impl MoveSymCornerPermTable {
                 let raw = sym_lookup_table.get_raw_from_combo(combo);
                 let corner_perm = CornerPerm::from_coord(raw);
 
-                CubeMove::all_iter()
-                    .zip(store)
-                    .for_each(|(mv, slot)| {
-                        let new_raw = corner_perm.apply_cube_move(mv).into_coord();
-                        let new_combo = sym_lookup_table.get_combo_from_raw(new_raw);
-                        *slot = new_combo.sym_coord.0 | ((new_combo.domino_conjugation.0 as u16) << 12);
-                    });
+                CubeMove::all_iter().zip(store).for_each(|(mv, slot)| {
+                    let new_raw = corner_perm.apply_cube_move(mv).into_coord();
+                    let new_combo = sym_lookup_table.get_combo_from_raw(new_raw);
+                    *slot = new_combo.sym_coord.0 | ((new_combo.domino_conjugation.0 as u16) << 12);
+                });
             })
     }
 

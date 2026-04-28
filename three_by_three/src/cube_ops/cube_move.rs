@@ -60,7 +60,6 @@ pub const L_CORNER_ORIENT_CORRECT: CornerOrient =
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-#[allow(unused)]
 pub enum CubeMove {
     U1,
     U2,
@@ -320,7 +319,6 @@ impl TryFrom<CubeMove> for DominoMove {
 
 #[repr(u8)]
 #[derive(Clone, Copy)]
-#[allow(unused)]
 pub enum DominoMove {
     U1,
     U2,

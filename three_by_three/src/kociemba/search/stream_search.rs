@@ -16,7 +16,10 @@ use rayon::iter::ParallelIterator;
 
 use crate::{
     cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
-    kociemba::{search::solve_with_fixed_len_phase_1::{produce_solutions, produce_solutions_par}, tables::Tables},
+    kociemba::{
+        search::solve_with_fixed_len_phase_1::{produce_solutions, produce_solutions_par},
+        tables::Tables,
+    },
 };
 
 fn solver_thread_single(
@@ -557,9 +560,7 @@ mod test {
     extern crate test;
 
     use super::*;
-    use crate::{
-        CornerOrient, EdgeOrient, EdgePerm, cube, kociemba::partial_reprs::edge_group::EdgeGroup,
-    };
+    use crate::cube;
 
     #[test]
     fn test_stream_superflip() -> anyhow::Result<()> {
@@ -616,8 +617,7 @@ mod test {
 
         let cube = cube.apply_cube_move(CubeMove::D2);
         cube.pretty_print();
-        let stream = get_incremental_solutions_stream(cube, tables, None,
-            true,);
+        let stream = get_incremental_solutions_stream(cube, tables, None, true);
 
         for solution in futures::executor::block_on_stream(stream) {
             print!("{:02} ", solution.len());
@@ -661,7 +661,7 @@ mod test {
 
             cube.pretty_print();
 
-            let mut stream = get_incremental_solutions_stream(cube, tables, Some(20),  true);
+            let mut stream = get_incremental_solutions_stream(cube, tables, Some(20), true);
             let future = stream.next();
             // assert!(futures::executor::block_on(future).is_some());
 

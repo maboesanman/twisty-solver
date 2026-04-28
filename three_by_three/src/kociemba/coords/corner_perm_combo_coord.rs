@@ -22,8 +22,7 @@ impl CornerPermComboCoord {
     }
 
     pub fn into_dense(self) -> u16 {
-        (self.sym_coord.0 & 0x0FFF)
-            | ((self.domino_conjugation.0 as u16) << 12)
+        (self.sym_coord.0 & 0x0FFF) | ((self.domino_conjugation.0 as u16) << 12)
     }
 
     pub fn from_dense(dense: u16) -> Self {

@@ -1,15 +1,17 @@
 use std::path::Path;
 
 use anyhow::Result;
-use bitvec::{field::BitField, order::Msb0, view::BitView};
 use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::{
     cube_ops::cube_move::CubeMove,
-    kociemba::{partial_reprs::edge_positions::{
-        DEdgePositions, EEdgePositions, UEdgePositions, split_edge_positions,
-    }, tables::table_loader::as_u16_slice_mut},
+    kociemba::{
+        partial_reprs::edge_positions::{
+            DEdgePositions, EEdgePositions, UEdgePositions, split_edge_positions,
+        },
+        tables::table_loader::as_u16_slice_mut,
+    },
 };
 
 use super::table_loader::load_table;
@@ -63,16 +65,18 @@ impl MoveEdgePositions {
     }
 
     fn generate(buffer: &mut [u8]) {
-        as_u16_slice_mut(buffer).
-        par_chunks_mut(32).enumerate().for_each(|(i, row)| {
-            let u_coord = UEdgePositions::from_inner(i as u16);
-            let edge_perm = u_coord.rep_edge_perm();
+        as_u16_slice_mut(buffer)
+            .par_chunks_mut(32)
+            .enumerate()
+            .for_each(|(i, row)| {
+                let u_coord = UEdgePositions::from_inner(i as u16);
+                let edge_perm = u_coord.rep_edge_perm();
 
-            for mv in CubeMove::all_iter() {
-                let (new_u_coord, _, _) = split_edge_positions(edge_perm.apply_cube_move(mv));
-                row[mv.into_index()] = new_u_coord.into_inner();
-            }
-        });
+                for mv in CubeMove::all_iter() {
+                    let (new_u_coord, _, _) = split_edge_positions(edge_perm.apply_cube_move(mv));
+                    row[mv.into_index()] = new_u_coord.into_inner();
+                }
+            });
     }
 
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
@@ -82,9 +86,9 @@ impl MoveEdgePositions {
 
 #[cfg(test)]
 mod test {
-    use crate::{EdgePerm, Permutation};
     use crate::kociemba::partial_reprs::edge_positions::combine_edge_positions;
     use crate::kociemba::tables::Tables;
+    use crate::{EdgePerm, Permutation};
 
     use super::*;
 

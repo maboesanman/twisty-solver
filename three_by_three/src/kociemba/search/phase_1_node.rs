@@ -2,10 +2,7 @@ use std::{
     hint::unreachable_unchecked,
     marker::PhantomData,
     num::NonZeroU8,
-    ptr,
-    simd::{
-        LaneCount, Mask, Simd, SupportedLaneCount, cmp::SimdPartialOrd, num::{SimdFloat, SimdUint}, ptr::SimdConstPtr
-    },
+    simd::{LaneCount, Simd, SupportedLaneCount, num::SimdUint, ptr::SimdConstPtr},
 };
 
 use itertools::Itertools;
@@ -15,10 +12,7 @@ use crate::{
     cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
     kociemba::{
         coords::{
-            coords::{
-                CornerOrientRawCoord, CornerPermSymCoord, EdgeGroupOrientRawCoord,
-                EdgeGroupOrientSymCoord,
-            },
+            coords::{CornerOrientRawCoord, EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
             corner_perm_combo_coord::CornerPermComboCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         },
@@ -34,10 +28,10 @@ use crate::{
 pub struct Phase1Node {
     // corners
     pub edge_group_orient_sym: EdgeGroupOrientSymCoord,
-    
+
     pub edge_group_orient_correct: u16,
     pub corner_perm_combo: u16,
-    
+
     // edges
     pub corner_orient_raw: CornerOrientRawCoord,
     pub u_edge_positions: UEdgePositions,
@@ -115,14 +109,14 @@ impl Phase1Node {
 
     #[inline(always)]
     pub fn distance_heuristic(self, tables: &Tables) -> u8 {
-        let corner_orient_adjusted = tables
-            .move_raw_corner_orient
-            .domino_conjugate(self.corner_orient_raw, DominoSymmetry(self.edge_group_orient_correct as u8));
-        let distance = tables
-            .get_prune_phase_1()
-            .get_value(self.edge_group_orient_sym, corner_orient_adjusted);
+        let corner_orient_adjusted = tables.move_raw_corner_orient.domino_conjugate(
+            self.corner_orient_raw,
+            DominoSymmetry(self.edge_group_orient_correct as u8),
+        );
 
-        distance
+        tables
+            .get_prune_phase_1()
+            .get_value(self.edge_group_orient_sym, corner_orient_adjusted)
     }
 
     #[inline(always)]
@@ -157,7 +151,12 @@ impl Phase1Node {
         let max_possible_distance = max_possible_current_distance + 1;
 
         // perform all new axis moves on all coords
-        let move_iter = || CubeMove::new_axis_iter(unsafe { core::mem::transmute(self.previous_axis as u8)}, moves_remaining.get() == 1);
+        let move_iter = || {
+            CubeMove::new_axis_iter(
+                unsafe { core::mem::transmute(self.previous_axis as u8) },
+                moves_remaining.get() == 1,
+            )
+        };
 
         let children = tables
             .move_edge_position
@@ -171,8 +170,10 @@ impl Phase1Node {
             .zip_eq(move_iter())
             .map(
                 move |((u_edge_positions, d_edge_positions, e_edge_positions), cube_move)| {
-                    let corner_perm_combo = CornerPermComboCoord::from_dense(self.corner_perm_combo)
-                    .apply_cube_move(tables, cube_move).into_dense();
+                    let corner_perm_combo =
+                        CornerPermComboCoord::from_dense(self.corner_perm_combo)
+                            .apply_cube_move(tables, cube_move)
+                            .into_dense();
 
                     let edge_group_orient_combo = EdgeGroupOrientComboCoord {
                         sym_coord: self.edge_group_orient_sym,
@@ -187,11 +188,15 @@ impl Phase1Node {
                         u_edge_positions,
                         d_edge_positions,
                         e_edge_positions,
-                        previous_axis: unsafe { core::mem::transmute::<u8, CubePreviousAxis>(self.previous_axis as u8)}
-                            .update_with_new_move(cube_move, moves_remaining.get() - 1) as u8 as u16,
+                        previous_axis: unsafe {
+                            core::mem::transmute::<u8, CubePreviousAxis>(self.previous_axis as u8)
+                        }
+                        .update_with_new_move(cube_move, moves_remaining.get() - 1)
+                            as u8 as u16,
                         corner_perm_combo,
                         edge_group_orient_sym: edge_group_orient_combo.sym_coord,
-                        edge_group_orient_correct: edge_group_orient_combo.domino_conjugation.0 as u16,
+                        edge_group_orient_correct: edge_group_orient_combo.domino_conjugation.0
+                            as u16,
                     }
                 },
             )
@@ -258,12 +263,16 @@ impl Phase1Node {
         // prepare the values for feeding the child nodes.
         let max_possible_distance = max_possible_current_distance + 1;
 
-        let subtable = unsafe { table_offsets.get_simd_resources(core::mem::transmute(start_node.previous_axis as u8), moves_remaining) };
+        let subtable = unsafe {
+            table_offsets.get_simd_resources(
+                core::mem::transmute(start_node.previous_axis as u8),
+                moves_remaining,
+            )
+        };
 
         let row_starts = subtable.node_to_row_starts(table_offsets, start_node);
         let move_offsets = subtable.node_to_sym_move_offsets(start_node);
 
-        
         let ego_sym_start = DominoSymmetry(start_node.edge_group_orient_correct as u8);
         let cp_sym_start = DominoSymmetry((start_node.corner_perm_combo >> 12) as u8);
 
@@ -288,7 +297,6 @@ impl Phase1Node {
                 *out_slot = core::mem::transmute(out);
             }
 
-
             // the last cube must be domino reduced, so if moves_remaining is 1,
             // we need to filter for only cubes which are reduced already.
             //
@@ -300,36 +308,36 @@ impl Phase1Node {
             // of the final position, that sequence could be replaced by domino moves, which means it will not be shorter
             // than a path already found, because there would exist a solution with a shorter phase 1 ending at the
             // first domino reduction, and staying in domino moves, likely more optimally but never longer.
-            let child_is_reduced = out_slot.corner_orient_raw.0 == 0 && out_slot.edge_group_orient_sym.0 == 0;
+            let child_is_reduced =
+                out_slot.corner_orient_raw.0 == 0 && out_slot.edge_group_orient_sym.0 == 0;
 
-            let should_handle =
-                (last_move && child_is_reduced)
+            let should_handle = (last_move && child_is_reduced)
                 || (!last_move && (!too_close_to_be_reduced || !child_is_reduced));
 
             if !should_handle {
                 continue;
             }
 
-            if CACHE_PREFETCH {
-                if i == 1 && moves_remaining.get() != 1 {
-                    let RowStartsBase {
-                        edge_pos,
-                        corner_orient_raw,
-                        edge_group_orient,
-                        corner_combo,
-                    } = table_offsets.row_0_starts;
-    
-                    unsafe {
-                        let a = edge_group_orient.add(out_slot.edge_group_orient_sym.0 as usize * 18 * 2);
-                        let b = corner_combo.add((out_slot.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18);
-                        let c = corner_orient_raw.add((out_slot.corner_orient_raw.0 as usize) << 5);
-                        let d = edge_pos.add((out_slot.u_edge_positions.0.0 as usize) << 5);
-                        let e = edge_pos.add((out_slot.d_edge_positions.0.0 as usize) << 5);
-                        let f = edge_pos.add((out_slot.e_edge_positions.0.0 as usize) << 5);
-    
-                        for ptr in [a, b, c ,d, e, f] {
-                            std::hint::prefetch_read(ptr, std::hint::Locality::L1);
-                        }
+            if CACHE_PREFETCH && i == 1 && moves_remaining.get() != 1 {
+                let RowStartsBase {
+                    edge_pos,
+                    corner_orient_raw,
+                    edge_group_orient,
+                    corner_combo,
+                } = table_offsets.row_0_starts;
+
+                unsafe {
+                    let a =
+                        edge_group_orient.add(out_slot.edge_group_orient_sym.0 as usize * 18 * 2);
+                    let b = corner_combo
+                        .add((out_slot.corner_perm_combo & 0b0000_1111_1111_1111) as usize * 18);
+                    let c = corner_orient_raw.add((out_slot.corner_orient_raw.0 as usize) << 5);
+                    let d = edge_pos.add((out_slot.u_edge_positions.0.0 as usize) << 5);
+                    let e = edge_pos.add((out_slot.d_edge_positions.0.0 as usize) << 5);
+                    let f = edge_pos.add((out_slot.e_edge_positions.0.0 as usize) << 5);
+
+                    for ptr in [a, b, c, d, e, f] {
+                        std::hint::prefetch_read(ptr, std::hint::Locality::L1);
                     }
                 }
             }
@@ -340,11 +348,11 @@ impl Phase1Node {
 
             let cp_sym = DominoSymmetry((out_slot.corner_perm_combo >> CP_SHIFT) as u8);
             let cp_sym = cp_sym_start.then(cp_sym);
-            out_slot.corner_perm_combo = (out_slot.corner_perm_combo & CP_MASK) | ((cp_sym.0 as u16) << CP_SHIFT);
+            out_slot.corner_perm_combo =
+                (out_slot.corner_perm_combo & CP_MASK) | ((cp_sym.0 as u16) << CP_SHIFT);
 
             i += 1;
         }
-
 
         if CACHE_PREFETCH {
             // bring the one we pre-fetched up to the top
@@ -371,7 +379,10 @@ struct MoveSimd<const N: usize> {
 
 // struct MoveSimdRef<
 
-impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
+impl<const N: usize> MoveSimd<N>
+where
+    LaneCount<N>: SupportedLaneCount,
+{
     fn new(prev_axis: CubePreviousAxis) -> Self {
         let moves = CubeMove::new_axis_iter(prev_axis, false);
         let mut new_prev_moves = Box::new([0u16; N]);
@@ -386,7 +397,7 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
         Self {
             count,
             new_prev_moves,
-            base_move_offsets
+            base_move_offsets,
         }
     }
 
@@ -411,12 +422,16 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
         unsafe {
             Offsets {
                 raw_coord: self.base_move_offsets,
-                ego_sym_coord: Simd::gather_ptr(base.wrapping_add(
-                    offsets | Simd::splat(node.edge_group_orient_correct as usize),
-                ))
+                ego_sym_coord: Simd::gather_ptr(
+                    base.wrapping_add(
+                        offsets | Simd::splat(node.edge_group_orient_correct as usize),
+                    ),
+                )
                 .to_array(),
                 cp_sym_coord: Simd::gather_ptr(
-                    base.wrapping_add(offsets | Simd::splat((node.corner_perm_combo >> 12) as usize)),
+                    base.wrapping_add(
+                        offsets | Simd::splat((node.corner_perm_combo >> 12) as usize),
+                    ),
                 )
                 .to_array(),
             }
@@ -424,7 +439,11 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
     }
 
     #[inline(always)]
-    fn node_to_row_starts(&self, table_offsets: &TableOffsets, node: Phase1Node) -> Simd<*const u16, 8> {
+    fn node_to_row_starts(
+        &self,
+        table_offsets: &TableOffsets,
+        node: Phase1Node,
+    ) -> Simd<*const u16, 8> {
         let RowStartsBase {
             edge_pos,
             corner_orient_raw,
@@ -434,11 +453,9 @@ impl<const N: usize> MoveSimd<N> where LaneCount<N>: SupportedLaneCount {
 
         unsafe {
             Simd::<_, 8>::from_array([
-                edge_group_orient
-                    .add(node.edge_group_orient_sym.0 as usize * 18 * 2),
-                edge_group_orient
-                    .add(node.edge_group_orient_sym.0 as usize * 18 * 2 + 1),
-                corner_combo.add(((node.corner_perm_combo & 0b0000_1111_1111_1111) as usize) << 5 ),
+                edge_group_orient.add(node.edge_group_orient_sym.0 as usize * 18 * 2),
+                edge_group_orient.add(node.edge_group_orient_sym.0 as usize * 18 * 2 + 1),
+                corner_combo.add(((node.corner_perm_combo & 0b0000_1111_1111_1111) as usize) << 5),
                 corner_orient_raw.add((node.corner_orient_raw.0 as usize) << 5),
                 edge_pos.add((node.u_edge_positions.0.0 as usize) << 5),
                 edge_pos.add((node.d_edge_positions.0.0 as usize) << 5),
@@ -464,7 +481,6 @@ struct RowStartsBase {
     edge_group_orient: *const u16,
     corner_combo: *const u16,
 }
-
 
 #[derive(Clone, Debug)]
 pub struct TableOffsets<'t> {
@@ -506,11 +522,11 @@ impl<'t> TableOffsets<'t> {
 
         let row_0_starts = unsafe {
             RowStartsBase {
-            edge_pos: tables.move_edge_position.as_ptr(),
-            corner_orient_raw: tables.move_raw_corner_orient.as_ptr(),
-            edge_group_orient: tables.move_sym_edge_group_orient.as_ptr(),
-            corner_combo: tables.move_sym_corner_perm.as_ptr(),
-        }
+                edge_pos: tables.move_edge_position.as_ptr(),
+                corner_orient_raw: tables.move_raw_corner_orient.as_ptr(),
+                edge_group_orient: tables.move_sym_edge_group_orient.as_ptr(),
+                corner_combo: tables.move_sym_corner_perm.as_ptr(),
+            }
         };
         Self {
             phantom: PhantomData,
@@ -531,7 +547,11 @@ impl<'t> TableOffsets<'t> {
 
     #[inline(always)]
     // SAFETY: Can't pass in CubePreviousAxis::None
-    unsafe fn get_simd_resources(&self, previous_axis: CubePreviousAxis, moves_remaining: NonZeroU8,) -> &MoveSimd<15> {
+    unsafe fn get_simd_resources(
+        &self,
+        previous_axis: CubePreviousAxis,
+        moves_remaining: NonZeroU8,
+    ) -> &MoveSimd<15> {
         #[cfg(test)]
         {
             assert_ne!(previous_axis, CubePreviousAxis::None);
@@ -540,7 +560,9 @@ impl<'t> TableOffsets<'t> {
 
         if moves_remaining.get() == 1 {
             match previous_axis {
-                CubePreviousAxis::U | CubePreviousAxis::D | CubePreviousAxis::UD => &self.end_u_d_ud,
+                CubePreviousAxis::U | CubePreviousAxis::D | CubePreviousAxis::UD => {
+                    &self.end_u_d_ud
+                }
                 CubePreviousAxis::F => &self.end_f,
                 CubePreviousAxis::B | CubePreviousAxis::FB => &self.end_b_fb,
                 CubePreviousAxis::R => &self.end_r,
@@ -577,7 +599,7 @@ mod tests {
     fn phase1_key(n: &Phase1Node, tables: &Tables) -> [u32; 6] {
         let e = EdgeGroupOrientComboCoord {
             sym_coord: n.edge_group_orient_sym,
-            domino_conjugation: unsafe { core::mem::transmute(n.edge_group_orient_correct as u8)},
+            domino_conjugation: unsafe { core::mem::transmute(n.edge_group_orient_correct as u8) },
         };
         [
             n.corner_orient_raw.0 as u32,
@@ -827,14 +849,15 @@ mod tests {
         let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
         let table_offsets = TableOffsets::new(tables);
         let mut rng = ChaCha8Rng::seed_from_u64(3);
-        let cube: ReprCube = rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
         let mut phase_1 = Phase1Node::from_cube(cube, tables);
         phase_1.previous_axis = CubePreviousAxis::B as u8 as u16;
 
         let mut buf = [phase_1; 16];
 
         bench.iter(|| {
-            let (count, new_max) = Phase1Node::produce_next_nodes_simd::<false>(
+            let _ = Phase1Node::produce_next_nodes_simd::<false>(
                 &mut buf,
                 20,
                 unsafe { NonZeroU8::new_unchecked(30) },
