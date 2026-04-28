@@ -258,7 +258,7 @@ impl Phase1Node {
         // prepare the values for feeding the child nodes.
         let max_possible_distance = max_possible_current_distance + 1;
 
-        let subtable = table_offsets.get_simd_resources(unsafe { core::mem::transmute(start_node.previous_axis as u8)}, moves_remaining);
+        let subtable = unsafe { table_offsets.get_simd_resources(core::mem::transmute(start_node.previous_axis as u8), moves_remaining) };
 
         let row_starts = subtable.node_to_row_starts(table_offsets, start_node);
         let move_offsets = subtable.node_to_sym_move_offsets(start_node);
@@ -530,7 +530,14 @@ impl<'t> TableOffsets<'t> {
     }
 
     #[inline(always)]
-    fn get_simd_resources(&self, previous_axis: CubePreviousAxis, moves_remaining: NonZeroU8,) -> &MoveSimd<15> {
+    // SAFETY: Can't pass in CubePreviousAxis::None
+    unsafe fn get_simd_resources(&self, previous_axis: CubePreviousAxis, moves_remaining: NonZeroU8,) -> &MoveSimd<15> {
+        #[cfg(test)]
+        {
+            assert_ne!(previous_axis, CubePreviousAxis::None);
+        }
+        debug_assert_ne!(previous_axis, CubePreviousAxis::None);
+
         if moves_remaining.get() == 1 {
             match previous_axis {
                 CubePreviousAxis::U | CubePreviousAxis::D | CubePreviousAxis::UD => &self.end_u_d_ud,
