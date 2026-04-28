@@ -6,9 +6,7 @@ use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
 use crate::kociemba::tables::{
-    move_edge_positions::MoveEdgePositions, move_raw_e_edge_perm::MoveRawEEdgePermTable,
-    move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable,
-    prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table,
+    move_edge_positions::MoveEdgePositions, move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_1::PrunePhase1Table, prune_phase_1_mod_3::PrunePhase1Mod3Table, prune_phase_2::PrunePhase2Table
 };
 
 pub mod lookup_sym_corner_perm;
@@ -23,6 +21,7 @@ pub mod move_sym_edge_group_orient;
 
 pub mod prune_phase_1;
 pub mod prune_phase_2;
+pub mod prune_phase_1_mod_3;
 
 mod table_loader;
 
@@ -31,6 +30,7 @@ const MOVE_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &str = "move_sym_edge_group_orient_
 const LOOKUP_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &str = "lookup_sym_edge_group_orient_table.dat";
 const LOOKUP_SYM_CORNER_PERM_TABLE_NAME: &str = "lookup_sym_corner_perm_table.dat";
 const PRUNE_PHASE_1_TABLE_NAME: &str = "prune_phase_1_table.dat";
+const PRUNE_PHASE_1_MOD_3_TABLE_NAME: &str = "prune_phase_1_mod_3_table.dat";
 const MOVE_E_EDGE_PERM_TABLE_NAME: &str = "move_raw_e_edge_perm.dat";
 const MOVE_UD_EDGE_PERM_TABLE_NAME: &str = "move_raw_ud_edge_perm.dat";
 const MOVE_SYM_CORNER_PERM_TABLE_NAME: &str = "move_sym_corner_perm_table.dat";
@@ -49,7 +49,8 @@ pub struct Tables {
     pub(crate) move_raw_ud_edge_perm: MoveRawUDEdgePermTable,
 
 
-    pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
+    // pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
+    pub(crate) prune_phase_1_mod_3: MaybeUninit<PrunePhase1Mod3Table>,
     pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
 }
 
@@ -103,12 +104,18 @@ impl Tables {
             move_raw_e_edge_perm,
             move_raw_ud_edge_perm,
 
-            prune_phase_1: MaybeUninit::uninit(),
+            // prune_phase_1: MaybeUninit::uninit(),
+            prune_phase_1_mod_3: MaybeUninit::uninit(),
             prune_phase_2: MaybeUninit::uninit(),
         };
 
-        working.prune_phase_1.write(PrunePhase1Table::load(
-            folder.join(PRUNE_PHASE_1_TABLE_NAME),
+        // working.prune_phase_1.write(PrunePhase1Table::load(
+        //     folder.join(PRUNE_PHASE_1_TABLE_NAME),
+        //     &working,
+        // )?);
+
+        working.prune_phase_1_mod_3.write(PrunePhase1Mod3Table::load(
+            folder.join(PRUNE_PHASE_1_MOD_3_TABLE_NAME),
             &working,
         )?);
 
@@ -120,9 +127,14 @@ impl Tables {
         Ok(working)
     }
 
+    // #[inline(always)]
+    // pub(crate) fn get_prune_phase_1(&self) -> &PrunePhase1Table {
+    //     unsafe { self.prune_phase_1.assume_init_ref() }
+    // }
+
     #[inline(always)]
-    pub(crate) fn get_prune_phase_1(&self) -> &PrunePhase1Table {
-        unsafe { self.prune_phase_1.assume_init_ref() }
+    pub(crate) fn get_prune_phase_1_mod_3(&self) -> &PrunePhase1Mod3Table {
+        unsafe { self.prune_phase_1_mod_3.assume_init_ref() }
     }
 
     #[inline(always)]
