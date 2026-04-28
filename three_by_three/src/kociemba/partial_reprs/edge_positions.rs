@@ -292,7 +292,6 @@ pub const fn split_edge_positions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use num_integer::div_rem;
 
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};

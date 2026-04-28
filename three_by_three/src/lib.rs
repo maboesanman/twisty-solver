@@ -5,6 +5,7 @@
 #![feature(ptr_cast_array)]
 #![feature(hint_prefetch)]
 #![allow(long_running_const_eval)]
+#![allow(dead_code)]
 
 mod cube_entry;
 mod cube_ops;

@@ -1,7 +1,7 @@
 use futures::StreamExt as _;
 use rand::SeedableRng as _;
 use rand_chacha::ChaCha8Rng;
-use three_by_three::{CubeMove, ReprCube, Tables, get_incremental_solutions_stream};
+use three_by_three::{ReprCube, Tables, get_incremental_solutions_stream};
 
 pub fn main() {
     let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
@@ -16,7 +16,7 @@ pub fn main() {
         let mut stream = get_incremental_solutions_stream(cube, tables, Some(20), false);
         let future = stream.next();
 
-        let solution = futures::executor::block_on(future).unwrap();
+        let _solution = futures::executor::block_on(future).unwrap();
         // {
         //     print!("{:02} ", solution.len());
         //     for m in solution.into_iter().rev() {

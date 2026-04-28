@@ -3,18 +3,14 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 
-use arrayvec::ArrayVec;
 use itertools::Itertools;
 use rayon::iter::{
-    self, IntoParallelIterator, ParallelBridge, ParallelIterator,
+    IntoParallelIterator, ParallelIterator,
     plumbing::{UnindexedConsumer, UnindexedProducer, bridge_unindexed},
 };
 
 use crate::{
-    cube_ops::{
-        cube_sym::{CubeSymmetry, DominoSymmetry},
-        repr_cube::ReprCube,
-    },
+    cube_ops::{cube_sym::CubeSymmetry, repr_cube::ReprCube},
     kociemba::{
         search::{
             phase_1_node::{Phase1Node, TableOffsets},
@@ -128,7 +124,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             table_offsets: Arc::new(TableOffsets::new(tables)),
             cancel,
             frame_data,
-            frame_metadata: [const { FrameMetadata::default_const() }; _]
+            frame_metadata: [const { FrameMetadata::default_const() }; _],
         };
 
         stack.fill_recurse_no_simd(0);
@@ -229,7 +225,9 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             );
 
             self.frame_metadata[i].max_distance = new_max_dist;
-            unsafe { self.frame_data.set_len(len + added); }
+            unsafe {
+                self.frame_data.set_len(len + added);
+            }
 
             i += 1;
 
@@ -237,21 +235,6 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
                 return;
             }
         }
-    }
-
-    pub fn pretty_print(&self) {
-        println!("=== STACK STATE ===");
-
-        let _default = FrameMetadata::default();
-
-        println!("{:#?}", self.frame_metadata);
-        println!(
-            "{:#?}",
-            self.frame_data
-                .iter()
-                .map(|n| format!("{}-{}", n.edge_group_orient_sym.0, n.corner_orient_raw.0))
-                .collect_vec()
-        );
     }
 
     fn get_frame_metadata_i(&self, i: usize) -> FrameMetadata {
@@ -374,17 +357,13 @@ mod test {
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
-    use crate::{
-        cube,
-        kociemba::search::move_resolver::{move_resolver, move_resolver_multi_dimension_domino},
-    };
+    use crate::{cube, kociemba::search::move_resolver::move_resolver_multi_dimension_domino};
 
     use super::*;
 
     #[test]
     fn domino_reduce_empty() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-        let table_ref = &tables;
         let cube = cube![R U Rp Up];
         let stack = all_domino_reductions::<0>(cube, &tables).collect_vec();
 
@@ -462,58 +441,67 @@ mod test {
         Ok(())
     }
 
-    // #[test]
-    // fn split_preserves_and_partitions_results() -> anyhow::Result<()> {
-    //     let tables = Tables::new("tables")?;
-    //     let cube = cube![R U Rp Up];
-
-    //     let cancel = AtomicBool::new(false);
-    //     const N: usize = 4;
-
-    //     // --- Full serial enumeration ---
-    //     let full = Stack::<N, _>::new(cube, &tables, &cancel);
-
-    //     // --- Manually split ---
-    //     let (left, Some(right)) = Stack::<N, _>::new(cube, &tables, &cancel).split() else {
-    //         panic!()
-    //     };
-
-    //     for ((a1, a2, _), (b1, b2, _)) in full.zip(Iterator::chain(left, right)) {
-    //         assert_eq!((a1, a2), (b1, b2));
-    //     }
-
-    //     Ok(())
-    // }
-
     #[test]
     fn domino_reduction_length_chart() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
         let mut rng = ChaCha8Rng::seed_from_u64(2);
-        let cube: ReprCube = rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
         let cancel = AtomicBool::new(false);
 
-        println!("0: {}", all_domino_reductions_par::<0>(cube, &tables, &cancel).count());
-        println!("1: {}", all_domino_reductions_par::<1>(cube, &tables, &cancel).count());
-        println!("2: {}", all_domino_reductions_par::<2>(cube, &tables, &cancel).count());
-        println!("3: {}", all_domino_reductions_par::<3>(cube, &tables, &cancel).count());
-        println!("4: {}", all_domino_reductions_par::<4>(cube, &tables, &cancel).count());
-        println!("5: {}", all_domino_reductions_par::<5>(cube, &tables, &cancel).count());
-        println!("6: {}", all_domino_reductions_par::<6>(cube, &tables, &cancel).count());
-        println!("7: {}", all_domino_reductions_par::<7>(cube, &tables, &cancel).count());
-        println!("8: {}", all_domino_reductions_par::<8>(cube, &tables, &cancel).count());
-        println!("9: {}", all_domino_reductions_par::<9>(cube, &tables, &cancel).count());
-        println!("10: {}", all_domino_reductions_par::<10>(cube, &tables, &cancel).count());
-        println!("11: {}", all_domino_reductions_par::<11>(cube, &tables, &cancel).count());
-        println!("12: {}", all_domino_reductions_par::<12>(cube, &tables, &cancel).count());
-        println!("13: {}", all_domino_reductions_par::<13>(cube, &tables, &cancel).count());
-        println!("14: {}", all_domino_reductions_par::<14>(cube, &tables, &cancel).count());
-        println!("15: {}", all_domino_reductions_par::<15>(cube, &tables, &cancel).count());
-        println!("16: {}", all_domino_reductions_par::<16>(cube, &tables, &cancel).count());
-        println!("17: {}", all_domino_reductions_par::<17>(cube, &tables, &cancel).count());
-        println!("18: {}", all_domino_reductions_par::<18>(cube, &tables, &cancel).count());
-        println!("19: {}", all_domino_reductions_par::<19>(cube, &tables, &cancel).count());
-        println!("20: {}", all_domino_reductions_par::<20>(cube, &tables, &cancel).count());
+        println!(
+            "0: {}",
+            all_domino_reductions_par::<0>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "1: {}",
+            all_domino_reductions_par::<1>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "2: {}",
+            all_domino_reductions_par::<2>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "3: {}",
+            all_domino_reductions_par::<3>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "4: {}",
+            all_domino_reductions_par::<4>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "5: {}",
+            all_domino_reductions_par::<5>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "6: {}",
+            all_domino_reductions_par::<6>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "7: {}",
+            all_domino_reductions_par::<7>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "8: {}",
+            all_domino_reductions_par::<8>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "9: {}",
+            all_domino_reductions_par::<9>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "10: {}",
+            all_domino_reductions_par::<10>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "11: {}",
+            all_domino_reductions_par::<11>(cube, &tables, &cancel).count()
+        );
+        println!(
+            "12: {}",
+            all_domino_reductions_par::<12>(cube, &tables, &cancel).count()
+        );
 
         Ok(())
     }

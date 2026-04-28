@@ -12,7 +12,7 @@ use crate::{
     kociemba::coords::coords::CornerOrientRawCoord,
 };
 
-use super::table_loader::{as_u16_slice, as_u16_slice_mut, load_table};
+use super::table_loader::load_table;
 
 const TABLE_SIZE_BYTES: usize = 2187 * const { core::mem::size_of::<Row>() };
 const FILE_CHECKSUM: u32 = 3314415234;
@@ -34,20 +34,14 @@ impl MoveRawCornerOrientTable {
     fn chunks(&self) -> &[Row] {
         unsafe {
             let slice: &[[u8; core::mem::size_of::<Row>()]] = self.0.as_chunks_unchecked();
-            core::slice::from_raw_parts(
-                slice.as_ptr() as *const Row,
-                slice.len(),
-            )
+            core::slice::from_raw_parts(slice.as_ptr() as *const Row, slice.len())
         }
     }
 
     fn chunks_mut(buffer: &mut [u8]) -> &mut [Row] {
         unsafe {
             let slice: &mut [[u8; core::mem::size_of::<Row>()]] = buffer.as_chunks_unchecked_mut();
-            core::slice::from_raw_parts_mut(
-                slice.as_ptr() as *mut Row,
-                slice.len(),
-            )
+            core::slice::from_raw_parts_mut(slice.as_ptr() as *mut Row, slice.len())
         }
     }
 
@@ -78,23 +72,25 @@ impl MoveRawCornerOrientTable {
     }
 
     fn generate(buffer: &mut [u8]) {
-        Self::chunks_mut(buffer).into_par_iter().enumerate().for_each(|(i, row)| {
-            let orient = CornerOrient::from_coord(CornerOrientRawCoord(i as u16));
-            for (j, mv) in CubeMove::all_iter().enumerate() {
-                row.moves[j] = orient.apply_cube_move(mv).into_coord().0;
-            }
+        Self::chunks_mut(buffer)
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(i, row)| {
+                let orient = CornerOrient::from_coord(CornerOrientRawCoord(i as u16));
+                for (j, mv) in CubeMove::all_iter().enumerate() {
+                    row.moves[j] = orient.apply_cube_move(mv).into_coord().0;
+                }
 
-            for sym in DominoSymmetry::nontrivial_iter() {
-                let value = orient.domino_conjugate(sym).into_coord().0;
-                let (a, b) = (sym.0 - 1).div_rem(&5);
-                let shift = b * 12;
-                let mask = 0x0FFFu64 << shift;
+                for sym in DominoSymmetry::nontrivial_iter() {
+                    let value = orient.domino_conjugate(sym).into_coord().0;
+                    let (a, b) = (sym.0 - 1).div_rem(&5);
+                    let shift = b * 12;
+                    let mask = 0x0FFFu64 << shift;
 
-                row.conjugations[a as usize] =
-                    (row.conjugations[a as usize] & !mask) |
-                    ((value as u64) << shift);
-            }
-        })
+                    row.conjugations[a as usize] =
+                        (row.conjugations[a as usize] & !mask) | ((value as u64) << shift);
+                }
+            })
     }
 
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {

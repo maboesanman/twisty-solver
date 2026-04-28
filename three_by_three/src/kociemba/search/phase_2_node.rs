@@ -39,7 +39,7 @@ impl Phase2Node {
             corner_perm_combo,
             ud_edge_perm_raw: UDEdgePerm(u_edge_positions, d_edge_positions).into_coord(),
             e_edge_perm_raw: EEdgePermRawCoord(e_edge_positions.0.0 as u8),
-            previous_axis: unsafe { core::mem::transmute(previous_axis as u8)},
+            previous_axis: unsafe { core::mem::transmute(previous_axis as u8) },
         }
     }
 
@@ -78,15 +78,17 @@ impl Phase2Node {
     }
 
     pub fn produce_next_nodes(self, tables: &Tables) -> impl Iterator<Item = Self> {
-        DominoMove::new_axis_iter(self.previous_axis).into_iter().map(move |mv| Phase2Node {
-            corner_perm_combo: self.corner_perm_combo.apply_cube_move(tables, mv.into()),
-            ud_edge_perm_raw: tables
-                .move_raw_ud_edge_perm
-                .apply_cube_move(self.ud_edge_perm_raw, mv),
-            e_edge_perm_raw: tables
-                .move_raw_e_edge_perm
-                .apply_cube_move(self.e_edge_perm_raw, mv),
-            previous_axis: self.previous_axis.update_with_new_domino_move(mv.into()),
-        })
+        DominoMove::new_axis_iter(self.previous_axis)
+            .into_iter()
+            .map(move |mv| Phase2Node {
+                corner_perm_combo: self.corner_perm_combo.apply_cube_move(tables, mv.into()),
+                ud_edge_perm_raw: tables
+                    .move_raw_ud_edge_perm
+                    .apply_cube_move(self.ud_edge_perm_raw, mv),
+                e_edge_perm_raw: tables
+                    .move_raw_e_edge_perm
+                    .apply_cube_move(self.e_edge_perm_raw, mv),
+                previous_axis: self.previous_axis.update_with_new_domino_move(mv),
+            })
     }
 }

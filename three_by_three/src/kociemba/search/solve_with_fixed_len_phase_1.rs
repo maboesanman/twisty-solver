@@ -1,6 +1,4 @@
-use std::{
-    sync::atomic::{AtomicBool, AtomicUsize},
-};
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 
 use rayon::iter::ParallelIterator;
 
@@ -8,12 +6,10 @@ use crate::{
     Tables,
     cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
     kociemba::search::{
-        move_resolver::move_resolver_multi_dimension_domino, phase_2_node::Phase2Node,
-        solve_domino::solve_domino,
+        move_resolver::move_resolver_multi_dimension_domino, solve_domino::solve_domino,
     },
 };
 
-#[allow(unused)]
 pub fn produce_solutions<const N: usize>(
     cube: ReprCube,
     current_best: usize,

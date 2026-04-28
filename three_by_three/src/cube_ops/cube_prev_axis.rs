@@ -1,8 +1,10 @@
-use crate::{CubeMove, cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry}};
+use crate::{
+    CubeMove,
+    cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry},
+};
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-#[allow(unused)]
 pub enum CubePreviousAxis {
     U,
     D,

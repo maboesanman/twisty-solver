@@ -193,8 +193,6 @@ pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<It
 pub struct PrunePhase2Table(Mmap);
 
 impl PrunePhase2Table {
-
-
     pub fn get_value(
         &self,
         corner_perm_combo_coord: CornerPermSymCoord,
