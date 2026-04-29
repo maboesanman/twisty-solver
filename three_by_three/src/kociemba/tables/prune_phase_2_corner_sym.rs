@@ -1,0 +1,86 @@
+use bitvec::field::BitField;
+use bitvec::view::BitView;
+
+use std::path::Path;
+
+use anyhow::Result;
+use memmap2::Mmap;
+
+use crate::kociemba::coords::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
+use crate::kociemba::tables::Tables;
+
+use super::table_loader::load_table;
+
+const TABLE_ENTRY_COUNT: usize = 2768;
+const WORKING_TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT;
+const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
+const FILE_CHECKSUM: u32 = 163716575;
+
+pub struct PrunePhase2CornerSymTable(Mmap);
+
+impl PrunePhase2CornerSymTable {
+    pub fn get_value(&self, corner_perm_sym_coord: CornerPermSymCoord) -> u8 {
+        let i = corner_perm_sym_coord.0 as usize;
+
+        let byte = self.0[i >> 1];
+        let shift = (i & 1) << 2;
+        (byte >> shift) & 0b1111
+    }
+
+    fn generate(buffer: &mut [u8], tables: &Tables) {
+        let prune_phase_2 = tables.get_prune_phase_2();
+
+        let bits = buffer.view_bits_mut::<bitvec::order::Lsb0>();
+
+        let mut set = |i: usize, val: u8| {
+            assert!(val < 16);
+            let start = i * 4;
+            bits[start..start + 4].store_le::<u8>(val);
+        };
+
+        for i in 0..2768 {
+            let x = (0..40320)
+                .map(|j| prune_phase_2.get_value(CornerPermSymCoord(i), UDEdgePermRawCoord(j)))
+                .min()
+                .unwrap();
+
+            set(i as usize, x);
+        }
+    }
+
+    pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {
+        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
+            Self::generate(buf, tables)
+        })
+        .map(Self)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::BTreeMap;
+
+    use super::*;
+
+    #[test]
+    fn generate() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        let mut histogram = BTreeMap::<_, u16>::new();
+
+        (0..2768).for_each(|i| {
+            let v = tables
+                .get_prune_phase_2_corners()
+                .get_value(CornerPermSymCoord(i));
+            *histogram.entry(v).or_default() += 1;
+        });
+
+        for (k, v) in histogram {
+            println!("{k:02} {v}");
+        }
+
+        // println!("histogram: {histogram:?}");
+
+        Ok(())
+    }
+}

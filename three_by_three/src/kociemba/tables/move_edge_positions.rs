@@ -98,7 +98,7 @@ mod test {
     #[test]
     fn edge_perm_combine_split_seeded_parallel() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-        let table = tables.move_edge_position;
+        let table = &tables.move_edge_position;
         // Deterministic RNG
         let mut rng = StdRng::seed_from_u64(69);
 

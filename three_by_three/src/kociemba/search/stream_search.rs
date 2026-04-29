@@ -615,7 +615,9 @@ mod test {
         let cube: ReprCube =
             rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
 
-        let cube = cube.apply_cube_move(CubeMove::D2);
+        let cube = cube
+            .apply_cube_move(CubeMove::D2)
+            .apply_cube_move(CubeMove::F3);
         cube.pretty_print();
         let stream = get_incremental_solutions_stream(cube, tables, None, true);
 
@@ -752,6 +754,38 @@ mod test {
                 let solution = futures::executor::block_on(future).unwrap();
                 test::black_box(solution);
             }
+        });
+    }
+
+    #[bench]
+    fn bench_20_move_superflip(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+
+        let cube = cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2];
+        bench.iter(|| {
+            let mut stream = get_incremental_solutions_stream(cube, tables, Some(20), true);
+            let future = stream.next();
+            let solution = futures::executor::block_on(future).unwrap();
+            test::black_box(solution);
+        });
+    }
+
+    #[bench]
+    fn prove_15_move_cube(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(1);
+
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+
+        let cube = cube
+            .apply_cube_move(CubeMove::D2)
+            .apply_cube_move(CubeMove::F3);
+
+        bench.iter(|| {
+            let stream = get_incremental_solutions_stream(cube, tables, None, true);
+            let opt_solution = futures::executor::block_on_stream(stream).last();
+            test::black_box(opt_solution);
         });
     }
 
