@@ -8,8 +8,8 @@ use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 use crate::kociemba::tables::{
     move_edge_positions::MoveEdgePositions, move_raw_e_edge_perm::MoveRawEEdgePermTable,
     move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable,
-    prune_phase_1::PrunePhase1Table,
-    prune_phase_2::PrunePhase2Table,
+    prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table,
+    prune_phase_2_corner_sym::PrunePhase2CornerSymTable,
 };
 
 pub mod lookup_sym_corner_perm;
@@ -24,6 +24,7 @@ pub mod move_sym_edge_group_orient;
 
 pub mod prune_phase_1;
 pub mod prune_phase_2;
+pub mod prune_phase_2_corner_sym;
 
 mod table_loader;
 
@@ -36,6 +37,7 @@ const MOVE_E_EDGE_PERM_TABLE_NAME: &str = "move_raw_e_edge_perm.dat";
 const MOVE_UD_EDGE_PERM_TABLE_NAME: &str = "move_raw_ud_edge_perm.dat";
 const MOVE_SYM_CORNER_PERM_TABLE_NAME: &str = "move_sym_corner_perm_table.dat";
 const PRUNE_PHASE_2_TABLE_NAME: &str = "prune_phase_2_table.dat";
+const PRUNE_PHASE_2_CORNER_SYM_TABLE_NAME: &str = "prune_phase_2_table_corner_sym.dat";
 const MOVE_EDGE_POSITION_TABLE_NAME: &str = "move_raw_edge_position_table.dat";
 
 pub struct Tables {
@@ -52,11 +54,22 @@ pub struct Tables {
     pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
     // pub(crate) prune_phase_1_mod_3: MaybeUninit<PrunePhase1Mod3Table>,
     pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
+    pub(crate) prune_phase_2_corner_sym: MaybeUninit<PrunePhase2CornerSymTable>,
 }
 
 impl std::fmt::Debug for Tables {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Tables").finish()
+    }
+}
+
+impl Drop for Tables {
+    fn drop(&mut self) {
+        unsafe {
+            self.prune_phase_1.assume_init_drop();
+            self.prune_phase_2.assume_init_drop();
+            self.prune_phase_2_corner_sym.assume_init_drop();
+        }
     }
 }
 
@@ -106,6 +119,7 @@ impl Tables {
 
             prune_phase_1: MaybeUninit::uninit(),
             prune_phase_2: MaybeUninit::uninit(),
+            prune_phase_2_corner_sym: MaybeUninit::uninit(),
         };
 
         working.prune_phase_1.write(PrunePhase1Table::load(
@@ -118,6 +132,13 @@ impl Tables {
             &working,
         )?);
 
+        working
+            .prune_phase_2_corner_sym
+            .write(PrunePhase2CornerSymTable::load(
+                folder.join(PRUNE_PHASE_2_CORNER_SYM_TABLE_NAME),
+                &working,
+            )?);
+
         Ok(working)
     }
 
@@ -129,5 +150,10 @@ impl Tables {
     #[inline(always)]
     pub(crate) fn get_prune_phase_2(&self) -> &PrunePhase2Table {
         unsafe { self.prune_phase_2.assume_init_ref() }
+    }
+
+    #[inline(always)]
+    pub(crate) fn get_prune_phase_2_corners(&self) -> &PrunePhase2CornerSymTable {
+        unsafe { self.prune_phase_2_corner_sym.assume_init_ref() }
     }
 }

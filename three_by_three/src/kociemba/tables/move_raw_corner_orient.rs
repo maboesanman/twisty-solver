@@ -107,7 +107,7 @@ mod test {
     #[test]
     fn test() -> Result<()> {
         let tables = Tables::new("tables")?;
-        let table = tables.move_raw_corner_orient;
+        let table = &tables.move_raw_corner_orient;
         for i in 0..2187u16 {
             let coord = CornerOrientRawCoord(i);
             let orient = CornerOrient::from_coord(coord);

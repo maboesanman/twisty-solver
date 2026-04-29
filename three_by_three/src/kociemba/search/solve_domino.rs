@@ -8,18 +8,17 @@ pub fn solve_domino(
     tables: &Tables,
     max_moves: u8,
 ) -> Option<Vec<Phase2Node>> {
-    if phase_2_start.distance_heuristic(tables) > max_moves {
+    // including this fast path showed a 10% performance improvement for the `prove_15_move_cube` benchmark
+    if phase_2_start.weak_distance_heuristic(tables) > max_moves {
         return None;
     }
 
-    let solution = idastar_limited(
+    idastar_limited(
         phase_2_start,
         |&cube| cube.produce_next_nodes(tables).map(|c| (c, 1)),
         |&cube| cube.distance_heuristic(tables),
         |&cube| cube.is_solved(),
         max_moves,
     )
-    .map(|(solution, _len)| solution)?;
-
-    Some(solution)
+    .map(|(solution, _len)| solution)
 }

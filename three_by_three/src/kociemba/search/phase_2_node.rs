@@ -61,6 +61,12 @@ impl Phase2Node {
         }
     }
 
+    pub fn weak_distance_heuristic(self, tables: &Tables) -> u8 {
+        tables
+            .get_prune_phase_2_corners()
+            .get_value(self.corner_perm_combo.sym_coord)
+    }
+
     pub fn distance_heuristic(self, tables: &Tables) -> u8 {
         let ud_edge_perm_adjusted = tables.move_raw_ud_edge_perm.domino_conjugate(
             self.ud_edge_perm_raw,

@@ -98,7 +98,7 @@ mod test {
 
     use itertools::Itertools;
 
-    use crate::{kociemba::tables::Tables};
+    use crate::kociemba::tables::Tables;
 
     use super::*;
 

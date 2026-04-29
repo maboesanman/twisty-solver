@@ -195,12 +195,12 @@ pub struct PrunePhase2Table(Mmap);
 impl PrunePhase2Table {
     pub fn get_value(
         &self,
-        corner_perm_combo_coord: CornerPermSymCoord,
+        corner_perm_sym_coord: CornerPermSymCoord,
         ud_edge_perm_raw_coord: UDEdgePermRawCoord,
     ) -> u8 {
         let partial = PartialPhase2 {
             corner_perm_combo_coord: CornerPermComboCoord {
-                sym_coord: corner_perm_combo_coord,
+                sym_coord: corner_perm_sym_coord,
                 domino_conjugation: DominoSymmetry::IDENTITY,
             },
             ud_edge_perm_raw_coord,
