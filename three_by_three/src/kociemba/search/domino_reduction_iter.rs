@@ -52,7 +52,8 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
 #[derive(Debug, Clone)]
 struct Stack<'t, const N: usize, C> {
     tables: &'t Tables,
-    table_offsets: Arc<TableOffsets<'t>>,
+    table_offsets_15: Arc<TableOffsets<'t, 15>>,
+    table_offsets_18: Arc<TableOffsets<'t, 18>>,
 
     cancel: C,
 
@@ -68,15 +69,16 @@ pub struct FrameMetadata {
     // note that this can never be empty
     start: u16,
 
-    // the bounds on the actual distance we know right now.
-    max_distance: u8,
+    // a mask of all possible distances given the information we've retrieved from the tables.
+    // starts at 1 since we know none of them are solved.
+    possible_distances: u16,
 }
 
 impl FrameMetadata {
     const fn default_const() -> Self {
         Self {
             start: 0,
-            max_distance: 20,
+            possible_distances: 0x0FFF,
         }
     }
 
@@ -121,7 +123,8 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 
         let mut stack = Self {
             tables,
-            table_offsets: Arc::new(TableOffsets::new(tables)),
+            table_offsets_15: Arc::new(TableOffsets::new(tables)),
+            table_offsets_18: Arc::new(TableOffsets::new(tables)),
             cancel,
             frame_data,
             frame_metadata: [const { FrameMetadata::default_const() }; _],
@@ -158,43 +161,33 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         true
     }
 
-    // THIS IS THE HOTTEST OF HOT LOOPS. MOST OF THE ALGORITHM IS SPENT IN THIS FUNCTION
-    // 39 % of program runtime is spent in fill_recurse's implementation (not counting other function calls)
-    // recurse into frames
-
-    // ASSUMES frame_data is non-empty
-
     fn fill_recurse_no_simd(&mut self, i: usize) {
         let mut i = i;
         while i < N {
             let last_data = self.frame_data.last().unwrap();
-            let last_frame = self.get_frame_metadata_i(i);
 
             // 34 % of program runtime is spent in produce_next_nodes
             let incoming = last_data.produce_next_nodes(
-                last_frame.max_distance,
                 unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
+                &self.table_offsets_18,
                 self.tables,
             );
 
             self.frame_metadata[i].start = self.frame_data.len() as u16;
+            
+            let dst = self.frame_data.as_mut_ptr();
+            let mut len = self.frame_data.len();
+            unsafe {
+                let mut out = dst.add(len);
 
-            if let Some(incoming) = incoming {
-                self.frame_metadata[i].max_distance = incoming.max_possible_distance;
-                let dst = self.frame_data.as_mut_ptr();
-                let mut len = self.frame_data.len();
-                unsafe {
-                    let mut out = dst.add(len);
-
-                    for item in incoming.children {
-                        // SAFETY: caller guarantees capacity
-                        std::ptr::write(out, item);
-                        out = out.add(1);
-                        len += 1;
-                    }
-
-                    self.frame_data.set_len(len);
+                for item in incoming {
+                    // SAFETY: caller guarantees capacity
+                    std::ptr::write(out, item);
+                    out = out.add(1);
+                    len += 1;
                 }
+
+                self.frame_data.set_len(len);
             }
 
             i += 1;
@@ -212,19 +205,16 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             let len = self.frame_data.len();
             self.frame_metadata[i].start = len as u16;
             let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
-            let last_frame = unsafe { *self.frame_metadata.get_unchecked(i - 1) };
 
             let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
 
-            let (added, new_max_dist) = Phase1Node::produce_next_nodes_simd::<true>(
+            let added = Phase1Node::produce_next_nodes_simd::<true>(
                 slice,
-                last_frame.max_distance,
                 unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
-                &self.table_offsets,
+                &self.table_offsets_15,
                 self.tables,
             );
 
-            self.frame_metadata[i].max_distance = new_max_dist;
             unsafe {
                 self.frame_data.set_len(len + added);
             }
@@ -311,7 +301,8 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 
             let mut new_stack = Stack {
                 tables: self.tables,
-                table_offsets: self.table_offsets.clone(),
+                table_offsets_15: self.table_offsets_15.clone(),
+                table_offsets_18: self.table_offsets_18.clone(),
                 cancel: self.cancel,
                 frame_metadata: self.frame_metadata,
                 frame_data: new_frame_data,
