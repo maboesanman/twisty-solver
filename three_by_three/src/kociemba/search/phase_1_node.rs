@@ -8,9 +8,7 @@ use std::{
 use itertools::Itertools;
 
 use crate::{
-    CornerOrient, CornerPerm, CubeMove, EdgeOrient, ReprCube, Tables,
-    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
-    kociemba::{
+    CornerOrient, CornerPerm, CubeMove, EdgeOrient, EdgePerm, ReprCube, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
         coords::{
             coords::{CornerOrientRawCoord, EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
             corner_perm_combo_coord::CornerPermComboCoord,
@@ -20,7 +18,7 @@ use crate::{
             DEdgePositions, EEdgePositions, UEdgePositions, combine_edge_positions,
             split_edge_positions,
         },
-    },
+    }
 };
 
 #[repr(C)]
@@ -48,7 +46,37 @@ pub struct Phase1FrameMetadata<I> {
     pub max_possible_distance: u8,
 }
 
+impl Default for Phase1Node {
+    fn default() -> Self {
+        let value = const {
+            let (u_edge_positions, d_edge_positions, e_edge_positions) = split_edge_positions(EdgePerm::SOLVED);
+            Self {
+                edge_group_orient_sym: EdgeGroupOrientSymCoord(0),
+                edge_group_orient_correct: 0,
+                corner_perm_combo: 0,
+                corner_orient_raw: CornerOrientRawCoord(0),
+                u_edge_positions,
+                d_edge_positions,
+                e_edge_positions,
+                previous_axis: CubePreviousAxis::None as u8 as u16,
+            }
+        };
+
+        value
+    }
+}
+
 impl Phase1Node {
+    pub(crate) fn from_phase_1_coords(
+        edge_group_orient_sym: EdgeGroupOrientSymCoord,
+        corner_orient_raw: CornerOrientRawCoord,
+    ) -> Self {
+        let mut val = Self::default();
+        val.edge_group_orient_sym = edge_group_orient_sym;
+        val.corner_orient_raw = corner_orient_raw;
+        val
+    }
+
     pub fn from_cube(cube: ReprCube, tables: &Tables) -> Self {
         let ReprCube {
             corner_perm,
