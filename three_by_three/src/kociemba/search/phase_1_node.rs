@@ -19,7 +19,7 @@ use crate::{
         partial_reprs::edge_positions::{
             DEdgePositions, EEdgePositions, UEdgePositions, combine_edge_positions,
             split_edge_positions,
-        }, search::distance_bookkeeping::DistanceBookkeeping,
+        }
     },
 };
 
@@ -130,23 +130,29 @@ impl Phase1Node {
     #[inline(always)]
     pub fn produce_next_nodes(
         self,
+        max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         table_offsets: &TableOffsets<18>,
         tables: &Tables,
-    ) -> impl Iterator<Item = Self> {
+    ) -> Option<(impl 'static + Iterator<Item = Self>, u8)> {
         let mut working = [self; 19];
-        let num = Self::produce_next_nodes_inner::<false, 19, 18>(&mut working, moves_remaining, table_offsets, tables);
-        working.into_iter().skip(1).take(num)
+        let (num, max_possible_distance) = Self::produce_next_nodes_inner::<false, 19, 18>(&mut working, max_possible_distance, moves_remaining, table_offsets, tables);
+        if num == 0 {
+            None
+        } else {
+            Some((working.into_iter().skip(1).take(num), max_possible_distance))
+        }
     }
 
     pub fn produce_next_nodes_simd<const CACHE_PREFETCH: bool>(
         slice: &mut [Phase1Node; 16],
+        max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         table_offsets: &TableOffsets<15>,
         tables: &Tables,
-    ) -> usize {
+    ) -> (usize, u8) {
         Self::produce_next_nodes_inner::<CACHE_PREFETCH, 16, 15>(
-            slice, moves_remaining, table_offsets, tables
+            slice, max_possible_distance, moves_remaining, table_offsets, tables
         )
     }
 
@@ -155,22 +161,32 @@ impl Phase1Node {
     #[inline(always)]
     pub fn produce_next_nodes_inner<const CACHE_PREFETCH: bool, const SLICE_LEN: usize, const LANE_LEN: usize>(
         slice: &mut [Phase1Node; SLICE_LEN],
+        max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         table_offsets: &TableOffsets<LANE_LEN>,
         tables: &Tables,
-    ) -> usize
+    ) -> (usize, u8)
     where LaneCount<LANE_LEN>: SupportedLaneCount
     {
-        const PRUNE_TABLE_MODULO: u8 = 5;
-
         let start_node = slice[0];
-        debug_assert!(!start_node.is_domino_reduced());
+        // Get bounds for the current distance from self to solved, with the restriction
+        // that the range must be within the allowed. If the range we have is not a subset of
+        // [min_allowed_distance, max_allowed_distance], then we look up the actual distance to solved and
+        // return a legal single point range or return None because we're outside the range and must be pruned.
+        let max_possible_current_distance = if max_possible_distance > moves_remaining.get() {
+            let distance = start_node.distance_heuristic(tables);
 
-        // assert_ne!(start_node.distance_heuristic_and_previous_axis >> 8, 0);
+            if distance > moves_remaining.get() {
+                return (0, 0);
+            }
 
+            distance
+        } else {
+            max_possible_distance
+        };
 
-        // assert_ne!(next_distance_bookkeeping, 0);
-
+        // prepare the values for feeding the child nodes.
+        let max_possible_distance = max_possible_current_distance + 1;
         let subtable = unsafe {
             table_offsets.get_simd_resources(
                 core::mem::transmute(start_node.previous_axis as u8),
@@ -235,6 +251,7 @@ impl Phase1Node {
                 } = table_offsets.row_0_starts;
 
                 unsafe {
+                    // TODO: THESE PREFETCH INDICES AREN'T COMPUTED CORRECTLY!!!!!!
                     let a =
                         edge_group_orient.add(out_slot.edge_group_orient_sym.0 as usize * 18 * 2);
                     let b = corner_combo
@@ -273,7 +290,7 @@ impl Phase1Node {
             }
         }
 
-        i - 1
+        (i - 1, max_possible_distance)
     }
 }
 
