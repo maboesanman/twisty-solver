@@ -27,7 +27,7 @@ use crate::{
 pub fn all_domino_reductions<const N: usize>(
     cube: ReprCube,
     tables: &Tables,
-) -> impl Iterator<Item = ([Phase1Node; N], Phase2Node)> {
+) -> impl Iterator<Item = ([Phase1Node; N], Phase2Node, Phase2Node)> {
     Stack::<_, _>::new(cube, tables, ()).into_iter().flatten()
 }
 
@@ -82,7 +82,7 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
     cancel: &'a AtomicBool,
-) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node)> {
+) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node, Phase2Node)> {
     Stack::<'a, N, &'a AtomicBool>::new(cube, tables, cancel)
         .into_par_iter()
         .flatten()
@@ -178,6 +178,8 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     fn drop_recurse(&mut self, i: &mut usize) -> bool {
         debug_assert!(*i > 0);
 
+        // let initial_i = *i;
+
         let mut len = self.frame_data.len() as u16;
         let frame_metadata = self.frame_metadata.as_ptr();
 
@@ -195,6 +197,15 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         unsafe {
             self.frame_data.set_len(len as usize);
         }
+
+        // After k while-loop iterations, we've popped k ancestors. The deepest empty
+        // frame (initial_i) has max_distance M. Going up k hops, the sibling frame's
+        // nodes have distance ≤ M + k = M + (initial_i + 1 - *i).
+
+        // let smaller_max = self.frame_metadata[initial_i - 1].max_distance + (initial_i - *i) as u8;
+        // if self.frame_metadata[*i - 1].max_distance > smaller_max {
+        //     self.frame_metadata[*i - 1].max_distance = smaller_max
+        // }
 
         true
     }
@@ -288,11 +299,13 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 }
 
 impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
-    type Item = ([Phase1Node; N], Phase2Node);
+    type Item = ([Phase1Node; N], Phase2Node, Phase2Node);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let phase_1_tail = self.frame_data.pop()?;
-        let phase_2_head = Phase2Node::from_phase_1_node(phase_1_tail);
+        let phase_1_tail_a = self.frame_data.pop()?;
+        let phase_1_tail_b = unsafe { self.frame_data.pop().unwrap_unchecked() };
+        let phase_2_head_a = Phase2Node::from_phase_1_node(phase_1_tail_a);
+        let phase_2_head_b = Phase2Node::from_phase_1_node(phase_1_tail_b);
         let head = self
             .frame_metadata
             .map(|m| self.frame_data[m.start as usize - 1]);
@@ -303,7 +316,7 @@ impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
             self.fill_recurse_simd(unsafe { NonZeroUsize::new_unchecked(i) });
         };
 
-        Some((head, phase_2_head))
+        Some((head, phase_2_head_a, phase_2_head_b))
     }
 }
 
@@ -382,7 +395,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 }
 
 impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
-    type Item = ([Phase1Node; N], Phase2Node);
+    type Item = ([Phase1Node; N], Phase2Node, Phase2Node);
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
     where
@@ -418,7 +431,6 @@ mod test {
         let table_ref = &tables;
         let cube = cube![R U Rp Up];
         // let cube = cube![D R2 L];
-        let stack = all_domino_reductions::<3>(cube, &tables);
         let res = move |path: &[Phase1Node], last: &Phase2Node| {
             let cubes = path
                 .into_iter()
@@ -427,24 +439,21 @@ mod test {
 
             move_resolver_multi_dimension_domino(cube, cubes)
         };
-        stack.for_each(|(path, last)| {
-            println!("{:?}", res(&path, &last));
-        });
         let stack = all_domino_reductions::<2>(cube, &tables);
-        stack.for_each(|(path, last)| {
-            println!("{:?}", res(&path, &last));
+        stack.for_each(|(path, last_a, last_b)| {
+            println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
         let stack = all_domino_reductions::<3>(cube, &tables);
-        stack.for_each(|(path, last)| {
-            println!("{:?}", res(&path, &last));
+        stack.for_each(|(path, last_a, last_b)| {
+            println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
         let stack = all_domino_reductions::<4>(cube, &tables);
-        stack.for_each(|(path, last)| {
-            println!("{:?}", res(&path, &last));
+        stack.for_each(|(path, last_a, last_b)| {
+            println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
         let stack = all_domino_reductions::<5>(cube, &tables);
-        stack.for_each(|(path, last)| {
-            println!("{:?}", res(&path, &last));
+        stack.for_each(|(path, last_a, last_b)| {
+            println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
 
         Ok(())
