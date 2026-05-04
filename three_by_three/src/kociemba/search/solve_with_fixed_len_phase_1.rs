@@ -6,10 +6,11 @@ use crate::{
     Tables,
     cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
     kociemba::search::{
-        move_resolver::move_resolver_multi_dimension_domino, solve_domino::solve_domino,
+        move_resolver::move_resolver_multi_dimension_domino, solve_domino::{solve_domino, solve_domino_pair},
     },
 };
 
+/// produce all solutions with phase 1 solutions of length N
 pub fn produce_solutions<const N: usize>(
     cube: ReprCube,
     current_best: usize,
@@ -18,10 +19,10 @@ pub fn produce_solutions<const N: usize>(
     let domino_reductions = super::domino_reduction_iter::all_domino_reductions::<N>(cube, tables);
 
     domino_reductions
-        .scan(current_best, |current_best, (phase_1, phase_2_start)| {
+        .scan(current_best, |current_best, (phase_1, phase_2_start_a, phase_2_start_b)| {
             let phase_2_max = *current_best - N;
 
-            let Some(phase_2) = solve_domino(phase_2_start, tables, phase_2_max as u8) else {
+            let Some(phase_2) = solve_domino_pair(phase_2_start_a, phase_2_start_b, tables, phase_2_max as u8) else {
                 return Some(None);
             };
 
@@ -36,6 +37,7 @@ pub fn produce_solutions<const N: usize>(
         })
 }
 
+/// produce all solutions with phase 1 solutions of length N in parallel
 pub fn produce_solutions_par<'a, const N: usize>(
     cube: ReprCube,
     best: &'a AtomicUsize,
@@ -46,11 +48,11 @@ pub fn produce_solutions_par<'a, const N: usize>(
         super::domino_reduction_iter::all_domino_reductions_par::<N>(cube, tables, cancel);
 
     domino_reductions
-        .filter_map(|(phase_1, phase_2_start)| {
+        .filter_map(|(phase_1, phase_2_start_a, phase_2_start_b)| {
             let current_best = best.load(std::sync::atomic::Ordering::Relaxed);
             let phase_2_max = current_best.checked_sub(N)? as u8;
 
-            let phase_2 = solve_domino(phase_2_start, tables, phase_2_max)?;
+            let phase_2 = solve_domino_pair(phase_2_start_a, phase_2_start_b, tables, phase_2_max)?;
             let new_path_len = N + phase_2.len() - 1;
 
             best.compare_exchange(
