@@ -12,10 +12,12 @@ use rayon::iter::{
 use crate::{
     cube_ops::{cube_sym::CubeSymmetry, repr_cube::ReprCube},
     kociemba::{
-        coords::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord}, search::{
+        coords::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord},
+        search::{
             phase_1_node::{Phase1Node, TableOffsets},
             phase_2_node::Phase2Node,
-        }, tables::Tables
+        },
+        tables::Tables,
     },
 };
 
@@ -46,7 +48,6 @@ pub fn any_domino_reductions(
     tables: &Tables,
     n: u8,
 ) -> bool {
-    
     match n {
         0 => any_domino_reductions_const::<0>(edge_group_orient_sym, corner_orient_raw, tables),
         1 => any_domino_reductions_const::<1>(edge_group_orient_sym, corner_orient_raw, tables),
@@ -69,7 +70,7 @@ pub fn any_domino_reductions(
         18 => any_domino_reductions_const::<18>(edge_group_orient_sym, corner_orient_raw, tables),
         19 => any_domino_reductions_const::<19>(edge_group_orient_sym, corner_orient_raw, tables),
         20 => any_domino_reductions_const::<20>(edge_group_orient_sym, corner_orient_raw, tables),
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }
 
@@ -410,7 +411,7 @@ mod test {
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
-    use crate::{cube, kociemba::{search::move_resolver::move_resolver_multi_dimension_domino}};
+    use crate::{cube, kociemba::search::move_resolver::move_resolver_multi_dimension_domino};
 
     use super::*;
 
@@ -569,7 +570,7 @@ mod test {
     //             (0..2187).into_iter().flat_map(move |j| {
     //                 let co = CornerOrientRawCoord(j);
     //                 let d = table.get_value(ego, co);
-    
+
     //                 (d..=20).into_iter().map(move |m| {
     //                     if any_domino_reductions(ego, co, tables_ref, m) {
     //                         Some((d, m))
@@ -580,7 +581,7 @@ mod test {
     //             })
     //         }).filter_map(identity)
     //         .collect();
-            
+
     //     println!("{possible_values:?}");
 
     //     Ok(())
@@ -588,5 +589,3 @@ mod test {
 
     // {(12, 19), (1, 16), (5, 20), (3, 11), (2, 9), (4, 16), (11, 20), (2, 15), (6, 15), (8, 12), (8, 19), (5, 11), (2, 16), (4, 15), (7, 14), (10, 13), (3, 15), (9, 10), (8, 8), (10, 19), (8, 13), (3, 8), (2, 3), (10, 10), (10, 14), (8, 18), (7, 20), (1, 14), (7, 16), (8, 15), (6, 14), (6, 13), (0, 6), (2, 8), (5, 9), (9, 16), (4, 18), (2, 20), (5, 18), (1, 20), (5, 13), (7, 12), (0, 1), (12, 14), (3, 10), (4, 7), (2, 10), (9, 17), (4, 20), (3, 13), (3, 18), (2, 6), (1, 17), (1, 9), (2, 5), (2, 19), (7, 17), (7, 13), (7, 19), (7, 11), (12, 18), (9, 18), (11, 18), (4, 17), (6, 18), (6, 7), (3, 9), (8, 10), (10, 15), (9, 20), (4, 5), (0, 16), (0, 7), (3, 3), (0, 11), (4, 19), (0, 13), (1, 10), (6, 6), (3, 20), (12, 16), (1, 12), (11, 12), (6, 8), (9, 15), (9, 14), (5, 6), (6, 19), (10, 20), (2, 12), (3, 16), (10, 17), (9, 9), (8, 11), (1, 4), (10, 18), (9, 13), (0, 9), (7, 18), (5, 10), (12, 15), (1, 15), (11, 14), (12, 12), (11, 19), (3, 17), (0, 12), (4, 6), (6, 9), (3, 19), (4, 4), (6, 12), (1, 8), (1, 11), (0, 5), (6, 17), (5, 12), (0, 8), (12, 20), (0, 17), (3, 6), (12, 17), (2, 18), (5, 8), (6, 11), (5, 17), (2, 13), (11, 17), (4, 13), (8, 20), (3, 14), (9, 19), (5, 19), (6, 16), (11, 11), (0, 0), (6, 20), (11, 16), (7, 7), (0, 15), (5, 16), (7, 8), (0, 10), (10, 16), (5, 7), (7, 10), (0, 14), (2, 4), (8, 9), (12, 13), (0, 20), (10, 12), (4, 10), (5, 15), (4, 9), (1, 19), (9, 12), (2, 2), (11, 13), (7, 15), (6, 10), (3, 12), (0, 18), (1, 1), (8, 14), (10, 11), (4, 12), (4, 14), (4, 8), (5, 14), (2, 7), (1, 18), (3, 5), (7, 9), (3, 4), (2, 17), (2, 11), (2, 14), (5, 5), (1, 7), (8, 17), (8, 16), (11, 15), (3, 7), (0, 19), (4, 11), (1, 13), (1, 6), (1, 5), (9, 11)}
 }
-
-

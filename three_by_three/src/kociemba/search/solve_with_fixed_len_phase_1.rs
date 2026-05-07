@@ -6,7 +6,7 @@ use crate::{
     Tables,
     cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
     kociemba::search::{
-        move_resolver::move_resolver_multi_dimension_domino, solve_domino::{solve_domino, solve_domino_pair},
+        move_resolver::move_resolver_multi_dimension_domino, solve_domino::solve_domino_pair,
     },
 };
 
@@ -19,16 +19,21 @@ pub fn produce_solutions<const N: usize>(
     let domino_reductions = super::domino_reduction_iter::all_domino_reductions::<N>(cube, tables);
 
     domino_reductions
-        .scan(current_best, |current_best, (phase_1, phase_2_start_a, phase_2_start_b)| {
-            let phase_2_max = *current_best - N;
+        .scan(
+            current_best,
+            |current_best, (phase_1, phase_2_start_a, phase_2_start_b)| {
+                let phase_2_max = *current_best - N;
 
-            let Some(phase_2) = solve_domino_pair(phase_2_start_a, phase_2_start_b, tables, phase_2_max as u8) else {
-                return Some(None);
-            };
+                let Some(phase_2) =
+                    solve_domino_pair(phase_2_start_a, phase_2_start_b, tables, phase_2_max as u8)
+                else {
+                    return Some(None);
+                };
 
-            *current_best = N + phase_2.len() - 1;
-            Some(Some((phase_1, phase_2)))
-        })
+                *current_best = N + phase_2.len() - 1;
+                Some(Some((phase_1, phase_2)))
+            },
+        )
         .flatten()
         .map(move |(phase_1, phase_2)| {
             let phase_1 = phase_1.into_iter().map(|node| node.into_cube(tables));

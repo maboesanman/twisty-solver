@@ -8,7 +8,9 @@ use std::{
 use itertools::Itertools;
 
 use crate::{
-    CornerOrient, CornerPerm, CubeMove, EdgeOrient, EdgePerm, ReprCube, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
+    CornerOrient, CornerPerm, CubeMove, EdgeOrient, EdgePerm, ReprCube, Tables,
+    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
+    kociemba::{
         coords::{
             coords::{CornerOrientRawCoord, EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
             corner_perm_combo_coord::CornerPermComboCoord,
@@ -18,7 +20,7 @@ use crate::{
             DEdgePositions, EEdgePositions, UEdgePositions, combine_edge_positions,
             split_edge_positions,
         },
-    }
+    },
 };
 
 #[repr(C)]
@@ -48,8 +50,9 @@ pub struct Phase1FrameMetadata<I> {
 
 impl Default for Phase1Node {
     fn default() -> Self {
-        let value = const {
-            let (u_edge_positions, d_edge_positions, e_edge_positions) = split_edge_positions(EdgePerm::SOLVED);
+        const {
+            let (u_edge_positions, d_edge_positions, e_edge_positions) =
+                split_edge_positions(EdgePerm::SOLVED);
             Self {
                 edge_group_orient_sym: EdgeGroupOrientSymCoord(0),
                 edge_group_orient_correct: 0,
@@ -60,9 +63,7 @@ impl Default for Phase1Node {
                 e_edge_positions,
                 previous_axis: CubePreviousAxis::None as u8 as u16,
             }
-        };
-
-        value
+        }
     }
 }
 

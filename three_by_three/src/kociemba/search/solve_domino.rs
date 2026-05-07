@@ -36,7 +36,7 @@ pub fn solve_domino_pair(
     let phase_2_a_weak_dist = phase_2_start_a.weak_distance_heuristic(tables);
 
     if phase_2_a_weak_dist + 1 > max_moves {
-        return None
+        return None;
     }
 
     let solution_a = idastar_limited(

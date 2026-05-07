@@ -120,9 +120,10 @@ impl CubeMove {
 
         let slice: &[CubeMove] = if end_phase_1 {
             match prev_axis {
-                CubePreviousAxis::U | CubePreviousAxis::D | CubePreviousAxis::UD | CubePreviousAxis::None => {
-                    &[F1, F3, B1, B3, R1, R3, L1, L3]
-                }
+                CubePreviousAxis::U
+                | CubePreviousAxis::D
+                | CubePreviousAxis::UD
+                | CubePreviousAxis::None => &[F1, F3, B1, B3, R1, R3, L1, L3],
                 CubePreviousAxis::F => &[B1, B3, R1, R3, L1, L3],
                 CubePreviousAxis::B | CubePreviousAxis::FB => &[R1, R3, L1, L3],
                 CubePreviousAxis::R => &[F1, F3, B1, B3, L1, L3],
