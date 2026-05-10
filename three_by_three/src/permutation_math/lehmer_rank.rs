@@ -41,37 +41,18 @@ const FACTORIALS_U64: [u64; 21] = {
     f
 };
 
-macro_rules! permutation_coord {
-    ($n:expr, $t:ty, $dense:expr) => {
+/// implement the encode/decode scheme for Permutation<N>
+macro_rules! lehmer_code {
+    ($n:expr, $t:ty, $factorials:expr, $dense:expr) => {
         paste! {
-            const [<FACTORIALS_ $n>]: [$t; $n + 1] = {
-                let mut f: [$t; $n + 1] = [1; $n + 1];
-                let mut i = 1;
-                while i <= $n {
-                    f[i] = f[i - 1] * (i as $t);
-                    i += 1;
-                }
-                f
-            };
-
-            const [<FIRST_PERM_ $n>]: [u8; $n] = {
-                let mut f: [u8; $n] = [0; $n];
-                let mut i = 0;
-                while i < $n {
-                    f[i] = i as u8;
-                    i += 1;
-                }
-                f
-            };
-
-            const fn [<permutation_coord_ $n>](perm: &Permutation<$n>) -> $t {
+            const fn [<lehmer_encode_ $n>](perm: &Permutation<$n>) -> $t {
                 let mut sum = 0;
                 let mut i = 1;
                 while i < $n {
                     let mut j = 0;
                     while j < i {
                         if perm.0[j] > perm.0[i] {
-                            sum += [<FACTORIALS_ $n>][i]
+                            sum += $factorials[i]
                         }
 
                         j += 1;
@@ -82,13 +63,13 @@ macro_rules! permutation_coord {
                 sum
             }
 
-            const fn [<permutation_coord_ $n _inverse>](mut coord: $t) -> Permutation<$n> {
+            const fn [<lehmer_decode_ $n>](mut coord: $t) -> Permutation<$n> {
                 let mut f = $n - 1;
-                let mut result = [<FIRST_PERM_ $n>];
+                let mut result = Permutation::IDENTITY.0;
                 let mut c = 0;
                 loop {
-                    if [<FACTORIALS_ $n>][f] <= coord {
-                        coord -= [<FACTORIALS_ $n>][f];
+                    if $factorials[f] <= coord {
+                        coord -= $factorials[f];
                         c += 1;
                     } else {
                         if c != 0 {
@@ -111,30 +92,47 @@ macro_rules! permutation_coord {
                 Permutation(result)
             }
 
-            const fn [<permutation_coord_ $n _parity>](perm: &Permutation<$n>) -> $t {
-                let mut r = [<permutation_coord_ $n>](perm);
+            const fn [<lehmer_encode_preserve_parity_ $n>](perm: &Permutation<$n>) -> $t {
+                let mut r = [<lehmer_encode_ $n>](perm);
                 if (r & 1) != (perm.is_odd() as $t) {
                     r ^= 1;
                 }
                 r
             }
 
-            const fn [<permutation_coord_ $n _parity_inverse>](code: $t) -> Permutation<$n> {
-                let p = [<permutation_coord_ $n _inverse>](code);
+            const fn [<lehmer_decode_preserve_parity_ $n>](code: $t) -> Permutation<$n> {
+                let p = [<lehmer_decode_ $n>](code);
                 if (p.is_odd() as $t) == (code & 1) {
                     p
                 } else {
-                    [<permutation_coord_ $n _inverse>](code ^ 1)
+                    [<lehmer_decode_ $n>](code ^ 1)
+                }
+            }
+
+            impl Permutation<$n> {
+                /// Encode this permutation in a single number in the range 0..N!,
+                /// with the additional property that the parity of the permutation
+                /// is equal to the parity of the number it is encoded in.
+                pub const fn const_lehmer_encode(self) -> $t {
+                    [<lehmer_encode_preserve_parity_ $n>](&self)
+                }
+
+                /// Decode this number from the range 0..N! into a permutation,
+                /// with the additional property that the parity of the permutation
+                /// is equal to the parity of the number it was encoded in.
+                pub const fn const_lehmer_decode(coord: $t) -> Self {
+                    debug_assert!(coord < $factorials[$n]);
+                    [<lehmer_decode_preserve_parity_ $n>](coord)
                 }
             }
 
             #[test]
-            fn [<permutation_coord_ $n _test>]() {
-                if $dense {
+            fn [<lehmer_encode_decode_ $n _test>]() {
+                if $n < 9 {
                     // the domain is small enough so we just check the whole thing.
-                    for i in 0..[<FACTORIALS_ $n>][$n] {
-                        let s = [<permutation_coord_ $n _inverse>](i);
-                        assert_eq!([<permutation_coord_ $n>](&s), i);
+                    for i in 0..$factorials[$n] {
+                        let s = [<lehmer_decode_ $n>](i);
+                        assert_eq!([<lehmer_encode_ $n>](&s), i);
                     }
                 } else {
                     use rand::{Rng, SeedableRng};
@@ -142,21 +140,21 @@ macro_rules! permutation_coord {
 
                     // the domain is too big, sample randomly
                     for _ in 0..1000 {
-                        let i = rng.random_range(0..[<FACTORIALS_ $n>][$n]);
-                        let s = [<permutation_coord_ $n _inverse>](i);
-                        assert_eq!([<permutation_coord_ $n>](&s), i);
+                        let i = rng.random_range(0..$factorials[$n]);
+                        let s = [<lehmer_decode_ $n>](i);
+                        assert_eq!([<lehmer_encode_ $n>](&s), i);
                     }
                 }
             }
 
             #[test]
-            fn [<permutation_coord_ $n _parity_test>]() {
-                if $dense {
+            fn [<lehmer_encode_decode_parity_ $n>]() {
+                if $n < 9 {
                     // the domain is small enough so we just check the whole thing.
-                    for i in 0..[<FACTORIALS_ $n>][$n] {
-                        let s = [<permutation_coord_ $n _parity_inverse>](i);
+                    for i in 0..$factorials[$n] {
+                        let s = [<lehmer_decode_preserve_parity_ $n>](i);
                         assert_eq!(s.is_odd() as $t, i % 2);
-                        assert_eq!([<permutation_coord_ $n _parity>](&s), i);
+                        assert_eq!([<lehmer_encode_preserve_parity_ $n>](&s), i);
                     }
                 } else {
                     use rand::{Rng, SeedableRng};
@@ -164,10 +162,33 @@ macro_rules! permutation_coord {
 
                     // the domain is too big, sample randomly
                     for _ in 0..1000 {
-                        let i = rng.random_range(0..[<FACTORIALS_ $n>][$n]);
-                        let s = [<permutation_coord_ $n _parity_inverse>](i);
+                        let i = rng.random_range(0..$factorials[$n]);
+                        let s = [<lehmer_decode_preserve_parity_ $n>](i);
                         assert_eq!(s.is_odd() as $t, i % 2);
-                        assert_eq!([<permutation_coord_ $n _parity>](&s), i);
+                        assert_eq!([<lehmer_encode_preserve_parity_ $n>](&s), i);
+                    }
+                }
+            }
+
+            #[test]
+            fn [<permutation_encode_decode_ $n>]() {
+                if $n < 9 {
+                    // the domain is small enough so we just check the whole thing.
+                    for i in 0..$factorials[$n] {
+                        let p = Permutation::<$n>::const_lehmer_decode(i);
+                        assert_eq!(p.is_odd() as $t, i % 2);
+                        assert_eq!(p.const_lehmer_encode(), i);
+                    }
+                } else {
+                    use rand::{Rng, SeedableRng};
+                    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
+
+                    // the domain is too big, sample randomly
+                    for _ in 0..1000 {
+                        let i = rng.random_range(0..$factorials[$n]);
+                        let p = Permutation::<$n>::const_lehmer_decode(i);
+                        assert_eq!(p.is_odd() as $t, i % 2);
+                        assert_eq!(p.const_lehmer_encode(), i);
                     }
                 }
             }
@@ -175,188 +196,23 @@ macro_rules! permutation_coord {
     };
 }
 
-permutation_coord!(1, u8, true);
-permutation_coord!(2, u8, true);
-permutation_coord!(3, u8, true);
-permutation_coord!(4, u8, true);
-permutation_coord!(5, u8, true);
-permutation_coord!(6, u16, true);
-permutation_coord!(7, u16, true);
-permutation_coord!(8, u16, true);
-permutation_coord!(9, u32, false);
-permutation_coord!(10, u32, false);
-permutation_coord!(11, u32, false);
-permutation_coord!(12, u32, false);
-permutation_coord!(13, u64, false);
-permutation_coord!(14, u64, false);
-permutation_coord!(15, u64, false);
-permutation_coord!(16, u64, false);
-permutation_coord!(17, u64, false);
-permutation_coord!(18, u64, false);
-permutation_coord!(19, u64, false);
-permutation_coord!(20, u64, false);
-
-/// Macro to implement LehmerRank for a single (N,Code,rank_fn,unrank_fn).
-macro_rules! impl_lehmer_rank {
-    (
-        $N:expr,                // the const‐generic N
-        $Code:ty,               // the integer type (u8,u16,u32,u64,…)
-        $rank_fn:path,          // e.g. permutation_coord_5
-        $unrank_fn:path,          // e.g. permutation_coord_5_inverse
-        $FACTORIALS:expr
-    ) => {
-        impl Permutation<$N> {
-            #[inline(always)]
-            pub const fn const_into_coord(self) -> $Code {
-                $rank_fn(&self)
-            }
-
-            #[inline(always)]
-            pub const fn const_from_coord(coord: $Code) -> Self {
-                debug_assert!(coord < $FACTORIALS[$N]);
-                $unrank_fn(coord)
-            }
-        }
-    };
-}
-
-impl_lehmer_rank!(
-    1,
-    u8,
-    permutation_coord_1_parity,
-    permutation_coord_1_parity_inverse,
-    FACTORIALS_U8
-);
-impl_lehmer_rank!(
-    2,
-    u8,
-    permutation_coord_2_parity,
-    permutation_coord_2_parity_inverse,
-    FACTORIALS_U8
-);
-impl_lehmer_rank!(
-    3,
-    u8,
-    permutation_coord_3_parity,
-    permutation_coord_3_parity_inverse,
-    FACTORIALS_U8
-);
-impl_lehmer_rank!(
-    4,
-    u8,
-    permutation_coord_4_parity,
-    permutation_coord_4_parity_inverse,
-    FACTORIALS_U8
-);
-impl_lehmer_rank!(
-    5,
-    u8,
-    permutation_coord_5_parity,
-    permutation_coord_5_parity_inverse,
-    FACTORIALS_U8
-);
-impl_lehmer_rank!(
-    6,
-    u16,
-    permutation_coord_6_parity,
-    permutation_coord_6_parity_inverse,
-    FACTORIALS_U16
-);
-impl_lehmer_rank!(
-    7,
-    u16,
-    permutation_coord_7_parity,
-    permutation_coord_7_parity_inverse,
-    FACTORIALS_U16
-);
-impl_lehmer_rank!(
-    8,
-    u16,
-    permutation_coord_8_parity,
-    permutation_coord_8_parity_inverse,
-    FACTORIALS_U16
-);
-impl_lehmer_rank!(
-    9,
-    u32,
-    permutation_coord_9_parity,
-    permutation_coord_9_parity_inverse,
-    FACTORIALS_U32
-);
-impl_lehmer_rank!(
-    10,
-    u32,
-    permutation_coord_10_parity,
-    permutation_coord_10_parity_inverse,
-    FACTORIALS_U32
-);
-impl_lehmer_rank!(
-    11,
-    u32,
-    permutation_coord_11_parity,
-    permutation_coord_11_parity_inverse,
-    FACTORIALS_U32
-);
-impl_lehmer_rank!(
-    12,
-    u32,
-    permutation_coord_12_parity,
-    permutation_coord_12_parity_inverse,
-    FACTORIALS_U32
-);
-impl_lehmer_rank!(
-    13,
-    u64,
-    permutation_coord_13_parity,
-    permutation_coord_13_parity_inverse,
-    FACTORIALS_U64
-);
-impl_lehmer_rank!(
-    14,
-    u64,
-    permutation_coord_14_parity,
-    permutation_coord_14_parity_inverse,
-    FACTORIALS_U64
-);
-impl_lehmer_rank!(
-    15,
-    u64,
-    permutation_coord_15_parity,
-    permutation_coord_15_parity_inverse,
-    FACTORIALS_U64
-);
-impl_lehmer_rank!(
-    16,
-    u64,
-    permutation_coord_16_parity,
-    permutation_coord_16_parity_inverse,
-    FACTORIALS_U64
-);
-impl_lehmer_rank!(
-    17,
-    u64,
-    permutation_coord_17_parity,
-    permutation_coord_17_parity_inverse,
-    FACTORIALS_U64
-);
-impl_lehmer_rank!(
-    18,
-    u64,
-    permutation_coord_18_parity,
-    permutation_coord_18_parity_inverse,
-    FACTORIALS_U64
-);
-impl_lehmer_rank!(
-    19,
-    u64,
-    permutation_coord_19_parity,
-    permutation_coord_19_parity_inverse,
-    FACTORIALS_U64
-);
-impl_lehmer_rank!(
-    20,
-    u64,
-    permutation_coord_20_parity,
-    permutation_coord_20_parity_inverse,
-    FACTORIALS_U64
-);
+lehmer_code!(1, u8, FACTORIALS_U8, true);
+lehmer_code!(2, u8, FACTORIALS_U8, true);
+lehmer_code!(3, u8, FACTORIALS_U8, true);
+lehmer_code!(4, u8, FACTORIALS_U8, true);
+lehmer_code!(5, u8, FACTORIALS_U8, true);
+lehmer_code!(6, u16, FACTORIALS_U16, true);
+lehmer_code!(7, u16, FACTORIALS_U16, true);
+lehmer_code!(8, u16, FACTORIALS_U16, true);
+lehmer_code!(9, u32, FACTORIALS_U32, false);
+lehmer_code!(10, u32, FACTORIALS_U32, false);
+lehmer_code!(11, u32, FACTORIALS_U32, false);
+lehmer_code!(12, u32, FACTORIALS_U32, false);
+lehmer_code!(13, u64, FACTORIALS_U64, false);
+lehmer_code!(14, u64, FACTORIALS_U64, false);
+lehmer_code!(15, u64, FACTORIALS_U64, false);
+lehmer_code!(16, u64, FACTORIALS_U64, false);
+lehmer_code!(17, u64, FACTORIALS_U64, false);
+lehmer_code!(18, u64, FACTORIALS_U64, false);
+lehmer_code!(19, u64, FACTORIALS_U64, false);
+lehmer_code!(20, u64, FACTORIALS_U64, false);

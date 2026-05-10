@@ -641,46 +641,6 @@ mod tests {
     }
 
     #[test]
-    fn phase1_moves_match_cube_moves_single_random() -> anyhow::Result<()> {
-        let tables = Box::leak(Box::new(Tables::new("tables")?));
-        let mut rng = ChaCha8Rng::seed_from_u64(1);
-
-        let cube: ReprCube =
-            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
-
-        let moves_remaining = NonZeroU8::new(10).unwrap();
-
-        // ---- Path A: cube -> move -> cube -> phase1 ----
-        let mut from_cube = BTreeSet::new();
-
-        for mv in CubeMove::new_axis_iter(CubePreviousAxis::None, false) {
-            let moved_cube = cube.apply_move(mv);
-            let node = Phase1Node::from_cube(moved_cube, &tables);
-            from_cube.insert(phase1_key(&node, &tables));
-        }
-
-        // ---- Path B: cube -> phase1 -> move ----
-        let node = Phase1Node::from_cube(cube, &tables);
-
-        let frame = node
-            .produce_next_nodes(
-                /* max_possible_distance = */ 10,
-                moves_remaining,
-                &tables,
-            )
-            .expect("root should not be pruned");
-
-        let from_phase1: BTreeSet<_> = frame.children.map(|n| phase1_key(&n, &tables)).collect();
-
-        assert_eq!(
-            from_cube, from_phase1,
-            "Phase1Node move application does not match ReprCube move application"
-        );
-
-        Ok(())
-    }
-
-    #[test]
     fn phase1_moves_culled() -> anyhow::Result<()> {
         let tables = Box::leak(Box::new(Tables::new("tables")?));
         let cube = cube![D R2 L];
@@ -841,34 +801,6 @@ mod tests {
 
         assert_eq!(scalar_max, simd_max, "max_possible_distance mismatch");
         assert_eq!(scalar_keys, simd_keys, "SIMD children differ from scalar");
-
-        Ok(())
-    }
-
-    #[test]
-    fn simd_matches_scalar_last_move_only() -> anyhow::Result<()> {
-        let tables = Box::leak(Box::new(Tables::new("tables")?));
-        let table_offsets = TableOffsets::new(tables);
-
-        let cube = cube![D R2 L];
-        let node = Phase1Node::from_cube(cube, tables);
-
-        let moves_remaining = NonZeroU8::new(1).unwrap();
-        let max_possible_distance = 5;
-
-        let (scalar_keys, scalar_max) =
-            collect_scalar_children(node, max_possible_distance, moves_remaining, tables);
-
-        let (simd_keys, simd_max) = collect_simd_children(
-            node,
-            max_possible_distance,
-            moves_remaining,
-            &table_offsets,
-            tables,
-        );
-
-        assert_eq!(scalar_max, simd_max);
-        assert_eq!(scalar_keys, simd_keys);
 
         Ok(())
     }

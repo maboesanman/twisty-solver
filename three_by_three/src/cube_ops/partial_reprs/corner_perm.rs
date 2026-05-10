@@ -13,11 +13,11 @@ impl CornerPerm {
     pub const SOLVED: Self = Self(Permutation::IDENTITY);
 
     pub const fn from_coord(coord: CornerPermRawCoord) -> Self {
-        Self(Permutation::<8>::const_from_coord(coord.0))
+        Self(Permutation::<8>::const_lehmer_decode(coord.0))
     }
 
     pub const fn into_coord(self) -> CornerPermRawCoord {
-        CornerPermRawCoord(self.0.const_into_coord())
+        CornerPermRawCoord(self.0.const_lehmer_encode())
     }
 
     pub const fn then(self, other: Self) -> Self {

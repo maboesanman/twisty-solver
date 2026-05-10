@@ -132,12 +132,12 @@ impl EdgePositions {
         let perm = self.0 % 24;
         (
             EdgeCombination::from_coord(combo),
-            Permutation::<4>::const_from_coord(perm as u8),
+            Permutation::<4>::const_lehmer_decode(perm as u8),
         )
     }
 
     pub const fn join(combo: EdgeCombination, perm: Permutation<4>) -> Self {
-        Self(combo.into_coord() * 24 + (perm.const_into_coord() as u16))
+        Self(combo.into_coord() * 24 + (perm.const_lehmer_encode() as u16))
     }
 
     pub fn valid_sibling_pair(self) -> (Self, Self) {
@@ -322,7 +322,7 @@ mod tests {
             .collect();
 
         coords.par_iter().for_each(|&coord| {
-            let perm = EdgePerm(Permutation::<12>::const_from_coord(coord));
+            let perm = EdgePerm(Permutation::<12>::const_lehmer_decode(coord));
 
             let (u, d, e) = split_edge_positions(perm);
             let recombined = combine_edge_positions(u, d, e);
