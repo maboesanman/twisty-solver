@@ -18,11 +18,11 @@ impl EEdgePerm {
     pub const SOLVED: Self = Self(Permutation::IDENTITY);
 
     pub const fn from_coord(coord: EEdgePermRawCoord) -> Self {
-        Self(Permutation::<4>::const_from_coord(coord.0))
+        Self(Permutation::<4>::const_lehmer_decode(coord.0))
     }
 
     pub const fn into_coord(self) -> EEdgePermRawCoord {
-        EEdgePermRawCoord(self.0.const_into_coord())
+        EEdgePermRawCoord(self.0.const_lehmer_encode())
     }
 
     pub const fn then(self, other: Self) -> Self {
@@ -47,7 +47,7 @@ impl EEdgePerm {
             let mut i = 0;
             while i < 10 {
                 let mv: DominoMove = unsafe { core::mem::transmute(i as u8) };
-                val[i] = EEdgePerm(Permutation::<4>::const_from_coord(
+                val[i] = EEdgePerm(Permutation::<4>::const_lehmer_decode(
                     (split_edge_positions(match mv {
                         DominoMove::U1 => U_EDGE_PERM,
                         DominoMove::U2 => U_EDGE_PERM.then(U_EDGE_PERM),

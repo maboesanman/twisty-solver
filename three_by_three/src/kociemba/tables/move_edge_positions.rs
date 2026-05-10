@@ -108,7 +108,7 @@ mod test {
             .collect();
 
         coords.par_iter().for_each(|&coord| {
-            let perm = EdgePerm(Permutation::<12>::const_from_coord(coord));
+            let perm = EdgePerm(Permutation::<12>::const_lehmer_decode(coord));
 
             let (u_coord, d_coord, e_coord) = split_edge_positions(perm);
             let moved_by_table = table

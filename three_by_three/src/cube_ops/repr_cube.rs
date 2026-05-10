@@ -228,9 +228,9 @@ impl Distribution<ReprCube> for StandardUniform {
         let edge_perm_high_bits = rng.random_range(0..(479_001_600 >> 1)) << 1;
         let corner_perm_high_bits = rng.random_range(0..(40320 >> 1)) << 1;
         let parity = rng.random_range(0..2);
-        cube.edge_perm.0 = Permutation::<12>::const_from_coord(edge_perm_high_bits | parity);
+        cube.edge_perm.0 = Permutation::<12>::const_lehmer_decode(edge_perm_high_bits | parity);
         cube.corner_perm.0 =
-            Permutation::<8>::const_from_coord((corner_perm_high_bits | parity) as u16);
+            Permutation::<8>::const_lehmer_decode((corner_perm_high_bits | parity) as u16);
         cube.edge_orient = EdgeOrient::from_coord(EdgeOrientRawCoord(rng.random_range(0..2048)));
         cube.corner_orient =
             CornerOrient::from_coord(CornerOrientRawCoord(rng.random_range(0..2048)));
