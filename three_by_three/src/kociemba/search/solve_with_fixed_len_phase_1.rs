@@ -60,13 +60,10 @@ pub fn produce_solutions_par<'a, const N: usize>(
             let phase_2 = solve_domino_pair(phase_2_start_a, phase_2_start_b, tables, phase_2_max)?;
             let new_path_len = N + phase_2.len() - 1;
 
-            best.compare_exchange(
-                current_best,
-                new_path_len,
-                std::sync::atomic::Ordering::AcqRel,
-                std::sync::atomic::Ordering::Acquire,
-            )
-            .ok()?;
+            let old = best.fetch_min(new_path_len, std::sync::atomic::Ordering::AcqRel);
+            if new_path_len >= old {
+                return None;
+            }
 
             Some((phase_1, phase_2))
         })
