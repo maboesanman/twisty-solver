@@ -32,7 +32,7 @@ pub fn produce_solutions<'t, const N: usize>(
                     phase_2_start_b,
                     tables,
                     phase_2_max,
-                    || Some((*current_best - N as u8)),
+                    || Some(*current_best - N as u8),
                 ) else {
                     return Some(None);
                 };
@@ -104,7 +104,7 @@ pub fn produce_solutions_par<'a, const N: usize>(
 
 #[cfg(test)]
 mod test {
-    use std::{sync::Mutex, usize};
+    use std::sync::Mutex;
 
     use crate::cube;
 
