@@ -13,7 +13,7 @@ pub fn main() {
 
         // cube.pretty_print();
 
-        let mut stream = get_incremental_solutions_stream(cube, tables, Some(20), false);
+        let mut stream = get_incremental_solutions_stream(cube, tables, Some(20), true);
         let future = stream.next();
 
         let _solution = futures::executor::block_on(future).unwrap();

@@ -6,6 +6,7 @@
 #![feature(hint_prefetch)]
 #![allow(long_running_const_eval)]
 #![allow(dead_code)]
+#![feature(sync_unsafe_cell)]
 
 mod cube_entry;
 mod cube_ops;

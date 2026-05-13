@@ -1,6 +1,6 @@
 use std::{
     num::{NonZeroU8, NonZeroUsize},
-    sync::{Arc, atomic::AtomicBool},
+    sync::atomic::AtomicBool,
 };
 
 use itertools::Itertools;
@@ -31,7 +31,9 @@ pub fn all_domino_reductions<'a, const N: usize>(
     tables: &'a Tables,
     table_offsets: &'a TableOffsets<'a>,
 ) -> impl Iterator<Item = ([Phase1Node; N], Phase2Node, Phase2Node)> {
-    Stack::<_, _>::new(cube, tables, table_offsets,()).into_iter().flatten()
+    Stack::<_, _>::new(cube, tables, table_offsets, ())
+        .into_iter()
+        .flatten()
 }
 
 pub fn any_domino_reductions_const<const N: usize>(
@@ -41,7 +43,9 @@ pub fn any_domino_reductions_const<const N: usize>(
     table_offsets: &TableOffsets,
 ) -> u8 {
     let cube = Phase1Node::from_phase_1_coords(edge_group_orient_sym, corner_orient_raw, tables);
-    Stack::<N, _>::new_inner(cube, tables, table_offsets, ()).take(255).count() as u8
+    Stack::<N, _>::new_inner(cube, tables, table_offsets, ())
+        .take(255)
+        .count() as u8
 }
 
 pub fn any_domino_reductions(
@@ -52,27 +56,132 @@ pub fn any_domino_reductions(
     n: u8,
 ) -> u8 {
     match n {
-        0 => any_domino_reductions_const::<0>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        1 => any_domino_reductions_const::<1>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        2 => any_domino_reductions_const::<2>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        3 => any_domino_reductions_const::<3>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        4 => any_domino_reductions_const::<4>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        5 => any_domino_reductions_const::<5>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        6 => any_domino_reductions_const::<6>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        7 => any_domino_reductions_const::<7>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        8 => any_domino_reductions_const::<8>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        9 => any_domino_reductions_const::<9>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        10 => any_domino_reductions_const::<10>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        11 => any_domino_reductions_const::<11>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        12 => any_domino_reductions_const::<12>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        13 => any_domino_reductions_const::<13>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        14 => any_domino_reductions_const::<14>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        15 => any_domino_reductions_const::<15>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        16 => any_domino_reductions_const::<16>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        17 => any_domino_reductions_const::<17>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        18 => any_domino_reductions_const::<18>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        19 => any_domino_reductions_const::<19>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
-        20 => any_domino_reductions_const::<20>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        0 => any_domino_reductions_const::<0>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        1 => any_domino_reductions_const::<1>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        2 => any_domino_reductions_const::<2>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        3 => any_domino_reductions_const::<3>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        4 => any_domino_reductions_const::<4>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        5 => any_domino_reductions_const::<5>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        6 => any_domino_reductions_const::<6>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        7 => any_domino_reductions_const::<7>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        8 => any_domino_reductions_const::<8>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        9 => any_domino_reductions_const::<9>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        10 => any_domino_reductions_const::<10>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        11 => any_domino_reductions_const::<11>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        12 => any_domino_reductions_const::<12>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        13 => any_domino_reductions_const::<13>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        14 => any_domino_reductions_const::<14>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        15 => any_domino_reductions_const::<15>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        16 => any_domino_reductions_const::<16>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        17 => any_domino_reductions_const::<17>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        18 => any_domino_reductions_const::<18>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        19 => any_domino_reductions_const::<19>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
+        20 => any_domino_reductions_const::<20>(
+            edge_group_orient_sym,
+            corner_orient_raw,
+            tables,
+            table_offsets,
+        ),
         _ => unreachable!(),
     }
 }
@@ -142,7 +251,12 @@ impl Default for FrameMetadata {
 impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     const FRAME_DATA_CAP: usize = 3 + 15 * N;
 
-    pub fn new(cube: ReprCube, tables: &'t Tables, table_offsets: &'t TableOffsets, cancel: C) -> Vec<Self> {
+    pub fn new(
+        cube: ReprCube,
+        tables: &'t Tables,
+        table_offsets: &'t TableOffsets,
+        cancel: C,
+    ) -> Vec<Self> {
         let mut options =
             [0, 1, 2].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
         options.sort_by_key(|n| n.distance_heuristic(tables));
@@ -152,7 +266,12 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             .collect_vec()
     }
 
-    fn new_inner(start: Phase1Node, tables: &'t Tables, table_offsets: &'t TableOffsets, cancel: C) -> Self {
+    fn new_inner(
+        start: Phase1Node,
+        tables: &'t Tables,
+        table_offsets: &'t TableOffsets,
+        cancel: C,
+    ) -> Self {
         let starts = Some(start);
         let mut frame_data = if N == 0 {
             starts
@@ -277,7 +396,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
                 slice,
                 last_frame.max_distance,
                 unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
-                &self.table_offsets,
+                self.table_offsets,
                 self.tables,
             );
 
@@ -495,7 +614,7 @@ mod test {
         let stack = all_domino_reductions_par::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
-             &table_offsets,
+            &table_offsets,
             &cancel,
         );
 
@@ -577,7 +696,6 @@ mod test {
         let tables_ref = &tables;
         let table_offsets_ref = &table_offsets;
         let table = tables.get_prune_phase_1();
-
 
         let possible_values: std::collections::BTreeSet<_> = (1u32..(64430))
             .into_par_iter()

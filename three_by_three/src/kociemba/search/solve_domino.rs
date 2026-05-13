@@ -31,9 +31,15 @@ pub fn solve_domino_pair(
     phase_2_start_a: Phase2Node,
     phase_2_start_b: Phase2Node,
     tables: &Tables,
-    max_moves: u8,
+    weak_max_moves: u8,
+    strong_max_moves: impl FnOnce() -> Option<u8>,
 ) -> Option<Vec<Phase2Node>> {
     let phase_2_a_weak_dist = phase_2_start_a.weak_distance_heuristic(tables);
+
+    if phase_2_a_weak_dist + 1 > weak_max_moves {
+        return None;
+    }
+    let max_moves = strong_max_moves()?;
 
     if phase_2_a_weak_dist + 1 > max_moves {
         return None;
