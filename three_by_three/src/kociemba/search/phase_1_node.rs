@@ -8,19 +8,16 @@ use std::{
 use itertools::Itertools;
 
 use crate::{
-    CornerOrient, CornerPerm, CubeMove, EdgeOrient, EdgePerm, ReprCube, Tables,
-    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
-    kociemba::{
+    CornerOrient, CornerPerm, CubeMove, EdgeOrient, EdgePerm, Permutation, ReprCube, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
         coords::{
-            coords::{CornerOrientRawCoord, EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
+            coords::{CornerOrientRawCoord, CornerPermRawCoord, EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
             corner_perm_combo_coord::CornerPermComboCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         },
-        partial_reprs::edge_positions::{
-            DEdgePositions, EEdgePositions, UEdgePositions, combine_edge_positions,
-            split_edge_positions,
-        },
-    },
+        partial_reprs::{edge_group::EdgeGroup, edge_positions::{
+            DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions, combine_edge_positions, split_edge_positions
+        }},
+    }
 };
 
 #[repr(C)]
@@ -71,11 +68,26 @@ impl Phase1Node {
     pub(crate) fn from_phase_1_coords(
         edge_group_orient_sym: EdgeGroupOrientSymCoord,
         corner_orient_raw: CornerOrientRawCoord,
+        tables: &Tables,
     ) -> Self {
-        let mut val = Self::default();
-        val.edge_group_orient_sym = edge_group_orient_sym;
-        val.corner_orient_raw = corner_orient_raw;
-        val
+        let edge_group_orient_raw = tables.lookup_sym_edge_group_orient.get_rep_from_sym(edge_group_orient_sym);
+        let mut cube = ReprCube::SOLVED;
+
+        let (edge_group_raw, edge_orient_raw_coord) = edge_group_orient_raw.split();
+
+        cube.corner_orient = CornerOrient::from_coord(corner_orient_raw);
+        cube.edge_orient = EdgeOrient::from_coord(edge_orient_raw_coord);
+
+        let e_edge_pos = EdgePositions::join(EdgeGroup::from_coord(edge_group_raw).0, Permutation::IDENTITY);
+        let (u_edge_pos, d_edge_pos) = e_edge_pos.valid_sibling_pair();
+
+        cube.edge_perm = combine_edge_positions(UEdgePositions(u_edge_pos), DEdgePositions(d_edge_pos), EEdgePositions(e_edge_pos));
+        cube.corner_perm = CornerPerm::from_coord(CornerPermRawCoord(cube.edge_perm.0.is_odd() as u16));
+        
+        // ReprCube::pretty_print(cube);
+        // assert!(cube)
+
+        Self::from_cube(cube, tables)
     }
 
     pub fn from_cube(cube: ReprCube, tables: &Tables) -> Self {

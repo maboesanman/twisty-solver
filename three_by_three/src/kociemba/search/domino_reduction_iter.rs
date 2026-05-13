@@ -26,50 +26,53 @@ use crate::{
 ///
 /// if S is false, the move sequence is not allowed to be domino reduced at any time before the final state.
 /// if S is true, only the second-to-last state is prevented from being domino reduced
-pub fn all_domino_reductions<const N: usize>(
+pub fn all_domino_reductions<'a, const N: usize>(
     cube: ReprCube,
-    tables: &Tables,
+    tables: &'a Tables,
+    table_offsets: &'a TableOffsets<'a>,
 ) -> impl Iterator<Item = ([Phase1Node; N], Phase2Node, Phase2Node)> {
-    Stack::<_, _>::new(cube, tables, ()).into_iter().flatten()
+    Stack::<_, _>::new(cube, tables, table_offsets,()).into_iter().flatten()
 }
 
 pub fn any_domino_reductions_const<const N: usize>(
     edge_group_orient_sym: EdgeGroupOrientSymCoord,
     corner_orient_raw: CornerOrientRawCoord,
     tables: &Tables,
-) -> bool {
-    let cube = Phase1Node::from_phase_1_coords(edge_group_orient_sym, corner_orient_raw);
-    Stack::<N, _>::new_inner(cube, tables, ()).next().is_some()
+    table_offsets: &TableOffsets,
+) -> u8 {
+    let cube = Phase1Node::from_phase_1_coords(edge_group_orient_sym, corner_orient_raw, tables);
+    Stack::<N, _>::new_inner(cube, tables, table_offsets, ()).take(255).count() as u8
 }
 
 pub fn any_domino_reductions(
     edge_group_orient_sym: EdgeGroupOrientSymCoord,
     corner_orient_raw: CornerOrientRawCoord,
     tables: &Tables,
+    table_offsets: &TableOffsets,
     n: u8,
-) -> bool {
+) -> u8 {
     match n {
-        0 => any_domino_reductions_const::<0>(edge_group_orient_sym, corner_orient_raw, tables),
-        1 => any_domino_reductions_const::<1>(edge_group_orient_sym, corner_orient_raw, tables),
-        2 => any_domino_reductions_const::<2>(edge_group_orient_sym, corner_orient_raw, tables),
-        3 => any_domino_reductions_const::<3>(edge_group_orient_sym, corner_orient_raw, tables),
-        4 => any_domino_reductions_const::<4>(edge_group_orient_sym, corner_orient_raw, tables),
-        5 => any_domino_reductions_const::<5>(edge_group_orient_sym, corner_orient_raw, tables),
-        6 => any_domino_reductions_const::<6>(edge_group_orient_sym, corner_orient_raw, tables),
-        7 => any_domino_reductions_const::<7>(edge_group_orient_sym, corner_orient_raw, tables),
-        8 => any_domino_reductions_const::<8>(edge_group_orient_sym, corner_orient_raw, tables),
-        9 => any_domino_reductions_const::<9>(edge_group_orient_sym, corner_orient_raw, tables),
-        10 => any_domino_reductions_const::<10>(edge_group_orient_sym, corner_orient_raw, tables),
-        11 => any_domino_reductions_const::<11>(edge_group_orient_sym, corner_orient_raw, tables),
-        12 => any_domino_reductions_const::<12>(edge_group_orient_sym, corner_orient_raw, tables),
-        13 => any_domino_reductions_const::<13>(edge_group_orient_sym, corner_orient_raw, tables),
-        14 => any_domino_reductions_const::<14>(edge_group_orient_sym, corner_orient_raw, tables),
-        15 => any_domino_reductions_const::<15>(edge_group_orient_sym, corner_orient_raw, tables),
-        16 => any_domino_reductions_const::<16>(edge_group_orient_sym, corner_orient_raw, tables),
-        17 => any_domino_reductions_const::<17>(edge_group_orient_sym, corner_orient_raw, tables),
-        18 => any_domino_reductions_const::<18>(edge_group_orient_sym, corner_orient_raw, tables),
-        19 => any_domino_reductions_const::<19>(edge_group_orient_sym, corner_orient_raw, tables),
-        20 => any_domino_reductions_const::<20>(edge_group_orient_sym, corner_orient_raw, tables),
+        0 => any_domino_reductions_const::<0>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        1 => any_domino_reductions_const::<1>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        2 => any_domino_reductions_const::<2>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        3 => any_domino_reductions_const::<3>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        4 => any_domino_reductions_const::<4>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        5 => any_domino_reductions_const::<5>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        6 => any_domino_reductions_const::<6>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        7 => any_domino_reductions_const::<7>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        8 => any_domino_reductions_const::<8>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        9 => any_domino_reductions_const::<9>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        10 => any_domino_reductions_const::<10>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        11 => any_domino_reductions_const::<11>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        12 => any_domino_reductions_const::<12>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        13 => any_domino_reductions_const::<13>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        14 => any_domino_reductions_const::<14>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        15 => any_domino_reductions_const::<15>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        16 => any_domino_reductions_const::<16>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        17 => any_domino_reductions_const::<17>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        18 => any_domino_reductions_const::<18>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        19 => any_domino_reductions_const::<19>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
+        20 => any_domino_reductions_const::<20>(edge_group_orient_sym, corner_orient_raw, tables, table_offsets),
         _ => unreachable!(),
     }
 }
@@ -82,9 +85,10 @@ pub fn any_domino_reductions(
 pub fn all_domino_reductions_par<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
+    table_offsets: &'a TableOffsets<'a>,
     cancel: &'a AtomicBool,
 ) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node, Phase2Node)> {
-    Stack::<'a, N, &'a AtomicBool>::new(cube, tables, cancel)
+    Stack::<'a, N, &'a AtomicBool>::new(cube, tables, table_offsets, cancel)
         .into_par_iter()
         .flatten()
 }
@@ -94,7 +98,7 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
 #[derive(Debug, Clone)]
 struct Stack<'t, const N: usize, C> {
     tables: &'t Tables,
-    table_offsets: Arc<TableOffsets<'t>>,
+    table_offsets: &'t TableOffsets<'t>,
 
     cancel: C,
 
@@ -138,17 +142,17 @@ impl Default for FrameMetadata {
 impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     const FRAME_DATA_CAP: usize = 3 + 15 * N;
 
-    pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C) -> Vec<Self> {
+    pub fn new(cube: ReprCube, tables: &'t Tables, table_offsets: &'t TableOffsets, cancel: C) -> Vec<Self> {
         let mut options =
             [0, 1, 2].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
         options.sort_by_key(|n| n.distance_heuristic(tables));
         options
             .into_iter()
-            .map(|node| Self::new_inner(node, tables, cancel.clone()))
+            .map(|node| Self::new_inner(node, tables, table_offsets, cancel.clone()))
             .collect_vec()
     }
 
-    fn new_inner(start: Phase1Node, tables: &'t Tables, cancel: C) -> Self {
+    fn new_inner(start: Phase1Node, tables: &'t Tables, table_offsets: &'t TableOffsets, cancel: C) -> Self {
         let starts = Some(start);
         let mut frame_data = if N == 0 {
             starts
@@ -163,7 +167,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 
         let mut stack = Self {
             tables,
-            table_offsets: Arc::new(TableOffsets::new(tables)),
+            table_offsets,
             cancel,
             frame_data,
             frame_metadata: [const { FrameMetadata::default_const() }; _],
@@ -304,7 +308,7 @@ impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let phase_1_tail_a = self.frame_data.pop()?;
-        let phase_1_tail_b = unsafe { self.frame_data.pop().unwrap_unchecked() };
+        let phase_1_tail_b = self.frame_data.pop().unwrap_or(phase_1_tail_a);
         let phase_2_head_a = Phase2Node::from_phase_1_node(phase_1_tail_a);
         let phase_2_head_b = Phase2Node::from_phase_1_node(phase_1_tail_b);
         let head = self
@@ -366,13 +370,16 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 
             let mut new_stack = Stack {
                 tables: self.tables,
-                table_offsets: self.table_offsets.clone(),
+                table_offsets: self.table_offsets,
                 cancel: self.cancel,
                 frame_metadata: self.frame_metadata,
                 frame_data: new_frame_data,
             };
 
-            new_stack.fill_recurse_no_simd(i);
+            match NonZeroUsize::new(i) {
+                Some(i) => new_stack.fill_recurse_simd(i),
+                None => new_stack.fill_recurse_no_simd(i),
+            }
 
             if !new_stack.frame_data.is_empty() {
                 break (self, Some(new_stack));
@@ -418,8 +425,9 @@ mod test {
     #[test]
     fn domino_reduce_empty() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
+        let table_offsets = TableOffsets::new(&tables);
         let cube = cube![R U Rp Up];
-        let stack = all_domino_reductions::<0>(cube, &tables).collect_vec();
+        let stack = all_domino_reductions::<0>(cube, &tables, &table_offsets).collect_vec();
 
         println!("{stack:#?}");
 
@@ -430,6 +438,7 @@ mod test {
     fn domino_reduce_test_iter_2() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
         let table_ref = &tables;
+        let table_offsets = TableOffsets::new(&tables);
         let cube = cube![R U Rp Up];
         // let cube = cube![D R2 L];
         let res = move |path: &[Phase1Node], last: &Phase2Node| {
@@ -440,19 +449,19 @@ mod test {
 
             move_resolver_multi_dimension_domino(cube, cubes)
         };
-        let stack = all_domino_reductions::<2>(cube, &tables);
+        let stack = all_domino_reductions::<2>(cube, &tables, &table_offsets);
         stack.for_each(|(path, last_a, last_b)| {
             println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
-        let stack = all_domino_reductions::<3>(cube, &tables);
+        let stack = all_domino_reductions::<3>(cube, &tables, &table_offsets);
         stack.for_each(|(path, last_a, last_b)| {
             println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
-        let stack = all_domino_reductions::<4>(cube, &tables);
+        let stack = all_domino_reductions::<4>(cube, &tables, &table_offsets);
         stack.for_each(|(path, last_a, last_b)| {
             println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
-        let stack = all_domino_reductions::<5>(cube, &tables);
+        let stack = all_domino_reductions::<5>(cube, &tables, &table_offsets);
         stack.for_each(|(path, last_a, last_b)| {
             println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
@@ -463,10 +472,12 @@ mod test {
     #[test]
     fn domino_reduce_test_superflip_2_single() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
+        let table_offsets = TableOffsets::new(&tables);
 
         let stack = all_domino_reductions::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
+            &table_offsets,
         );
 
         println!("{:?}", stack.count());
@@ -477,12 +488,14 @@ mod test {
     #[test]
     fn domino_reduce_test_superflip_2_par() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
+        let table_offsets = TableOffsets::new(&tables);
 
         let cancel = AtomicBool::new(false);
 
         let stack = all_domino_reductions_par::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
+             &table_offsets,
             &cancel,
         );
 
@@ -494,6 +507,7 @@ mod test {
     #[test]
     fn domino_reduction_length_chart() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
+        let table_offsets = TableOffsets::new(&tables);
 
         let mut rng = ChaCha8Rng::seed_from_u64(2);
         let cube: ReprCube =
@@ -502,90 +516,93 @@ mod test {
 
         println!(
             "0: {}",
-            all_domino_reductions_par::<0>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<0>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "1: {}",
-            all_domino_reductions_par::<1>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<1>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "2: {}",
-            all_domino_reductions_par::<2>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<2>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "3: {}",
-            all_domino_reductions_par::<3>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<3>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "4: {}",
-            all_domino_reductions_par::<4>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<4>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "5: {}",
-            all_domino_reductions_par::<5>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<5>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "6: {}",
-            all_domino_reductions_par::<6>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<6>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "7: {}",
-            all_domino_reductions_par::<7>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<7>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "8: {}",
-            all_domino_reductions_par::<8>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<8>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "9: {}",
-            all_domino_reductions_par::<9>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<9>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "10: {}",
-            all_domino_reductions_par::<10>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<10>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "11: {}",
-            all_domino_reductions_par::<11>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<11>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "12: {}",
-            all_domino_reductions_par::<12>(cube, &tables, &cancel).count()
+            all_domino_reductions_par::<12>(cube, &tables, &table_offsets, &cancel).count()
         );
 
         Ok(())
     }
 
-    // #[test]
-    // fn explore_early_prunability() -> anyhow::Result<()> {
-    //     let tables = Tables::new("tables")?;
-    //     let tables_ref = &tables;
-    //     let table = tables.get_prune_phase_1();
+    #[test]
+    fn explore_early_prunability() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let table_offsets = TableOffsets::new(&tables);
+        let tables_ref = &tables;
+        let table_offsets_ref = &table_offsets;
+        let table = tables.get_prune_phase_1();
 
-    //     let possible_values: HashSet<_> = (0..64430)
-    //         .into_par_iter()
-    //         .flat_map_iter(|i| {
-    //             // println!("progress {i} / 64430");
-    //             let ego = EdgeGroupOrientSymCoord(i);
-    //             (0..2187).into_iter().flat_map(move |j| {
-    //                 let co = CornerOrientRawCoord(j);
-    //                 let d = table.get_value(ego, co);
 
-    //                 (d..=20).into_iter().map(move |m| {
-    //                     if any_domino_reductions(ego, co, tables_ref, m) {
-    //                         Some((d, m))
-    //                     } else {
-    //                         None
-    //                     }
-    //                 })
-    //             })
-    //         }).filter_map(identity)
-    //         .collect();
+        let possible_values: std::collections::BTreeSet<_> = (1u32..(64430))
+            .into_par_iter()
+            .flat_map_iter(|x| {
+                let i = (x % 64430) as u16;
+                let j = (x / 64430) as u16;
 
-    //     println!("{possible_values:?}");
+                // println!("progress {i} / 64430");
+                let ego = EdgeGroupOrientSymCoord(i);
+                let co = CornerOrientRawCoord(j);
+                let d = table.get_value(ego, co);
 
-    //     Ok(())
-    // }
+                (d..=20).into_iter().map(move |m| {
+                    let count = any_domino_reductions(ego, co, tables_ref, table_offsets_ref, m);
+                    (d, m, count)
+                })
+            })
+            .collect();
 
+        for (d, m, count) in possible_values {
+            println!("{d}, {m}, {count}");
+        }
+        // println!("{possible_values:?}");
+
+        Ok(())
+    }
     // {(12, 19), (1, 16), (5, 20), (3, 11), (2, 9), (4, 16), (11, 20), (2, 15), (6, 15), (8, 12), (8, 19), (5, 11), (2, 16), (4, 15), (7, 14), (10, 13), (3, 15), (9, 10), (8, 8), (10, 19), (8, 13), (3, 8), (2, 3), (10, 10), (10, 14), (8, 18), (7, 20), (1, 14), (7, 16), (8, 15), (6, 14), (6, 13), (0, 6), (2, 8), (5, 9), (9, 16), (4, 18), (2, 20), (5, 18), (1, 20), (5, 13), (7, 12), (0, 1), (12, 14), (3, 10), (4, 7), (2, 10), (9, 17), (4, 20), (3, 13), (3, 18), (2, 6), (1, 17), (1, 9), (2, 5), (2, 19), (7, 17), (7, 13), (7, 19), (7, 11), (12, 18), (9, 18), (11, 18), (4, 17), (6, 18), (6, 7), (3, 9), (8, 10), (10, 15), (9, 20), (4, 5), (0, 16), (0, 7), (3, 3), (0, 11), (4, 19), (0, 13), (1, 10), (6, 6), (3, 20), (12, 16), (1, 12), (11, 12), (6, 8), (9, 15), (9, 14), (5, 6), (6, 19), (10, 20), (2, 12), (3, 16), (10, 17), (9, 9), (8, 11), (1, 4), (10, 18), (9, 13), (0, 9), (7, 18), (5, 10), (12, 15), (1, 15), (11, 14), (12, 12), (11, 19), (3, 17), (0, 12), (4, 6), (6, 9), (3, 19), (4, 4), (6, 12), (1, 8), (1, 11), (0, 5), (6, 17), (5, 12), (0, 8), (12, 20), (0, 17), (3, 6), (12, 17), (2, 18), (5, 8), (6, 11), (5, 17), (2, 13), (11, 17), (4, 13), (8, 20), (3, 14), (9, 19), (5, 19), (6, 16), (11, 11), (0, 0), (6, 20), (11, 16), (7, 7), (0, 15), (5, 16), (7, 8), (0, 10), (10, 16), (5, 7), (7, 10), (0, 14), (2, 4), (8, 9), (12, 13), (0, 20), (10, 12), (4, 10), (5, 15), (4, 9), (1, 19), (9, 12), (2, 2), (11, 13), (7, 15), (6, 10), (3, 12), (0, 18), (1, 1), (8, 14), (10, 11), (4, 12), (4, 14), (4, 8), (5, 14), (2, 7), (1, 18), (3, 5), (7, 9), (3, 4), (2, 17), (2, 11), (2, 14), (5, 5), (1, 7), (8, 17), (8, 16), (11, 15), (3, 7), (0, 19), (4, 11), (1, 13), (1, 6), (1, 5), (9, 11)}
 }
