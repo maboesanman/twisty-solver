@@ -581,6 +581,32 @@ impl<'a> Stream for ImprovingSolutionStream<'a> {
     }
 }
 
+pub fn solve_direct(
+    cube: ReprCube,
+    tables: &Tables,
+) -> Vec<CubeMove> {
+    let table_offsets = TableOffsets::new(tables);
+    let phase_1 = super::phase_1_node::Phase1Node::from_cube(cube, tables);
+    let domino_dist = phase_1.distance_heuristic(tables);
+
+    match domino_dist {
+        0 => super::solve_with_fixed_len_phase_1::produce_solutions::<0>(cube, 255, tables, &table_offsets).next().unwrap(),
+        1 => super::solve_with_fixed_len_phase_1::produce_solutions::<1>(cube, 255, tables, &table_offsets).next().unwrap(),
+        2 => super::solve_with_fixed_len_phase_1::produce_solutions::<2>(cube, 255, tables, &table_offsets).next().unwrap(),
+        3 => super::solve_with_fixed_len_phase_1::produce_solutions::<3>(cube, 255, tables, &table_offsets).next().unwrap(),
+        4 => super::solve_with_fixed_len_phase_1::produce_solutions::<4>(cube, 255, tables, &table_offsets).next().unwrap(),
+        5 => super::solve_with_fixed_len_phase_1::produce_solutions::<5>(cube, 255, tables, &table_offsets).next().unwrap(),
+        6 => super::solve_with_fixed_len_phase_1::produce_solutions::<6>(cube, 255, tables, &table_offsets).next().unwrap(),
+        7 => super::solve_with_fixed_len_phase_1::produce_solutions::<7>(cube, 255, tables, &table_offsets).next().unwrap(),
+        8 => super::solve_with_fixed_len_phase_1::produce_solutions::<8>(cube, 255, tables, &table_offsets).next().unwrap(),
+        9 => super::solve_with_fixed_len_phase_1::produce_solutions::<9>(cube, 255, tables, &table_offsets).next().unwrap(),
+        10 => super::solve_with_fixed_len_phase_1::produce_solutions::<10>(cube, 255, tables, &table_offsets).next().unwrap(),
+        11 => super::solve_with_fixed_len_phase_1::produce_solutions::<11>(cube, 255, tables, &table_offsets).next().unwrap(),
+        12 => super::solve_with_fixed_len_phase_1::produce_solutions::<12>(cube, 255, tables, &table_offsets).next().unwrap(),
+        _ => unreachable!(),
+    }
+}
+
 #[cfg(test)]
 mod test {
     use itertools::Itertools;
@@ -764,7 +790,7 @@ mod test {
         bench.iter(|| {
             let cube = cubes.get(i % 10000).unwrap();
             i += 1;
-            let mut stream = get_incremental_solutions_stream(*cube, tables, Some(20), true);
+            let mut stream = get_incremental_solutions_stream(*cube, tables, Some(20), false);
             let future = stream.next();
             let solution = futures::executor::block_on(future).unwrap();
             test::black_box(solution);
@@ -811,6 +837,63 @@ mod test {
             let solution = futures::executor::block_on(future).unwrap();
             test::black_box(solution);
         });
+    }
+
+    #[bench]
+    fn solve_a_cube_in_any_moves(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(1);
+        let cubes: Vec<ReprCube> = (0..10000)
+            .into_iter()
+            .map(|_| rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng))
+            .collect_vec();
+
+        let mut i = 0;
+
+        bench.iter(|| {
+            let cube = cubes.get(i % 10000).unwrap();
+            i += 1;
+            let solution = solve_direct(*cube, tables);
+            test::black_box(solution);
+        });
+    }
+
+
+    #[test]
+    fn solve_a_cube_in_any_moves_test() {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(1);
+        (0..100)
+            .into_iter()
+            .map(|_| rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng))
+            .for_each(|cube: ReprCube| {
+                cube.pretty_print();
+                let solution = solve_direct(cube, tables);
+                for m in solution.into_iter().rev() {
+                    let m = match m {
+                        CubeMove::U1 => CubeMove::U3,
+                        CubeMove::U2 => CubeMove::U2,
+                        CubeMove::U3 => CubeMove::U1,
+                        CubeMove::D1 => CubeMove::D3,
+                        CubeMove::D2 => CubeMove::D2,
+                        CubeMove::D3 => CubeMove::D1,
+                        CubeMove::F1 => CubeMove::F3,
+                        CubeMove::F2 => CubeMove::F2,
+                        CubeMove::F3 => CubeMove::F1,
+                        CubeMove::B1 => CubeMove::B3,
+                        CubeMove::B2 => CubeMove::B2,
+                        CubeMove::B3 => CubeMove::B1,
+                        CubeMove::R1 => CubeMove::R3,
+                        CubeMove::R2 => CubeMove::R2,
+                        CubeMove::R3 => CubeMove::R1,
+                        CubeMove::L1 => CubeMove::L3,
+                        CubeMove::L2 => CubeMove::L2,
+                        CubeMove::L3 => CubeMove::L1,
+                    };
+                    print!("{m} ");
+                }
+                println!();
+            });
     }
 
     #[bench]
