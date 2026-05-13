@@ -3,7 +3,7 @@ use std::{
     pin::Pin,
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicUsize},
+        atomic::{AtomicBool, AtomicU8},
     },
     thread::JoinHandle,
     usize,
@@ -17,7 +17,10 @@ use rayon::iter::ParallelIterator;
 use crate::{
     cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
     kociemba::{
-        search::{phase_1_node::TableOffsets, solve_with_fixed_len_phase_1::{produce_solutions, produce_solutions_par}},
+        search::{
+            phase_1_node::TableOffsets,
+            solve_with_fixed_len_phase_1::{produce_solutions, produce_solutions_par},
+        },
         tables::Tables,
     },
 };
@@ -27,9 +30,9 @@ fn solver_thread_single(
     tables: &Tables,
     send: Sender<Vec<CubeMove>>,
     cancel: Arc<AtomicBool>,
-    seed_best: usize,
+    seed_best: u8,
 ) {
-    let mut best = AtomicUsize::new(seed_best);
+    let mut best = AtomicU8::new(seed_best);
 
     let table_offsets = TableOffsets::new(tables);
 
@@ -45,7 +48,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<1>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -56,7 +59,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<2>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -67,7 +70,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<3>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -78,7 +81,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<4>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -89,7 +92,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<5>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -100,7 +103,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<6>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -111,7 +114,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<7>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -122,7 +125,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<8>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -133,7 +136,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<9>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -144,7 +147,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<10>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -155,7 +158,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<11>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -166,7 +169,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<12>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -177,7 +180,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<13>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -188,7 +191,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<14>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -199,7 +202,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<15>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -210,7 +213,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<16>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -221,7 +224,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<17>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -232,7 +235,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<18>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -243,7 +246,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<19>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 
@@ -254,7 +257,7 @@ fn solver_thread_single(
         return;
     }
     produce_solutions::<20>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = solution.len() - 1;
+        *best.get_mut() = (solution.len() - 1) as u8;
         let _ = send.send(solution);
     });
 }
@@ -264,9 +267,9 @@ fn solver_thread_parallel(
     tables: &Tables,
     send: Sender<Vec<CubeMove>>,
     cancel: Arc<AtomicBool>,
-    seed_best: usize,
+    seed_best: u8,
 ) {
-    let mut best = AtomicUsize::new(seed_best);
+    let mut best = AtomicU8::new(seed_best);
 
     let table_offsets = TableOffsets::new(tables);
 
@@ -371,9 +374,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<10>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<10>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 11 + 1 {
         return;
@@ -381,9 +386,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<11>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<11>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 12 + 1 {
         return;
@@ -391,9 +398,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<12>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<12>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 13 + 1 {
         return;
@@ -401,9 +410,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<13>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<13>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 14 + 1 {
         return;
@@ -411,9 +422,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<14>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<14>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 15 + 1 {
         return;
@@ -421,9 +434,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<15>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<15>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 16 + 1 {
         return;
@@ -431,9 +446,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<16>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<16>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 17 + 1 {
         return;
@@ -441,9 +458,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<17>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<17>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 18 + 1 {
         return;
@@ -451,9 +470,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<18>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<18>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 19 + 1 {
         return;
@@ -461,9 +482,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<19>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<19>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 20 + 1 {
         return;
@@ -471,15 +494,17 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<20>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<20>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 }
 
 pub fn get_incremental_solutions_stream(
     cube: ReprCube,
     tables: &'static Tables,
-    max_moves: Option<usize>,
+    max_moves: Option<u8>,
     parallel: bool,
 ) -> impl Stream<Item = Vec<CubeMove>> {
     let (send, recv) = flume::unbounded();
@@ -495,7 +520,7 @@ pub fn get_incremental_solutions_stream(
                     tables,
                     send,
                     cancel,
-                    max_moves.unwrap_or(usize::MAX).saturating_add(1),
+                    max_moves.unwrap_or(u8::MAX).saturating_add(1),
                 );
             } else {
                 solver_thread_single(
@@ -503,7 +528,7 @@ pub fn get_incremental_solutions_stream(
                     tables,
                     send,
                     cancel,
-                    max_moves.unwrap_or(usize::MAX).saturating_add(1),
+                    max_moves.unwrap_or(u8::MAX).saturating_add(1),
                 );
             }
         }));
@@ -708,18 +733,41 @@ mod test {
     fn solve_a_cube_in_20_moves(bench: &mut test::Bencher) {
         let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
         let mut rng = ChaCha8Rng::seed_from_u64(1);
-        let cubes: Vec<ReprCube> = (0..1)
+        let cubes: Vec<ReprCube> = (0..10000)
             .into_iter()
             .map(|_| rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng))
             .collect_vec();
 
+        let mut i = 0;
+
         bench.iter(|| {
-            for cube in cubes.iter() {
-                let mut stream = get_incremental_solutions_stream(*cube, tables, Some(20), true);
-                let future = stream.next();
-                let solution = futures::executor::block_on(future).unwrap();
-                test::black_box(solution);
-            }
+            let cube = cubes.get(i % 10000).unwrap();
+            i += 1;
+            let mut stream = get_incremental_solutions_stream(*cube, tables, Some(20), true);
+            let future = stream.next();
+            let solution = futures::executor::block_on(future).unwrap();
+            test::black_box(solution);
+        });
+    }
+
+    #[bench]
+    fn solve_a_cube_in_20_moves_single(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(1);
+        let cubes: Vec<ReprCube> = (0..10000)
+            .into_iter()
+            .map(|_| rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng))
+            .collect_vec();
+
+        let mut i = 0;
+
+        bench.iter(|| {
+            let cube = cubes.get(i % 10000).unwrap();
+            i += 1;
+            let mut stream = get_incremental_solutions_stream(*cube, tables, Some(20), true);
+            let future = stream.next();
+            let solution = futures::executor::block_on(future).unwrap();
+            test::black_box(solution);
         });
     }
 
@@ -727,18 +775,20 @@ mod test {
     fn solve_a_cube_in_21_moves(bench: &mut test::Bencher) {
         let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
         let mut rng = ChaCha8Rng::seed_from_u64(1);
-        let cubes: Vec<ReprCube> = (0..1)
+        let cubes: Vec<ReprCube> = (0..10000)
             .into_iter()
             .map(|_| rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng))
             .collect_vec();
 
+        let mut i = 0;
+
         bench.iter(|| {
-            for cube in cubes.iter() {
-                let mut stream = get_incremental_solutions_stream(*cube, tables, Some(21), true);
-                let future = stream.next();
-                let solution = futures::executor::block_on(future).unwrap();
-                test::black_box(solution);
-            }
+            let cube = cubes.get(i % 10000).unwrap();
+            i += 1;
+            let mut stream = get_incremental_solutions_stream(*cube, tables, Some(21), true);
+            let future = stream.next();
+            let solution = futures::executor::block_on(future).unwrap();
+            test::black_box(solution);
         });
     }
 
@@ -746,18 +796,20 @@ mod test {
     fn solve_a_cube_in_22_moves(bench: &mut test::Bencher) {
         let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
         let mut rng = ChaCha8Rng::seed_from_u64(1);
-        let cubes: Vec<ReprCube> = (0..1)
+        let cubes: Vec<ReprCube> = (0..10000)
             .into_iter()
             .map(|_| rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng))
             .collect_vec();
 
+        let mut i = 0;
+
         bench.iter(|| {
-            for cube in cubes.iter() {
-                let mut stream = get_incremental_solutions_stream(*cube, tables, Some(22), true);
-                let future = stream.next();
-                let solution = futures::executor::block_on(future).unwrap();
-                test::black_box(solution);
-            }
+            let cube = cubes.get(i % 10000).unwrap();
+            i += 1;
+            let mut stream = get_incremental_solutions_stream(*cube, tables, Some(22), true);
+            let future = stream.next();
+            let solution = futures::executor::block_on(future).unwrap();
+            test::black_box(solution);
         });
     }
 
