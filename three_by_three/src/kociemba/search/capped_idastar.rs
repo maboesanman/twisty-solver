@@ -1,3 +1,4 @@
+use arrayvec::ArrayVec;
 use pathfinding::num_traits::Zero;
 
 pub fn idastar_limited<N, C, FN, IN, FH, FS>(
@@ -6,7 +7,7 @@ pub fn idastar_limited<N, C, FN, IN, FH, FS>(
     mut heuristic: FH,
     mut success: FS,
     max_bound: C,
-) -> Option<(Vec<N>, C)>
+) -> Option<(ArrayVec<N, 20>, C)>
 where
     N: Eq + Copy,
     C: Zero + Ord + Copy,
@@ -16,7 +17,11 @@ where
     FS: FnMut(&N) -> bool,
 {
     let mut bound = heuristic(&start);
-    let mut path = vec![start];
+    let mut path = {
+        let mut val = ArrayVec::new();
+        unsafe { val.push_unchecked(start) };
+        val
+    };
 
     loop {
         if bound > max_bound {
@@ -45,13 +50,13 @@ where
 }
 
 enum Path<N, C> {
-    Found(Vec<N>, C),
+    Found(ArrayVec<N, 20>, C),
     Minimum(C),
     Impossible,
 }
 
 fn search_limited<N, C, FN, IN, FH, FS>(
-    path: &mut Vec<N>,
+    path: &mut ArrayVec<N, 20>,
     cost: C,
     bound: C,
     successors: &mut FN,

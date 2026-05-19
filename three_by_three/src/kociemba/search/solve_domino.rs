@@ -1,3 +1,5 @@
+use arrayvec::ArrayVec;
+
 use crate::{
     Tables,
     kociemba::search::{capped_idastar::idastar_limited, phase_2_node::Phase2Node},
@@ -8,7 +10,7 @@ pub fn solve_domino(
     phase_2_start: Phase2Node,
     tables: &Tables,
     max_moves: u8,
-) -> Option<Vec<Phase2Node>> {
+) -> Option<ArrayVec<Phase2Node, 20>> {
     // including this fast path showed a 10% performance improvement for the `prove_15_move_cube` benchmark
     if phase_2_start.weak_distance_heuristic(tables) > max_moves {
         return None;
@@ -33,7 +35,7 @@ pub fn solve_domino_pair(
     tables: &Tables,
     weak_max_moves: u8,
     strong_max_moves: impl FnOnce() -> Option<u8>,
-) -> Option<Vec<Phase2Node>> {
+) -> Option<ArrayVec<Phase2Node, 20>> {
     let phase_2_a_weak_dist = phase_2_start_a.weak_distance_heuristic(tables);
 
     if phase_2_a_weak_dist + 1 > weak_max_moves {
