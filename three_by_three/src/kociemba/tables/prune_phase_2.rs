@@ -92,7 +92,10 @@ impl PartialPhase2 {
         }
     }
 
-    pub fn from_index_exhaustive(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = Self> {
+    pub fn from_index_exhaustive(
+        index: usize,
+        tables: &MovesPreTables,
+    ) -> impl IntoIterator<Item = Self> {
         let base = Self::from_index(index);
         tables
             .lookup_sym_corner_perm
@@ -178,7 +181,10 @@ pub fn top_down_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIter
     })
 }
 
-pub fn bottom_up_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
+pub fn bottom_up_adjacent(
+    index: usize,
+    tables: &MovesPreTables,
+) -> impl IntoIterator<Item = usize> {
     let start = PartialPhase2::from_index(index);
 
     DominoMove::all_iter()

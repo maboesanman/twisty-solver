@@ -82,7 +82,7 @@ pub fn produce_solutions_par<'a, const N: usize>(
                 || {
                     let current_best = best.load(std::sync::atomic::Ordering::Relaxed);
                     THREAD_LOCAL_BEST.replace(current_best);
-                    Some(current_best.checked_sub(N as u8)?)
+                    current_best.checked_sub(N as u8)
                 },
             )?;
             let new_path_len = (N + phase_2.len() - 1) as u8;

@@ -3,7 +3,7 @@ use bitvec::view::BitView;
 use itertools::Itertools;
 use num_integer::Integer;
 use rayon::prelude::*;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8, Ordering, fence};
 
 use std::path::Path;
@@ -15,7 +15,7 @@ use crate::cube_ops::cube_move::CubeMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
 use crate::kociemba::coords::edge_group_orient_combo_coord::EdgeGroupOrientComboCoord;
-use crate::kociemba::tables::{MovesPreTables, Tables};
+use crate::kociemba::tables::MovesPreTables;
 use crate::kociemba::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
 use crate::kociemba::tables::move_raw_corner_orient::MoveRawCornerOrientTable;
 
@@ -120,17 +120,22 @@ impl PartialPhase1 {
         }
     }
 
-    pub fn from_index_exhaustive(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = Self> {
+    pub fn from_index_exhaustive(
+        index: usize,
+        tables: &MovesPreTables,
+    ) -> impl IntoIterator<Item = Self> {
         let sym_lookup: &LookupSymEdgeGroupOrientTable = tables.as_ref();
         let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
 
         let base = Self::from_index(index);
 
-        sym_lookup.get_all_stabilizing_conjugations(base.edge_group_orient_combo_coord.sym_coord)
+        sym_lookup
+            .get_all_stabilizing_conjugations(base.edge_group_orient_combo_coord.sym_coord)
             .into_iter()
             .map(move |sym| Self {
                 edge_group_orient_combo_coord: base.edge_group_orient_combo_coord,
-                corner_orient_raw_coord: move_corner.domino_conjugate(base.corner_orient_raw_coord, sym),
+                corner_orient_raw_coord: move_corner
+                    .domino_conjugate(base.corner_orient_raw_coord, sym),
             })
     }
 
@@ -147,13 +152,13 @@ impl PartialPhase1 {
 
     pub fn apply_cube_move(self, tables: &MovesPreTables, cube_move: CubeMove) -> Self {
         let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
-    
+
         let edge_group_orient_combo_coord = self
             .edge_group_orient_combo_coord
             .apply_cube_move(tables, cube_move);
 
-        let corner_orient_raw_coord = move_corner
-            .apply_cube_move(self.corner_orient_raw_coord, cube_move);
+        let corner_orient_raw_coord =
+            move_corner.apply_cube_move(self.corner_orient_raw_coord, cube_move);
 
         Self {
             edge_group_orient_combo_coord,
@@ -170,8 +175,8 @@ impl PartialPhase1 {
         let edge_group_orient_combo_coord =
             self.edge_group_orient_combo_coord.domino_conjugate(sym);
 
-        let corner_orient_raw_coord = move_corner
-            .domino_conjugate(self.corner_orient_raw_coord, sym);
+        let corner_orient_raw_coord =
+            move_corner.domino_conjugate(self.corner_orient_raw_coord, sym);
 
         Self {
             edge_group_orient_combo_coord,
@@ -215,7 +220,10 @@ pub fn top_down_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIter
     })
 }
 
-pub fn bottom_up_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
+pub fn bottom_up_adjacent(
+    index: usize,
+    tables: &MovesPreTables,
+) -> impl IntoIterator<Item = usize> {
     let start = PartialPhase1::from_index(index);
 
     CubeMove::all_iter()
@@ -380,7 +388,7 @@ impl PrunePhase1Table {
 // fn generate_column_permutations(tables: &Tables) -> (Box<[u16; 64430]>, Box<[u16; 2187]>) {
 //     let mut next_row = 1;
 //     let mut next_col = 1;
-    
+
 //     let mut edges = Box::new([u16::MAX; 64430]);
 //     let mut corners = Box::new([u16::MAX; 2187]);
 
@@ -466,7 +474,10 @@ mod test {
         result
     }
 
-    fn find_edge_preserving(edge_coord: EdgeGroupOrientSymCoord, tables: &MovesPreTables) -> Vec<Vec<u16>> {
+    fn find_edge_preserving(
+        edge_coord: EdgeGroupOrientSymCoord,
+        tables: &MovesPreTables,
+    ) -> Vec<Vec<u16>> {
         let mut todo: BTreeSet<u16> = (0..2187u16).rev().collect();
         let mut result = Vec::new();
 
@@ -474,7 +485,7 @@ mod test {
             let set = find_single_edge_preserving(edge_coord.0, first, tables);
 
             if set.len() == 1 {
-                continue
+                continue;
             }
             // println!("{set:?}");
             for c in &set {
@@ -494,7 +505,15 @@ mod test {
 
         // let result = find_edge_preserving(center, &tables);
 
-        let result: Vec<_> = (0..64430).into_par_iter().map(|x| find_edge_preserving(EdgeGroupOrientSymCoord(x), &tables.prune_pre_tables.moves_pre_table)).collect();
+        let result: Vec<_> = (0..64430)
+            .into_par_iter()
+            .map(|x| {
+                find_edge_preserving(
+                    EdgeGroupOrientSymCoord(x),
+                    &tables.prune_pre_tables.moves_pre_table,
+                )
+            })
+            .collect();
 
         let sets_iter = result.into_iter().flatten();
 

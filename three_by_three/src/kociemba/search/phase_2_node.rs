@@ -11,7 +11,12 @@ use crate::{
             ud_edge_perm::UDEdgePerm,
         },
         search::phase_1_node::Phase1Node,
-        tables::{move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_2::PrunePhase2Table, prune_phase_2_corner_sym::PrunePhase2CornerSymTable},
+        tables::{
+            move_raw_e_edge_perm::MoveRawEEdgePermTable,
+            move_raw_ud_edge_perm::MoveRawUDEdgePermTable,
+            move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_2::PrunePhase2Table,
+            prune_phase_2_corner_sym::PrunePhase2CornerSymTable,
+        },
     },
 };
 
@@ -63,8 +68,7 @@ impl Phase2Node {
     }
 
     pub fn weak_distance_heuristic(self, table: impl AsRef<PrunePhase2CornerSymTable>) -> u8 {
-        table.as_ref()
-            .get_value(self.corner_perm_combo.sym_coord)
+        table.as_ref().get_value(self.corner_perm_combo.sym_coord)
     }
 
     pub fn distance_heuristic(
@@ -88,21 +92,22 @@ impl Phase2Node {
     }
 
     pub fn produce_next_nodes(
-        self, 
-        tables: &(impl AsRef<MoveRawUDEdgePermTable> + AsRef<MoveRawEEdgePermTable> + AsRef<MoveSymCornerPermTable>),
+        self,
+        tables: &(
+             impl AsRef<MoveRawUDEdgePermTable>
+             + AsRef<MoveRawEEdgePermTable>
+             + AsRef<MoveSymCornerPermTable>
+         ),
     ) -> impl Iterator<Item = Self> {
         let move_table: &MoveRawUDEdgePermTable = tables.as_ref();
         let prune_table: &MoveRawEEdgePermTable = tables.as_ref();
-
 
         DominoMove::new_axis_iter(self.previous_axis)
             .into_iter()
             .map(move |mv| Phase2Node {
                 corner_perm_combo: self.corner_perm_combo.apply_cube_move(tables, mv.into()),
-                ud_edge_perm_raw: move_table
-                    .apply_cube_move(self.ud_edge_perm_raw, mv),
-                e_edge_perm_raw: prune_table
-                    .apply_cube_move(self.e_edge_perm_raw, mv),
+                ud_edge_perm_raw: move_table.apply_cube_move(self.ud_edge_perm_raw, mv),
+                e_edge_perm_raw: prune_table.apply_cube_move(self.e_edge_perm_raw, mv),
                 previous_axis: self.previous_axis.update_with_new_domino_move(mv),
             })
     }

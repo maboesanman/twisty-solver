@@ -1,6 +1,12 @@
 use crate::{
     cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry},
-    kociemba::{coords::coords::{CornerPermRawCoord, CornerPermSymCoord}, tables::{lookup_sym_corner_perm::LookupSymCornerPermTable, move_sym_corner_perm::MoveSymCornerPermTable}},
+    kociemba::{
+        coords::coords::{CornerPermRawCoord, CornerPermSymCoord},
+        tables::{
+            lookup_sym_corner_perm::LookupSymCornerPermTable,
+            move_sym_corner_perm::MoveSymCornerPermTable,
+        },
+    },
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

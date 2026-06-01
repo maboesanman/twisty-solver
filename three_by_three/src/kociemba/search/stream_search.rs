@@ -581,28 +581,116 @@ impl<'a> Stream for ImprovingSolutionStream<'a> {
     }
 }
 
-pub fn solve_direct(
-    cube: ReprCube,
-    tables: &Tables,
-) -> Vec<CubeMove> {
+pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
     let table_offsets = TableOffsets::new(tables);
     let phase_1 = super::phase_1_node::Phase1Node::from_cube(cube, tables);
     let domino_dist = phase_1.distance_heuristic(tables);
 
     match domino_dist {
-        0 => super::solve_with_fixed_len_phase_1::produce_solutions::<0>(cube, 255, tables, &table_offsets).next().unwrap(),
-        1 => super::solve_with_fixed_len_phase_1::produce_solutions::<1>(cube, 255, tables, &table_offsets).next().unwrap(),
-        2 => super::solve_with_fixed_len_phase_1::produce_solutions::<2>(cube, 255, tables, &table_offsets).next().unwrap(),
-        3 => super::solve_with_fixed_len_phase_1::produce_solutions::<3>(cube, 255, tables, &table_offsets).next().unwrap(),
-        4 => super::solve_with_fixed_len_phase_1::produce_solutions::<4>(cube, 255, tables, &table_offsets).next().unwrap(),
-        5 => super::solve_with_fixed_len_phase_1::produce_solutions::<5>(cube, 255, tables, &table_offsets).next().unwrap(),
-        6 => super::solve_with_fixed_len_phase_1::produce_solutions::<6>(cube, 255, tables, &table_offsets).next().unwrap(),
-        7 => super::solve_with_fixed_len_phase_1::produce_solutions::<7>(cube, 255, tables, &table_offsets).next().unwrap(),
-        8 => super::solve_with_fixed_len_phase_1::produce_solutions::<8>(cube, 255, tables, &table_offsets).next().unwrap(),
-        9 => super::solve_with_fixed_len_phase_1::produce_solutions::<9>(cube, 255, tables, &table_offsets).next().unwrap(),
-        10 => super::solve_with_fixed_len_phase_1::produce_solutions::<10>(cube, 255, tables, &table_offsets).next().unwrap(),
-        11 => super::solve_with_fixed_len_phase_1::produce_solutions::<11>(cube, 255, tables, &table_offsets).next().unwrap(),
-        12 => super::solve_with_fixed_len_phase_1::produce_solutions::<12>(cube, 255, tables, &table_offsets).next().unwrap(),
+        0 => super::solve_with_fixed_len_phase_1::produce_solutions::<0>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        1 => super::solve_with_fixed_len_phase_1::produce_solutions::<1>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        2 => super::solve_with_fixed_len_phase_1::produce_solutions::<2>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        3 => super::solve_with_fixed_len_phase_1::produce_solutions::<3>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        4 => super::solve_with_fixed_len_phase_1::produce_solutions::<4>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        5 => super::solve_with_fixed_len_phase_1::produce_solutions::<5>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        6 => super::solve_with_fixed_len_phase_1::produce_solutions::<6>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        7 => super::solve_with_fixed_len_phase_1::produce_solutions::<7>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        8 => super::solve_with_fixed_len_phase_1::produce_solutions::<8>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        9 => super::solve_with_fixed_len_phase_1::produce_solutions::<9>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        10 => super::solve_with_fixed_len_phase_1::produce_solutions::<10>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        11 => super::solve_with_fixed_len_phase_1::produce_solutions::<11>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
+        12 => super::solve_with_fixed_len_phase_1::produce_solutions::<12>(
+            cube,
+            255,
+            tables,
+            &table_offsets,
+        )
+        .next()
+        .unwrap(),
         _ => unreachable!(),
     }
 }
@@ -857,7 +945,6 @@ mod test {
             test::black_box(solution);
         });
     }
-
 
     #[test]
     fn solve_a_cube_in_any_moves_test() {

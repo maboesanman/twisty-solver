@@ -8,7 +8,6 @@ use memmap2::Mmap;
 
 use crate::kociemba::coords::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
 use crate::kociemba::tables::prune_phase_2::PrunePhase2Table;
-use crate::kociemba::tables::{MovesPreTables, Tables};
 
 use super::table_loader::load_table;
 
