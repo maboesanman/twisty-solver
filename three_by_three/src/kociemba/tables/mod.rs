@@ -42,7 +42,7 @@ const MOVE_EDGE_POSITION_TABLE_NAME: &str = "move_raw_edge_position_table.dat";
 const PERMUTE_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &str = "permute_sym_edge_group_orient_table.dat";
 const PERMUTE_RAW_CORNER_ORIENT_TABLE_NAME: &str = "permute_raw_corner_orient_table.dat";
 
-pub struct MovesPreTables {
+struct MovesPreTables {
     lookup_sym_edge_group_orient: LookupSymEdgeGroupOrientTable,
     lookup_sym_corner_perm: LookupSymCornerPermTable,
 
@@ -54,7 +54,7 @@ pub struct MovesPreTables {
     move_raw_ud_edge_perm: MoveRawUDEdgePermTable,
 }
 
-pub struct PrunePreTables {
+struct PrunePreTables {
     moves_pre_table: MovesPreTables,
 
     prune_phase_1: PrunePhase1Table,
