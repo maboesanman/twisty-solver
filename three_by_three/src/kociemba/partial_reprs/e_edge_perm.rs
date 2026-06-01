@@ -1,8 +1,6 @@
 use crate::{
     cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry},
-    kociemba::{
-        coords::coords::EEdgePermRawCoord, partial_reprs::edge_positions::split_edge_positions,
-    },
+    kociemba::{coords::EEdgePermRawCoord, partial_reprs::edge_positions::split_edge_positions},
     permutation_math::permutation::Permutation,
 };
 

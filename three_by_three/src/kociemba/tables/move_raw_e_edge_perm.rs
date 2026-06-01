@@ -6,7 +6,7 @@ use rayon::prelude::*;
 
 use crate::{
     cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry},
-    kociemba::{coords::coords::EEdgePermRawCoord, partial_reprs::e_edge_perm::EEdgePerm},
+    kociemba::{coords::EEdgePermRawCoord, partial_reprs::e_edge_perm::EEdgePerm},
 };
 
 use super::table_loader::load_table;

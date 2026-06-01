@@ -7,8 +7,7 @@ use rayon::prelude::*;
 use crate::{
     cube_ops::{cube_sym::DominoSymmetry, partial_reprs::corner_perm::CornerPerm},
     kociemba::coords::{
-        coords::{CornerPermRawCoord, CornerPermSymCoord},
-        corner_perm_combo_coord::CornerPermComboCoord,
+        CornerPermRawCoord, CornerPermSymCoord, corner_perm_combo_coord::CornerPermComboCoord,
     },
 };
 

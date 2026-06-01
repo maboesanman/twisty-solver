@@ -3,8 +3,7 @@ use crate::{
     cube_ops::{cube_move::DominoMove, cube_prev_axis::CubePreviousAxis},
     kociemba::{
         coords::{
-            coords::{EEdgePermRawCoord, UDEdgePermRawCoord},
-            corner_perm_combo_coord::CornerPermComboCoord,
+            EEdgePermRawCoord, UDEdgePermRawCoord, corner_perm_combo_coord::CornerPermComboCoord,
         },
         partial_reprs::{
             edge_positions::{EEdgePositions, combine_edge_positions},
@@ -45,7 +44,9 @@ impl Phase2Node {
             corner_perm_combo,
             ud_edge_perm_raw: UDEdgePerm(u_edge_positions, d_edge_positions).into_coord(),
             e_edge_perm_raw: EEdgePermRawCoord(e_edge_positions.0.0 as u8),
-            previous_axis: unsafe { core::mem::transmute(previous_axis as u8) },
+            previous_axis: unsafe {
+                core::mem::transmute::<u8, CubePreviousAxis>(previous_axis as u8)
+            },
         }
     }
 

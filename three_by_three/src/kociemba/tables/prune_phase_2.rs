@@ -13,8 +13,8 @@ use memmap2::Mmap;
 
 use crate::cube_ops::cube_move::DominoMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
-use crate::kociemba::coords::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
 use crate::kociemba::coords::corner_perm_combo_coord::CornerPermComboCoord;
+use crate::kociemba::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
 use crate::kociemba::tables::lookup_sym_corner_perm::LookupSymCornerPermTable;
 use crate::kociemba::tables::move_raw_ud_edge_perm::MoveRawUDEdgePermTable;
 use crate::kociemba::tables::move_sym_corner_perm::MoveSymCornerPermTable;

@@ -7,7 +7,7 @@ use std::path::Path;
 use anyhow::Result;
 use memmap2::Mmap;
 
-use crate::kociemba::coords::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
+use crate::kociemba::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
 use crate::kociemba::tables::Tables;
 use crate::kociemba::tables::prune_phase_1::{bottom_up_adjacent, top_down_adjacent};
 

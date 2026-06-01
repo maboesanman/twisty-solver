@@ -479,7 +479,7 @@ impl Phase2Unpacked {
 
 #[cfg(test)]
 mod tests {
-    use crate::kociemba::coords::coords::EdgeGroupRawCoord;
+    use crate::kociemba::coords::EdgeGroupRawCoord;
 
     use super::*;
     use arrayvec::ArrayVec;

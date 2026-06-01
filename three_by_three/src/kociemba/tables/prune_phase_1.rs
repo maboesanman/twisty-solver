@@ -12,8 +12,8 @@ use memmap2::Mmap;
 
 use crate::cube_ops::cube_move::CubeMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
-use crate::kociemba::coords::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
 use crate::kociemba::coords::edge_group_orient_combo_coord::EdgeGroupOrientComboCoord;
+use crate::kociemba::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
 use crate::kociemba::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
 use crate::kociemba::tables::move_raw_corner_orient::MoveRawCornerOrientTable;
 use crate::kociemba::tables::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;

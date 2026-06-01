@@ -6,7 +6,6 @@ use std::{
         atomic::{AtomicBool, AtomicU8},
     },
     thread::JoinHandle,
-    usize,
 };
 
 use flume::{Sender, r#async::RecvStream};

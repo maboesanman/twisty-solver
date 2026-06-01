@@ -1,6 +1,6 @@
 use crate::{
     cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::edge_perm::EdgePerm},
-    kociemba::coords::coords::EdgeGroupRawCoord,
+    kociemba::coords::EdgeGroupRawCoord,
     permutation_math::grouping::EdgeCombination,
 };
 
