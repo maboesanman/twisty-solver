@@ -19,7 +19,7 @@ use super::table_loader::load_table;
 const TABLE_SIZE_BYTES: usize = 495 * 24 * 64;
 const FILE_CHECKSUM: u32 = 524334554;
 
-pub struct MoveEdgePositions(Mmap);
+pub struct MoveEdgePositionsTable(Mmap);
 
 #[repr(align(64))]
 struct PackedEdgePositionRow([u16; 18]);
@@ -30,7 +30,7 @@ impl PackedEdgePositionRow {
     }
 }
 
-impl MoveEdgePositions {
+impl MoveEdgePositionsTable {
     pub unsafe fn as_ptr(&self) -> *const u16 {
         self.0.as_ptr() as *const u16
     }
@@ -98,7 +98,7 @@ mod test {
     #[test]
     fn edge_perm_combine_split_seeded_parallel() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-        let table = &tables.move_edge_position;
+        let table: &MoveEdgePositionsTable = tables.as_ref();
         // Deterministic RNG
         let mut rng = StdRng::seed_from_u64(69);
 

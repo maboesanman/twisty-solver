@@ -128,8 +128,7 @@ mod test {
     #[test]
     fn round_trip() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-
-        let table = &tables.lookup_sym_edge_group_orient;
+        let table: &LookupSymEdgeGroupOrientTable = tables.as_ref();
 
         for i in 0..(495 * 2048) {
             let raw = EdgeGroupOrientRawCoord(i);
@@ -145,12 +144,11 @@ mod test {
     #[test]
     fn test_stabilizing_conjugations() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-
-        let table = &tables.lookup_sym_edge_group_orient;
+        let table: &LookupSymEdgeGroupOrientTable = tables.as_ref();
 
         (0..64430).into_par_iter().for_each(|i| {
             let sym = EdgeGroupOrientSymCoord(i);
-            let rep = tables.lookup_sym_edge_group_orient.get_rep_from_sym(sym);
+            let rep = table.get_rep_from_sym(sym);
             let group_orient = EdgeGroupOrient::from_coord(rep);
             let stabilizing_conjugations = table
                 .get_all_stabilizing_conjugations(sym)
@@ -168,6 +166,7 @@ mod test {
     #[test]
     fn check_for_stabilizing_conj() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
+        let table: &LookupSymEdgeGroupOrientTable = tables.as_ref();
 
         // 2033 of the 64430 sym coords have nontrivial stabilizing symmetries
         // there are 26 possible cardinalities
@@ -176,7 +175,7 @@ mod test {
             .into_par_iter()
             .map(|i| {
                 let sym = EdgeGroupOrientSymCoord(i);
-                let rep = tables.lookup_sym_edge_group_orient.get_rep_from_sym(sym);
+                let rep = table.get_rep_from_sym(sym);
                 let group_orient = EdgeGroupOrient::from_coord(rep);
 
                 (

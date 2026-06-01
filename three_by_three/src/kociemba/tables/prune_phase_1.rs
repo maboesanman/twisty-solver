@@ -1,8 +1,9 @@
 use bitvec::field::BitField;
 use bitvec::view::BitView;
+use itertools::Itertools;
 use num_integer::Integer;
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::atomic::{AtomicU8, Ordering, fence};
 
 use std::path::Path;
@@ -14,7 +15,9 @@ use crate::cube_ops::cube_move::CubeMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
 use crate::kociemba::coords::edge_group_orient_combo_coord::EdgeGroupOrientComboCoord;
-use crate::kociemba::tables::Tables;
+use crate::kociemba::tables::{MovesPreTables, Tables};
+use crate::kociemba::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
+use crate::kociemba::tables::move_raw_corner_orient::MoveRawCornerOrientTable;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
@@ -107,27 +110,27 @@ pub struct PartialPhase1 {
 
 impl PartialPhase1 {
     pub fn from_index(index: usize) -> Self {
-        let (a, b) = index.div_rem(&2187);
+        let (e, c) = index.div_rem(&2187);
         Self {
             edge_group_orient_combo_coord: EdgeGroupOrientComboCoord {
-                sym_coord: EdgeGroupOrientSymCoord(a as u16),
+                sym_coord: EdgeGroupOrientSymCoord(e as u16),
                 domino_conjugation: DominoSymmetry::IDENTITY,
             },
-            corner_orient_raw_coord: CornerOrientRawCoord(b as u16),
+            corner_orient_raw_coord: CornerOrientRawCoord(c as u16),
         }
     }
 
-    pub fn from_index_exhaustive(index: usize, tables: &Tables) -> impl IntoIterator<Item = Self> {
+    pub fn from_index_exhaustive(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = Self> {
+        let sym_lookup: &LookupSymEdgeGroupOrientTable = tables.as_ref();
+        let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
+
         let base = Self::from_index(index);
-        tables
-            .lookup_sym_edge_group_orient
-            .get_all_stabilizing_conjugations(base.edge_group_orient_combo_coord.sym_coord)
+
+        sym_lookup.get_all_stabilizing_conjugations(base.edge_group_orient_combo_coord.sym_coord)
             .into_iter()
             .map(move |sym| Self {
                 edge_group_orient_combo_coord: base.edge_group_orient_combo_coord,
-                corner_orient_raw_coord: tables
-                    .move_raw_corner_orient
-                    .domino_conjugate(base.corner_orient_raw_coord, sym),
+                corner_orient_raw_coord: move_corner.domino_conjugate(base.corner_orient_raw_coord, sym),
             })
     }
 
@@ -142,13 +145,14 @@ impl PartialPhase1 {
         (a as usize) * 2187 + (b as usize)
     }
 
-    pub fn apply_cube_move(self, tables: &Tables, cube_move: CubeMove) -> Self {
+    pub fn apply_cube_move(self, tables: &MovesPreTables, cube_move: CubeMove) -> Self {
+        let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
+    
         let edge_group_orient_combo_coord = self
             .edge_group_orient_combo_coord
             .apply_cube_move(tables, cube_move);
 
-        let corner_orient_raw_coord = tables
-            .move_raw_corner_orient
+        let corner_orient_raw_coord = move_corner
             .apply_cube_move(self.corner_orient_raw_coord, cube_move);
 
         Self {
@@ -157,7 +161,8 @@ impl PartialPhase1 {
         }
     }
 
-    pub fn domino_conjugate(self, tables: &Tables, sym: DominoSymmetry) -> Self {
+    pub fn domino_conjugate(self, tables: &MovesPreTables, sym: DominoSymmetry) -> Self {
+        let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
         if sym == DominoSymmetry::IDENTITY {
             return self;
         }
@@ -165,8 +170,7 @@ impl PartialPhase1 {
         let edge_group_orient_combo_coord =
             self.edge_group_orient_combo_coord.domino_conjugate(sym);
 
-        let corner_orient_raw_coord = tables
-            .move_raw_corner_orient
+        let corner_orient_raw_coord = move_corner
             .domino_conjugate(self.corner_orient_raw_coord, sym);
 
         Self {
@@ -175,25 +179,26 @@ impl PartialPhase1 {
         }
     }
 
-    pub fn normalize(self, tables: &Tables) -> impl IntoIterator<Item = Self> {
+    pub fn normalize(self, tables: &MovesPreTables) -> impl IntoIterator<Item = Self> {
+        let sym_lookup: &LookupSymEdgeGroupOrientTable = tables.as_ref();
+        let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
+
         let rep = self.domino_conjugate(
             tables,
             self.edge_group_orient_combo_coord.domino_conjugation,
         );
 
-        tables
-            .lookup_sym_edge_group_orient
+        sym_lookup
             .get_all_stabilizing_conjugations(rep.edge_group_orient_combo_coord.sym_coord)
             .into_iter()
             .map(move |sym| PartialPhase1 {
                 edge_group_orient_combo_coord: rep.edge_group_orient_combo_coord,
-                corner_orient_raw_coord: tables
-                    .move_raw_corner_orient
+                corner_orient_raw_coord: move_corner
                     .domino_conjugate(rep.corner_orient_raw_coord, sym),
             })
     }
 
-    pub fn single_normalize(self, tables: &Tables) -> Self {
+    pub fn single_normalize(self, tables: &MovesPreTables) -> Self {
         self.domino_conjugate(
             tables,
             self.edge_group_orient_combo_coord.domino_conjugation,
@@ -201,7 +206,7 @@ impl PartialPhase1 {
     }
 }
 
-pub fn top_down_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
+pub fn top_down_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
     let starts = PartialPhase1::from_index_exhaustive(index, tables);
     starts.into_iter().flat_map(move |start| {
         CubeMove::all_iter()
@@ -210,7 +215,7 @@ pub fn top_down_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Ite
     })
 }
 
-pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
+pub fn bottom_up_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
     let start = PartialPhase1::from_index(index);
 
     CubeMove::all_iter()
@@ -218,6 +223,26 @@ pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<It
             start
                 .apply_cube_move(tables, cube_move)
                 .single_normalize(tables)
+        })
+        .map(PartialPhase1::into_index)
+}
+
+pub fn equivalent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
+    PartialPhase1::from_index_exhaustive(index, tables)
+        .into_iter()
+        .map(PartialPhase1::into_index)
+        .filter(move |x| *x != index)
+}
+
+pub fn adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
+    let starts = PartialPhase1::from_index_exhaustive(index, tables);
+
+    starts
+        .into_iter()
+        .flat_map(move |start| {
+            CubeMove::all_iter().flat_map(move |cube_move| {
+                start.apply_cube_move(tables, cube_move).normalize(tables)
+            })
         })
         .map(PartialPhase1::into_index)
 }
@@ -240,7 +265,7 @@ impl PrunePhase1Table {
         (byte >> shift) & 0b1111
     }
 
-    fn generate(buffer: &mut [u8], tables: &Tables) {
+    fn generate(buffer: &mut [u8], tables: &MovesPreTables) {
         let mut working_buffer = vec![0u8; WORKING_TABLE_SIZE_BYTES];
 
         let atom = unsafe { as_atomic_u8_slice(&mut working_buffer) };
@@ -344,7 +369,7 @@ impl PrunePhase1Table {
         }
     }
 
-    pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {
+    pub fn load<P: AsRef<Path>>(path: P, tables: &MovesPreTables) -> Result<Self> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, tables)
         })
@@ -352,8 +377,44 @@ impl PrunePhase1Table {
     }
 }
 
+// fn generate_column_permutations(tables: &Tables) -> (Box<[u16; 64430]>, Box<[u16; 2187]>) {
+//     let mut next_row = 1;
+//     let mut next_col = 1;
+    
+//     let mut edges = Box::new([u16::MAX; 64430]);
+//     let mut corners = Box::new([u16::MAX; 2187]);
+
+//     edges[0] = 0;
+//     corners[0] = 0;
+
+//     let table = tables.get_prune_phase_1();
+
+//     for i in 1u8..=12 {
+//         for index in 1..(64430 * 2187) {
+//             let byte = table.0[index >> 1];
+//             let shift = (i & 1) << 2;
+//             let dist = (byte >> shift) & 0b1111;
+//             if dist == i {
+//                 let (e, c) = index.div_rem(&2187);
+//                 if edges[e] == u16::MAX {
+//                     edges[e] = next_row;
+//                     next_row += 1;
+//                 }
+//                 if corners[c] == u16::MAX {
+//                     corners[c] = next_col;
+//                     next_col += 1;
+//                 }
+//             }
+//         }
+//     }
+
+//     (edges, corners)
+// }
+
 #[cfg(test)]
 mod test {
+    use std::collections::BTreeSet;
+
     use super::*;
 
     #[test]
@@ -362,4 +423,99 @@ mod test {
 
         Ok(())
     }
+
+    fn find_single_edge_preserving(
+        edge_coord: u16,
+        corner_coord: u16,
+        tables: &MovesPreTables,
+    ) -> Vec<u16> {
+        let expand = move |corner: u16| {
+            let index = edge_coord as usize * 2187 + corner as usize;
+            let eq = equivalent(index, tables);
+            let adj = adjacent(index, tables);
+            eq.into_iter()
+                .chain(adj)
+                .filter(move |idx| (*idx / 2187) as u16 == edge_coord)
+                .map(|idx| (idx % 2187) as u16)
+        };
+
+        let start = corner_coord;
+
+        let mut visited = std::collections::HashSet::new();
+        let mut frontier = Vec::new();
+
+        if visited.insert(start) {
+            frontier.push(start);
+        }
+
+        while !frontier.is_empty() {
+            let mut next_frontier = Vec::new();
+            for c in frontier {
+                for nbr in expand(c) {
+                    if visited.insert(nbr) {
+                        next_frontier.push(nbr);
+                    }
+                }
+            }
+            frontier = next_frontier;
+        }
+
+        let mut result: Vec<u16> = visited.into_iter().collect();
+        result.sort_unstable();
+        result.dedup();
+        result
+    }
+
+    fn find_edge_preserving(edge_coord: EdgeGroupOrientSymCoord, tables: &MovesPreTables) -> Vec<Vec<u16>> {
+        let mut todo: BTreeSet<u16> = (0..2187u16).rev().collect();
+        let mut result = Vec::new();
+
+        while let Some(first) = todo.pop_first() {
+            let set = find_single_edge_preserving(edge_coord.0, first, tables);
+
+            if set.len() == 1 {
+                continue
+            }
+            // println!("{set:?}");
+            for c in &set {
+                todo.remove(&c);
+            }
+            result.push(set);
+        }
+
+        result
+    }
+
+    // #[test]
+    fn try_edge_preserving() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        // let center = EdgeGroupOrientSymCoord(30);
+
+        // let result = find_edge_preserving(center, &tables);
+
+        let result: Vec<_> = (0..64430).into_par_iter().map(|x| find_edge_preserving(EdgeGroupOrientSymCoord(x), &tables.prune_pre_tables.moves_pre_table)).collect();
+
+        let sets_iter = result.into_iter().flatten();
+
+        let mut edges: HashMap<(u16, u16), usize> = HashMap::new();
+
+        for set in sets_iter {
+            for (&a, &b) in set.iter().tuple_combinations() {
+                *edges.entry((a, b)).or_default() += 1;
+            }
+        }
+
+        println!("len: {}", edges.len());
+
+        Ok(())
+    }
+
+    // #[test]
+    // fn check_out_generate_column_permutations() -> anyhow::Result<()> {
+    //     let tables = Tables::new("tables")?;
+    //     generate_column_permutations(&tables);
+
+    //     Ok(())
+    // }
 }

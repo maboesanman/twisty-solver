@@ -15,7 +15,7 @@ use crate::cube_ops::cube_move::DominoMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
 use crate::kociemba::coords::corner_perm_combo_coord::CornerPermComboCoord;
-use crate::kociemba::tables::Tables;
+use crate::kociemba::tables::MovesPreTables;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
@@ -92,7 +92,7 @@ impl PartialPhase2 {
         }
     }
 
-    pub fn from_index_exhaustive(index: usize, tables: &Tables) -> impl IntoIterator<Item = Self> {
+    pub fn from_index_exhaustive(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = Self> {
         let base = Self::from_index(index);
         tables
             .lookup_sym_corner_perm
@@ -117,7 +117,7 @@ impl PartialPhase2 {
         (a as usize) * 40320 + (b as usize)
     }
 
-    pub fn apply_domino_move(self, tables: &Tables, domino_move: DominoMove) -> Self {
+    pub fn apply_domino_move(self, tables: &MovesPreTables, domino_move: DominoMove) -> Self {
         let corner_perm_combo_coord = self
             .corner_perm_combo_coord
             .apply_cube_move(tables, domino_move.into());
@@ -132,7 +132,7 @@ impl PartialPhase2 {
         }
     }
 
-    pub fn domino_conjugate(self, tables: &Tables, sym: DominoSymmetry) -> Self {
+    pub fn domino_conjugate(self, tables: &MovesPreTables, sym: DominoSymmetry) -> Self {
         if sym == DominoSymmetry::IDENTITY {
             return self;
         }
@@ -149,7 +149,7 @@ impl PartialPhase2 {
         }
     }
 
-    pub fn normalize(self, tables: &Tables) -> impl IntoIterator<Item = Self> {
+    pub fn normalize(self, tables: &MovesPreTables) -> impl IntoIterator<Item = Self> {
         let rep = self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation);
 
         tables
@@ -164,12 +164,12 @@ impl PartialPhase2 {
             })
     }
 
-    pub fn single_normalize(self, tables: &Tables) -> Self {
+    pub fn single_normalize(self, tables: &MovesPreTables) -> Self {
         self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation)
     }
 }
 
-pub fn top_down_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
+pub fn top_down_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
     let starts = PartialPhase2::from_index_exhaustive(index, tables);
     starts.into_iter().flat_map(move |start| {
         DominoMove::all_iter()
@@ -178,7 +178,7 @@ pub fn top_down_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Ite
     })
 }
 
-pub fn bottom_up_adjacent(index: usize, tables: &Tables) -> impl IntoIterator<Item = usize> {
+pub fn bottom_up_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
     let start = PartialPhase2::from_index(index);
 
     DominoMove::all_iter()
@@ -216,7 +216,7 @@ impl PrunePhase2Table {
             })
     }
 
-    fn generate(buffer: &mut [u8], tables: &Tables) {
+    fn generate(buffer: &mut [u8], tables: &MovesPreTables) {
         let mut working_buffer = vec![0u8; WORKING_TABLE_SIZE_BYTES];
 
         let atom = unsafe { as_atomic_u8_slice(&mut working_buffer) };
@@ -318,7 +318,7 @@ impl PrunePhase2Table {
         }
     }
 
-    pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {
+    pub fn load<P: AsRef<Path>>(path: P, tables: &MovesPreTables) -> Result<Self> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, tables)
         })
@@ -328,7 +328,7 @@ impl PrunePhase2Table {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use crate::Tables;
 
     #[test]
     fn generate() -> anyhow::Result<()> {

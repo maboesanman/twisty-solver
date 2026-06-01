@@ -75,7 +75,7 @@ mod test {
     #[test]
     fn test() -> Result<()> {
         let tables = Tables::new("tables")?;
-        let table = &tables.move_raw_e_edge_perm;
+        let table: &MoveRawEEdgePermTable = &tables.as_ref();
         for i in 0..24u8 {
             let coord = EEdgePermRawCoord(i);
             let perm = EEdgePerm::from_coord(EEdgePermRawCoord(i));

@@ -6,7 +6,7 @@ use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
 use crate::kociemba::tables::{
-    move_edge_positions::MoveEdgePositions, move_raw_e_edge_perm::MoveRawEEdgePermTable,
+    move_edge_positions::MoveEdgePositionsTable, move_raw_e_edge_perm::MoveRawEEdgePermTable,
     move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable,
     prune_phase_1::PrunePhase1Table, prune_phase_2::PrunePhase2Table,
     prune_phase_2_corner_sym::PrunePhase2CornerSymTable,
@@ -39,47 +39,76 @@ const MOVE_SYM_CORNER_PERM_TABLE_NAME: &str = "move_sym_corner_perm_table.dat";
 const PRUNE_PHASE_2_TABLE_NAME: &str = "prune_phase_2_table.dat";
 const PRUNE_PHASE_2_CORNER_SYM_TABLE_NAME: &str = "prune_phase_2_table_corner_sym.dat";
 const MOVE_EDGE_POSITION_TABLE_NAME: &str = "move_raw_edge_position_table.dat";
+const PERMUTE_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &str = "permute_sym_edge_group_orient_table.dat";
+const PERMUTE_RAW_CORNER_ORIENT_TABLE_NAME: &str = "permute_raw_corner_orient_table.dat";
+
+pub struct MovesPreTables {
+    lookup_sym_edge_group_orient: LookupSymEdgeGroupOrientTable,
+    lookup_sym_corner_perm: LookupSymCornerPermTable,
+
+    move_raw_corner_orient: MoveRawCornerOrientTable,
+    move_sym_edge_group_orient: MoveSymEdgeGroupOrientTable,
+    move_sym_corner_perm: MoveSymCornerPermTable,
+    move_edge_position: MoveEdgePositionsTable,
+    move_raw_e_edge_perm: MoveRawEEdgePermTable,
+    move_raw_ud_edge_perm: MoveRawUDEdgePermTable,
+}
+
+pub struct PrunePreTables {
+    moves_pre_table: MovesPreTables,
+
+    prune_phase_1: PrunePhase1Table,
+    prune_phase_2: PrunePhase2Table,
+    prune_phase_2_corner_sym: PrunePhase2CornerSymTable,
+}
 
 pub struct Tables {
-    pub(crate) lookup_sym_edge_group_orient: LookupSymEdgeGroupOrientTable,
-    pub(crate) lookup_sym_corner_perm: LookupSymCornerPermTable,
-
-    pub(crate) move_raw_corner_orient: MoveRawCornerOrientTable,
-    pub(crate) move_sym_edge_group_orient: MoveSymEdgeGroupOrientTable,
-    pub(crate) move_sym_corner_perm: MoveSymCornerPermTable,
-    pub(crate) move_edge_position: MoveEdgePositions,
-    pub(crate) move_raw_e_edge_perm: MoveRawEEdgePermTable,
-    pub(crate) move_raw_ud_edge_perm: MoveRawUDEdgePermTable,
-
-    pub(crate) prune_phase_1: MaybeUninit<PrunePhase1Table>,
-    // pub(crate) prune_phase_1_mod_3: MaybeUninit<PrunePhase1Mod3Table>,
-    pub(crate) prune_phase_2: MaybeUninit<PrunePhase2Table>,
-    pub(crate) prune_phase_2_corner_sym: MaybeUninit<PrunePhase2CornerSymTable>,
+    prune_pre_tables: PrunePreTables
 }
 
-impl std::fmt::Debug for Tables {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Tables").finish()
-    }
+#[rustfmt::skip]
+mod unformatted {
+    use super::*;
+    impl AsRef<LookupSymEdgeGroupOrientTable> for MovesPreTables { fn as_ref(&self) -> &LookupSymEdgeGroupOrientTable { &self.lookup_sym_edge_group_orient } }
+    impl AsRef<LookupSymCornerPermTable> for MovesPreTables { fn as_ref(&self) -> &LookupSymCornerPermTable { &self.lookup_sym_corner_perm } }
+    impl AsRef<MoveRawCornerOrientTable> for MovesPreTables { fn as_ref(&self) -> &MoveRawCornerOrientTable { &self.move_raw_corner_orient } }
+    impl AsRef<MoveSymEdgeGroupOrientTable> for MovesPreTables { fn as_ref(&self) -> &MoveSymEdgeGroupOrientTable { &self.move_sym_edge_group_orient } }
+    impl AsRef<MoveSymCornerPermTable> for MovesPreTables { fn as_ref(&self) -> &MoveSymCornerPermTable { &self.move_sym_corner_perm } }
+    impl AsRef<MoveEdgePositionsTable> for MovesPreTables { fn as_ref(&self) -> &MoveEdgePositionsTable { &self.move_edge_position } }
+    impl AsRef<MoveRawEEdgePermTable> for MovesPreTables { fn as_ref(&self) -> &MoveRawEEdgePermTable { &self.move_raw_e_edge_perm } }
+    impl AsRef<MoveRawUDEdgePermTable> for MovesPreTables { fn as_ref(&self) -> &MoveRawUDEdgePermTable { &self.move_raw_ud_edge_perm } }
+
+    impl AsRef<LookupSymEdgeGroupOrientTable> for PrunePreTables { fn as_ref(&self) -> &LookupSymEdgeGroupOrientTable { &self.moves_pre_table.as_ref() } }
+    impl AsRef<LookupSymCornerPermTable> for PrunePreTables { fn as_ref(&self) -> &LookupSymCornerPermTable { &self.moves_pre_table.as_ref() } }
+    impl AsRef<MoveRawCornerOrientTable> for PrunePreTables { fn as_ref(&self) -> &MoveRawCornerOrientTable { &self.moves_pre_table.as_ref() } }
+    impl AsRef<MoveSymEdgeGroupOrientTable> for PrunePreTables { fn as_ref(&self) -> &MoveSymEdgeGroupOrientTable { &self.moves_pre_table.as_ref() } }
+    impl AsRef<MoveSymCornerPermTable> for PrunePreTables { fn as_ref(&self) -> &MoveSymCornerPermTable { &self.moves_pre_table.as_ref() } }
+    impl AsRef<MoveEdgePositionsTable> for PrunePreTables { fn as_ref(&self) -> &MoveEdgePositionsTable { &self.moves_pre_table.as_ref() } }
+    impl AsRef<MoveRawEEdgePermTable> for PrunePreTables { fn as_ref(&self) -> &MoveRawEEdgePermTable { &self.moves_pre_table.as_ref() } }
+    impl AsRef<MoveRawUDEdgePermTable> for PrunePreTables { fn as_ref(&self) -> &MoveRawUDEdgePermTable { &self.moves_pre_table.as_ref() } }
+    impl AsRef<PrunePhase1Table> for PrunePreTables { fn as_ref(&self) -> &PrunePhase1Table { &self.prune_phase_1 } }
+    impl AsRef<PrunePhase2Table> for PrunePreTables { fn as_ref(&self) -> &PrunePhase2Table { &self.prune_phase_2 } }
+    impl AsRef<PrunePhase2CornerSymTable> for PrunePreTables { fn as_ref(&self) -> &PrunePhase2CornerSymTable { &self.prune_phase_2_corner_sym } }
+
+    impl AsRef<LookupSymEdgeGroupOrientTable> for Tables { fn as_ref(&self) -> &LookupSymEdgeGroupOrientTable { &self.prune_pre_tables.as_ref() } }
+    impl AsRef<LookupSymCornerPermTable> for Tables { fn as_ref(&self) -> &LookupSymCornerPermTable { &self.prune_pre_tables.as_ref() } }
+    impl AsRef<MoveRawCornerOrientTable> for Tables { fn as_ref(&self) -> &MoveRawCornerOrientTable { &self.prune_pre_tables.as_ref() } }
+    impl AsRef<MoveSymEdgeGroupOrientTable> for Tables { fn as_ref(&self) -> &MoveSymEdgeGroupOrientTable { &self.prune_pre_tables.as_ref() } }
+    impl AsRef<MoveSymCornerPermTable> for Tables { fn as_ref(&self) -> &MoveSymCornerPermTable { &self.prune_pre_tables.as_ref() } }
+    impl AsRef<MoveEdgePositionsTable> for Tables { fn as_ref(&self) -> &MoveEdgePositionsTable { &self.prune_pre_tables.as_ref() } }
+    impl AsRef<MoveRawEEdgePermTable> for Tables { fn as_ref(&self) -> &MoveRawEEdgePermTable { &self.prune_pre_tables.as_ref() } }
+    impl AsRef<MoveRawUDEdgePermTable> for Tables { fn as_ref(&self) -> &MoveRawUDEdgePermTable { &self.prune_pre_tables.as_ref() } }
+    impl AsRef<PrunePhase1Table> for Tables { fn as_ref(&self) -> &PrunePhase1Table { &self.prune_pre_tables.as_ref() } }
+    impl AsRef<PrunePhase2Table> for Tables { fn as_ref(&self) -> &PrunePhase2Table { &self.prune_pre_tables.as_ref() } }
+    impl AsRef<PrunePhase2CornerSymTable> for Tables { fn as_ref(&self) -> &PrunePhase2CornerSymTable { &self.prune_pre_tables.as_ref() } }
 }
 
-impl Drop for Tables {
-    fn drop(&mut self) {
-        unsafe {
-            self.prune_phase_1.assume_init_drop();
-            self.prune_phase_2.assume_init_drop();
-            self.prune_phase_2_corner_sym.assume_init_drop();
-        }
-    }
-}
-
-impl Tables {
-    pub fn new<P>(folder: P) -> anyhow::Result<Self>
+impl MovesPreTables {
+    fn new<P>(folder: P) -> anyhow::Result<Self>
     where
-        P: AsRef<Path>,
+        P: AsRef<Path>
     {
         let folder = folder.as_ref();
-
         create_dir_all(folder)?;
 
         let move_raw_corner_orient =
@@ -100,60 +129,73 @@ impl Tables {
         )?;
 
         let move_edge_position =
-            MoveEdgePositions::load(folder.join(MOVE_EDGE_POSITION_TABLE_NAME))?;
+            MoveEdgePositionsTable::load(folder.join(MOVE_EDGE_POSITION_TABLE_NAME))?;
 
         let move_raw_e_edge_perm =
             MoveRawEEdgePermTable::load(folder.join(MOVE_E_EDGE_PERM_TABLE_NAME))?;
         let move_raw_ud_edge_perm =
             MoveRawUDEdgePermTable::load(folder.join(MOVE_UD_EDGE_PERM_TABLE_NAME))?;
 
-        let mut working = Tables {
-            move_raw_corner_orient,
-            move_sym_edge_group_orient,
+        Ok(Self {
             lookup_sym_edge_group_orient,
             lookup_sym_corner_perm,
+            move_raw_corner_orient,
+            move_sym_edge_group_orient,
             move_sym_corner_perm,
             move_edge_position,
             move_raw_e_edge_perm,
             move_raw_ud_edge_perm,
+        })
+    }
+}
 
-            prune_phase_1: MaybeUninit::uninit(),
-            prune_phase_2: MaybeUninit::uninit(),
-            prune_phase_2_corner_sym: MaybeUninit::uninit(),
-        };
+impl PrunePreTables {
+    fn new<P>(folder: P) -> anyhow::Result<Self>
+    where
+        P: AsRef<Path>
+    {
+        let folder = folder.as_ref();
+        let moves_pre_table = MovesPreTables::new(folder)?;
 
-        working.prune_phase_1.write(PrunePhase1Table::load(
+        let prune_phase_1 = PrunePhase1Table::load(
             folder.join(PRUNE_PHASE_1_TABLE_NAME),
-            &working,
-        )?);
+            &moves_pre_table,
+        )?;
 
-        working.prune_phase_2.write(PrunePhase2Table::load(
+        let prune_phase_2 = PrunePhase2Table::load(
             folder.join(PRUNE_PHASE_2_TABLE_NAME),
-            &working,
-        )?);
+            &moves_pre_table,
+        )?;
 
-        working
-            .prune_phase_2_corner_sym
-            .write(PrunePhase2CornerSymTable::load(
-                folder.join(PRUNE_PHASE_2_CORNER_SYM_TABLE_NAME),
-                &working,
-            )?);
+        let prune_phase_2_corner_sym = PrunePhase2CornerSymTable::load(
+            folder.join(PRUNE_PHASE_2_CORNER_SYM_TABLE_NAME),
+            &prune_phase_2,
+        )?;
 
-        Ok(working)
+        Ok(Self {
+             moves_pre_table,
+            prune_phase_1,
+            prune_phase_2,
+            prune_phase_2_corner_sym,
+        })
     }
+}
 
-    #[inline(always)]
-    pub(crate) fn get_prune_phase_1(&self) -> &PrunePhase1Table {
-        unsafe { self.prune_phase_1.assume_init_ref() }
+impl std::fmt::Debug for Tables {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Tables").finish()
     }
+}
 
-    #[inline(always)]
-    pub(crate) fn get_prune_phase_2(&self) -> &PrunePhase2Table {
-        unsafe { self.prune_phase_2.assume_init_ref() }
-    }
+impl Tables {
+    pub fn new<P>(folder: P) -> anyhow::Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        let prune_pre_tables = PrunePreTables::new(folder)?;
 
-    #[inline(always)]
-    pub(crate) fn get_prune_phase_2_corners(&self) -> &PrunePhase2CornerSymTable {
-        unsafe { self.prune_phase_2_corner_sym.assume_init_ref() }
+        Ok(Self {
+            prune_pre_tables,
+        })
     }
 }

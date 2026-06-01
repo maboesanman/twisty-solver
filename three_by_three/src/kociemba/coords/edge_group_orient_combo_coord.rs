@@ -1,6 +1,6 @@
 use crate::{
     cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry},
-    kociemba::coords::coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
+    kociemba::{coords::coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord}, tables::{lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable}},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -11,26 +11,23 @@ pub struct EdgeGroupOrientComboCoord {
 
 impl EdgeGroupOrientComboCoord {
     pub fn from_raw(
-        tables: &crate::kociemba::tables::Tables,
+        table: impl AsRef<LookupSymEdgeGroupOrientTable>,
         raw_coord: EdgeGroupOrientRawCoord,
     ) -> Self {
-        tables
-            .lookup_sym_edge_group_orient
-            .get_combo_from_raw(raw_coord)
+        table.as_ref().get_combo_from_raw(raw_coord)
     }
 
-    pub fn into_raw(self, tables: &crate::kociemba::tables::Tables) -> EdgeGroupOrientRawCoord {
-        tables.lookup_sym_edge_group_orient.get_raw_from_combo(self)
+    pub fn into_raw(self, table: impl AsRef<LookupSymEdgeGroupOrientTable>) -> EdgeGroupOrientRawCoord {
+        table.as_ref().get_raw_from_combo(self)
     }
 
     pub fn apply_cube_move(
         self,
-        tables: &crate::kociemba::tables::Tables,
+        table: impl AsRef<MoveSymEdgeGroupOrientTable>,
         cube_move: CubeMove,
     ) -> Self {
         let preimage_move = cube_move.domino_conjugate(self.domino_conjugation);
-        let mut result = tables
-            .move_sym_edge_group_orient
+        let mut result = table.as_ref()
             .apply_cube_move(self.sym_coord, preimage_move);
 
         result.domino_conjugation = self.domino_conjugation.then(result.domino_conjugation);
