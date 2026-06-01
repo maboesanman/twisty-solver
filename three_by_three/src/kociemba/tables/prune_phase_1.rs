@@ -14,9 +14,9 @@ use crate::cube_ops::cube_move::CubeMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
 use crate::kociemba::coords::edge_group_orient_combo_coord::EdgeGroupOrientComboCoord;
-use crate::kociemba::tables::MovesPreTables;
 use crate::kociemba::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
 use crate::kociemba::tables::move_raw_corner_orient::MoveRawCornerOrientTable;
+use crate::kociemba::tables::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
@@ -121,7 +121,7 @@ impl PartialPhase1 {
 
     pub fn from_index_exhaustive(
         index: usize,
-        tables: &MovesPreTables,
+        tables: &(impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<MoveRawCornerOrientTable>),
     ) -> impl IntoIterator<Item = Self> {
         let sym_lookup: &LookupSymEdgeGroupOrientTable = tables.as_ref();
         let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
@@ -149,7 +149,11 @@ impl PartialPhase1 {
         (a as usize) * 2187 + (b as usize)
     }
 
-    pub fn apply_cube_move(self, tables: &MovesPreTables, cube_move: CubeMove) -> Self {
+    pub fn apply_cube_move(
+        self,
+        tables: &(impl AsRef<MoveRawCornerOrientTable> + AsRef<MoveSymEdgeGroupOrientTable>),
+        cube_move: CubeMove,
+    ) -> Self {
         let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
 
         let edge_group_orient_combo_coord = self
@@ -165,7 +169,11 @@ impl PartialPhase1 {
         }
     }
 
-    pub fn domino_conjugate(self, tables: &MovesPreTables, sym: DominoSymmetry) -> Self {
+    pub fn domino_conjugate(
+        self,
+        tables: impl AsRef<MoveRawCornerOrientTable>,
+        sym: DominoSymmetry,
+    ) -> Self {
         let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
         if sym == DominoSymmetry::IDENTITY {
             return self;
@@ -183,7 +191,10 @@ impl PartialPhase1 {
         }
     }
 
-    pub fn normalize(self, tables: &MovesPreTables) -> impl IntoIterator<Item = Self> {
+    pub fn normalize(
+        self,
+        tables: &(impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<MoveRawCornerOrientTable>),
+    ) -> impl IntoIterator<Item = Self> {
         let sym_lookup: &LookupSymEdgeGroupOrientTable = tables.as_ref();
         let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
 
@@ -202,7 +213,7 @@ impl PartialPhase1 {
             })
     }
 
-    pub fn single_normalize(self, tables: &MovesPreTables) -> Self {
+    pub fn single_normalize(self, tables: impl AsRef<MoveRawCornerOrientTable>) -> Self {
         self.domino_conjugate(
             tables,
             self.edge_group_orient_combo_coord.domino_conjugation,
@@ -210,7 +221,14 @@ impl PartialPhase1 {
     }
 }
 
-pub fn top_down_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
+pub fn top_down_adjacent(
+    index: usize,
+    tables: &(
+         impl AsRef<LookupSymEdgeGroupOrientTable>
+         + AsRef<MoveRawCornerOrientTable>
+         + AsRef<MoveSymEdgeGroupOrientTable>
+     ),
+) -> impl IntoIterator<Item = usize> {
     let starts = PartialPhase1::from_index_exhaustive(index, tables);
     starts.into_iter().flat_map(move |start| {
         CubeMove::all_iter()
@@ -221,7 +239,11 @@ pub fn top_down_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIter
 
 pub fn bottom_up_adjacent(
     index: usize,
-    tables: &MovesPreTables,
+    tables: &(
+         impl AsRef<LookupSymEdgeGroupOrientTable>
+         + AsRef<MoveRawCornerOrientTable>
+         + AsRef<MoveSymEdgeGroupOrientTable>
+     ),
 ) -> impl IntoIterator<Item = usize> {
     let start = PartialPhase1::from_index(index);
 
@@ -234,14 +256,24 @@ pub fn bottom_up_adjacent(
         .map(PartialPhase1::into_index)
 }
 
-pub fn equivalent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
+pub fn equivalent(
+    index: usize,
+    tables: &(impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<MoveRawCornerOrientTable>),
+) -> impl IntoIterator<Item = usize> {
     PartialPhase1::from_index_exhaustive(index, tables)
         .into_iter()
         .map(PartialPhase1::into_index)
         .filter(move |x| *x != index)
 }
 
-pub fn adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
+pub fn adjacent(
+    index: usize,
+    tables: &(
+         impl AsRef<LookupSymEdgeGroupOrientTable>
+         + AsRef<MoveRawCornerOrientTable>
+         + AsRef<MoveSymEdgeGroupOrientTable>
+     ),
+) -> impl IntoIterator<Item = usize> {
     let starts = PartialPhase1::from_index_exhaustive(index, tables);
 
     starts
@@ -272,7 +304,16 @@ impl PrunePhase1Table {
         (byte >> shift) & 0b1111
     }
 
-    fn generate(buffer: &mut [u8], tables: &MovesPreTables) {
+    fn generate(
+        buffer: &mut [u8],
+        tables: &(
+             impl Send
+             + Sync
+             + AsRef<LookupSymEdgeGroupOrientTable>
+             + AsRef<MoveRawCornerOrientTable>
+             + AsRef<MoveSymEdgeGroupOrientTable>
+         ),
+    ) {
         let mut working_buffer = vec![0u8; WORKING_TABLE_SIZE_BYTES];
 
         let atom = unsafe { as_atomic_u8_slice(&mut working_buffer) };
@@ -376,7 +417,16 @@ impl PrunePhase1Table {
         }
     }
 
-    pub fn load<P: AsRef<Path>>(path: P, tables: &MovesPreTables) -> Result<Self> {
+    pub fn load<P: AsRef<Path>>(
+        path: P,
+        tables: &(
+             impl Send
+             + Sync
+             + AsRef<LookupSymEdgeGroupOrientTable>
+             + AsRef<MoveRawCornerOrientTable>
+             + AsRef<MoveSymEdgeGroupOrientTable>
+         ),
+    ) -> Result<Self> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, tables)
         })
@@ -438,7 +488,13 @@ mod test {
     fn find_single_edge_preserving(
         edge_coord: u16,
         corner_coord: u16,
-        tables: &MovesPreTables,
+        tables: &(
+             impl Send
+             + Sync
+             + AsRef<LookupSymEdgeGroupOrientTable>
+             + AsRef<MoveRawCornerOrientTable>
+             + AsRef<MoveSymEdgeGroupOrientTable>
+         ),
     ) -> Vec<u16> {
         let expand = move |corner: u16| {
             let index = edge_coord as usize * 2187 + corner as usize;
@@ -479,7 +535,13 @@ mod test {
 
     fn find_edge_preserving(
         edge_coord: EdgeGroupOrientSymCoord,
-        tables: &MovesPreTables,
+        tables: &(
+             impl Send
+             + Sync
+             + AsRef<LookupSymEdgeGroupOrientTable>
+             + AsRef<MoveRawCornerOrientTable>
+             + AsRef<MoveSymEdgeGroupOrientTable>
+         ),
     ) -> Vec<Vec<u16>> {
         let mut todo: BTreeSet<u16> = (0..2187u16).rev().collect();
         let mut result = Vec::new();

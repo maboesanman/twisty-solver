@@ -15,7 +15,9 @@ use crate::cube_ops::cube_move::DominoMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
 use crate::kociemba::coords::corner_perm_combo_coord::CornerPermComboCoord;
-use crate::kociemba::tables::MovesPreTables;
+use crate::kociemba::tables::lookup_sym_corner_perm::LookupSymCornerPermTable;
+use crate::kociemba::tables::move_raw_ud_edge_perm::MoveRawUDEdgePermTable;
+use crate::kociemba::tables::move_sym_corner_perm::MoveSymCornerPermTable;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
@@ -94,17 +96,18 @@ impl PartialPhase2 {
 
     pub fn from_index_exhaustive(
         index: usize,
-        tables: &MovesPreTables,
+        tables: &(impl AsRef<LookupSymCornerPermTable> + AsRef<MoveRawUDEdgePermTable>),
     ) -> impl IntoIterator<Item = Self> {
+        let lookup_table: &LookupSymCornerPermTable = tables.as_ref();
+        let move_table: &MoveRawUDEdgePermTable = tables.as_ref();
+
         let base = Self::from_index(index);
-        tables
-            .lookup_sym_corner_perm
+        lookup_table
             .get_all_stabilizing_conjugations(base.corner_perm_combo_coord.sym_coord)
             .into_iter()
             .map(move |sym| Self {
                 corner_perm_combo_coord: base.corner_perm_combo_coord,
-                ud_edge_perm_raw_coord: tables
-                    .move_raw_ud_edge_perm
+                ud_edge_perm_raw_coord: move_table
                     .domino_conjugate(base.ud_edge_perm_raw_coord, sym),
             })
     }
@@ -120,14 +123,19 @@ impl PartialPhase2 {
         (a as usize) * 40320 + (b as usize)
     }
 
-    pub fn apply_domino_move(self, tables: &MovesPreTables, domino_move: DominoMove) -> Self {
+    pub fn apply_domino_move(
+        self,
+        tables: &(impl AsRef<MoveRawUDEdgePermTable> + AsRef<MoveSymCornerPermTable>),
+        domino_move: DominoMove,
+    ) -> Self {
+        let move_ud_table: &MoveRawUDEdgePermTable = tables.as_ref();
+
         let corner_perm_combo_coord = self
             .corner_perm_combo_coord
             .apply_cube_move(tables, domino_move.into());
 
-        let ud_edge_perm_raw_coord = tables
-            .move_raw_ud_edge_perm
-            .apply_cube_move(self.ud_edge_perm_raw_coord, domino_move);
+        let ud_edge_perm_raw_coord =
+            move_ud_table.apply_cube_move(self.ud_edge_perm_raw_coord, domino_move);
 
         Self {
             corner_perm_combo_coord,
@@ -135,16 +143,20 @@ impl PartialPhase2 {
         }
     }
 
-    pub fn domino_conjugate(self, tables: &MovesPreTables, sym: DominoSymmetry) -> Self {
+    pub fn domino_conjugate(
+        self,
+        tables: &(impl AsRef<MoveRawUDEdgePermTable> + AsRef<MoveSymCornerPermTable>),
+        sym: DominoSymmetry,
+    ) -> Self {
         if sym == DominoSymmetry::IDENTITY {
             return self;
         }
+        let move_ud_table: &MoveRawUDEdgePermTable = tables.as_ref();
 
         let corner_perm_combo_coord = self.corner_perm_combo_coord.domino_conjugate(sym);
 
-        let ud_edge_perm_raw_coord = tables
-            .move_raw_ud_edge_perm
-            .domino_conjugate(self.ud_edge_perm_raw_coord, sym);
+        let ud_edge_perm_raw_coord =
+            move_ud_table.domino_conjugate(self.ud_edge_perm_raw_coord, sym);
 
         Self {
             corner_perm_combo_coord,
@@ -152,27 +164,45 @@ impl PartialPhase2 {
         }
     }
 
-    pub fn normalize(self, tables: &MovesPreTables) -> impl IntoIterator<Item = Self> {
+    pub fn normalize(
+        self,
+        tables: &(
+             impl AsRef<MoveRawUDEdgePermTable>
+             + AsRef<MoveSymCornerPermTable>
+             + AsRef<LookupSymCornerPermTable>
+         ),
+    ) -> impl IntoIterator<Item = Self> {
+        let lookup_table: &LookupSymCornerPermTable = tables.as_ref();
+        let move_table: &MoveRawUDEdgePermTable = tables.as_ref();
+
         let rep = self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation);
 
-        tables
-            .lookup_sym_corner_perm
+        lookup_table
             .get_all_stabilizing_conjugations(rep.corner_perm_combo_coord.sym_coord)
             .into_iter()
             .map(move |sym| PartialPhase2 {
                 corner_perm_combo_coord: rep.corner_perm_combo_coord,
-                ud_edge_perm_raw_coord: tables
-                    .move_raw_ud_edge_perm
+                ud_edge_perm_raw_coord: move_table
                     .domino_conjugate(rep.ud_edge_perm_raw_coord, sym),
             })
     }
 
-    pub fn single_normalize(self, tables: &MovesPreTables) -> Self {
+    pub fn single_normalize(
+        self,
+        tables: &(impl AsRef<MoveRawUDEdgePermTable> + AsRef<MoveSymCornerPermTable>),
+    ) -> Self {
         self.domino_conjugate(tables, self.corner_perm_combo_coord.domino_conjugation)
     }
 }
 
-pub fn top_down_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIterator<Item = usize> {
+pub fn top_down_adjacent(
+    index: usize,
+    tables: &(
+         impl AsRef<MoveRawUDEdgePermTable>
+         + AsRef<MoveSymCornerPermTable>
+         + AsRef<LookupSymCornerPermTable>
+     ),
+) -> impl IntoIterator<Item = usize> {
     let starts = PartialPhase2::from_index_exhaustive(index, tables);
     starts.into_iter().flat_map(move |start| {
         DominoMove::all_iter()
@@ -183,7 +213,11 @@ pub fn top_down_adjacent(index: usize, tables: &MovesPreTables) -> impl IntoIter
 
 pub fn bottom_up_adjacent(
     index: usize,
-    tables: &MovesPreTables,
+    tables: &(
+         impl AsRef<MoveRawUDEdgePermTable>
+         + AsRef<MoveSymCornerPermTable>
+         + AsRef<LookupSymCornerPermTable>
+     ),
 ) -> impl IntoIterator<Item = usize> {
     let start = PartialPhase2::from_index(index);
 
@@ -222,7 +256,16 @@ impl PrunePhase2Table {
             })
     }
 
-    fn generate(buffer: &mut [u8], tables: &MovesPreTables) {
+    fn generate(
+        buffer: &mut [u8],
+        tables: &(
+             impl Send
+             + Sync
+             + AsRef<MoveRawUDEdgePermTable>
+             + AsRef<MoveSymCornerPermTable>
+             + AsRef<LookupSymCornerPermTable>
+         ),
+    ) {
         let mut working_buffer = vec![0u8; WORKING_TABLE_SIZE_BYTES];
 
         let atom = unsafe { as_atomic_u8_slice(&mut working_buffer) };
@@ -324,7 +367,16 @@ impl PrunePhase2Table {
         }
     }
 
-    pub fn load<P: AsRef<Path>>(path: P, tables: &MovesPreTables) -> Result<Self> {
+    pub fn load<P: AsRef<Path>>(
+        path: P,
+        tables: &(
+             impl Send
+             + Sync
+             + AsRef<MoveRawUDEdgePermTable>
+             + AsRef<MoveSymCornerPermTable>
+             + AsRef<LookupSymCornerPermTable>
+         ),
+    ) -> Result<Self> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, tables)
         })
