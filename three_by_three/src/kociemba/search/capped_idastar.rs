@@ -84,7 +84,7 @@ where
         .into_iter()
         .filter_map(|(n, c)| (!path.contains(&n)).then_some((n, c, cost + c + heuristic(&n))))
         .collect::<Vec<_>>();
-    neighbs.sort_unstable_by(|(_, _, f1), (_, _, f2)| f1.cmp(f2));
+    neighbs.sort_unstable_by_key(|(_, _, f1)| *f1);
 
     let mut min = None;
     for (n, c, _) in neighbs {
