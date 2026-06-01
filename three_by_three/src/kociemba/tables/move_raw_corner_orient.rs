@@ -9,7 +9,7 @@ use crate::{
     cube_ops::{
         cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::corner_orient::CornerOrient,
     },
-    kociemba::coords::coords::CornerOrientRawCoord,
+    kociemba::coords::CornerOrientRawCoord,
 };
 
 use super::table_loader::load_table;

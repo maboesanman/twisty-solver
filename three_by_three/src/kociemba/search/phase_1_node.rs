@@ -12,11 +12,8 @@ use crate::{
     cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
     kociemba::{
         coords::{
-            coords::{
-                CornerOrientRawCoord, CornerPermRawCoord, EdgeGroupOrientRawCoord,
-                EdgeGroupOrientSymCoord,
-            },
-            corner_perm_combo_coord::CornerPermComboCoord,
+            CornerOrientRawCoord, CornerPermRawCoord, EdgeGroupOrientRawCoord,
+            EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         },
         partial_reprs::{
@@ -237,7 +234,7 @@ impl Phase1Node {
         // perform all new axis moves on all coords
         let move_iter = || {
             CubeMove::new_axis_iter(
-                unsafe { core::mem::transmute(self.previous_axis as u8) },
+                unsafe { core::mem::transmute::<u8, CubePreviousAxis>(self.previous_axis as u8) },
                 moves_remaining.get() == 1,
             )
         };
@@ -347,7 +344,7 @@ impl Phase1Node {
 
         let subtable = unsafe {
             table_offsets.get_simd_resources(
-                core::mem::transmute(start_node.previous_axis as u8),
+                core::mem::transmute::<u8, CubePreviousAxis>(start_node.previous_axis as u8),
                 moves_remaining,
             )
         };
@@ -376,7 +373,7 @@ impl Phase1Node {
             let out_slot = &mut slice[i];
             unsafe {
                 let out = Simd::gather_ptr(source).to_array();
-                *out_slot = core::mem::transmute(out);
+                *out_slot = core::mem::transmute::<[u16; 8], Phase1Node>(out);
             }
 
             // the last cube must be domino reduced, so if moves_remaining is 1,

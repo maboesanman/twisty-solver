@@ -12,7 +12,7 @@ use rayon::iter::{
 use crate::{
     cube_ops::{cube_sym::CubeSymmetry, repr_cube::ReprCube},
     kociemba::{
-        coords::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord},
+        coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord},
         search::{
             phase_1_node::{Phase1Node, TableOffsets},
             phase_2_node::Phase2Node,

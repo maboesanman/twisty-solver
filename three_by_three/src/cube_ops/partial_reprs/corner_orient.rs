@@ -1,4 +1,4 @@
-use crate::kociemba::coords::coords::CornerOrientRawCoord;
+use crate::kociemba::coords::CornerOrientRawCoord;
 
 use super::corner_perm::CornerPerm;
 

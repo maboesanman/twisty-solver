@@ -81,6 +81,8 @@ impl<const N: usize> Permutation<N> {
         }
     }
 
+    /// # SAFETY
+    /// the array must contain one of each number from 0 to N - 1
     pub const unsafe fn const_from_array_unchecked(array: [u8; N]) -> Self {
         debug_assert!(Self::is_valid(array));
         Self(array)

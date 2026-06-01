@@ -2,7 +2,7 @@ use crate::{
     EdgePerm,
     cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry},
     kociemba::{
-        coords::coords::UDEdgePermRawCoord,
+        coords::UDEdgePermRawCoord,
         partial_reprs::edge_positions::{
             DEdgePositions, EEdgePositions, UEdgePositions, combine_edge_positions,
             split_edge_positions,

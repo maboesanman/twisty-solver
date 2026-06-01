@@ -1,7 +1,7 @@
 use rand::distr::{Distribution, StandardUniform};
 
 use crate::{
-    kociemba::coords::coords::{CornerOrientRawCoord, EdgeOrientRawCoord},
+    kociemba::coords::{CornerOrientRawCoord, EdgeOrientRawCoord},
     permutation_math::permutation::Permutation,
 };
 

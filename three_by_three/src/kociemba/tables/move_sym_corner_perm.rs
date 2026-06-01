@@ -8,7 +8,7 @@ use crate::{
     cube_ops::{
         cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::corner_perm::CornerPerm,
     },
-    kociemba::coords::{coords::CornerPermSymCoord, corner_perm_combo_coord::CornerPermComboCoord},
+    kociemba::coords::{CornerPermSymCoord, corner_perm_combo_coord::CornerPermComboCoord},
     kociemba::tables::{
         lookup_sym_corner_perm::LookupSymCornerPermTable, table_loader::as_u16_slice_mut,
     },

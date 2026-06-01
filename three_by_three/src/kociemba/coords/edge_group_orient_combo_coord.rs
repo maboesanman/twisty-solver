@@ -1,7 +1,7 @@
 use crate::{
     cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry},
     kociemba::{
-        coords::coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
+        coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
         tables::{
             lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable,
             move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable,

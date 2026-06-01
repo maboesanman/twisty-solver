@@ -9,7 +9,7 @@ use crate::{
     kociemba::tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
     kociemba::{
         coords::{
-            coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
+            EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         },
         partial_reprs::edge_group_orient::EdgeGroupOrient,

@@ -1,6 +1,6 @@
 use crate::{
     EdgePerm, Permutation,
-    kociemba::coords::coords::{EEdgePermRawCoord, EdgeGroupRawCoord},
+    kociemba::coords::{EEdgePermRawCoord, EdgeGroupRawCoord},
     permutation_math::grouping::EdgeCombination,
 };
 
