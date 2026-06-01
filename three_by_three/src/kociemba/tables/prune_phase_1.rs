@@ -1,6 +1,5 @@
 use bitvec::field::BitField;
 use bitvec::view::BitView;
-use itertools::Itertools;
 use num_integer::Integer;
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -422,6 +421,10 @@ impl PrunePhase1Table {
 #[cfg(test)]
 mod test {
     use std::collections::BTreeSet;
+
+    use itertools::Itertools;
+
+    use crate::Tables;
 
     use super::*;
 

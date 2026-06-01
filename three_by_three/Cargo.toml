@@ -9,7 +9,6 @@ edition = "2024"
 [lib]
 name = "three_by_three"
 
-
 [dependencies]
 smallvec = "1.10.0"
 num_enum = "0.7.3"
@@ -33,9 +32,3 @@ flume = { version = "0.11.1", features = ["async"] }
 futures-core = "0.3.31"
 pin-project = "1.1.10"
 futures = "0.3.31"
-
-[profile.release]
-opt-level = 3
-codegen-units = 1
-panic = "abort"
-lto = "fat"
