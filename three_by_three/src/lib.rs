@@ -1,4 +1,4 @@
-#![feature(test)]
+#![cfg_attr(test, feature(test))]
 #![feature(slice_swap_unchecked)]
 #![feature(likely_unlikely)]
 #![feature(portable_simd)]
@@ -6,7 +6,6 @@
 #![feature(hint_prefetch)]
 #![allow(long_running_const_eval)]
 #![allow(dead_code)]
-#![feature(sync_unsafe_cell)]
 
 mod cube_entry;
 mod cube_ops;

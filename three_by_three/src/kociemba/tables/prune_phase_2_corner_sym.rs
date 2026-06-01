@@ -58,6 +58,8 @@ impl PrunePhase2CornerSymTable {
 mod test {
     use std::collections::BTreeMap;
 
+    use crate::Tables;
+
     use super::*;
 
     #[test]
