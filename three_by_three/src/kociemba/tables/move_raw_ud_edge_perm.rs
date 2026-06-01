@@ -76,7 +76,7 @@ mod test {
     #[test]
     fn test() -> Result<()> {
         let tables = Tables::new("tables")?;
-        let table = &tables.move_raw_ud_edge_perm;
+        let table: &MoveRawUDEdgePermTable = &tables.as_ref();
         for i in 0..40320u16 {
             let coord = UDEdgePermRawCoord(i);
             let perm = UDEdgePerm::from_coord(UDEdgePermRawCoord(i));

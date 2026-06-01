@@ -1,6 +1,6 @@
 use crate::{
     cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry},
-    kociemba::coords::coords::{CornerPermRawCoord, CornerPermSymCoord},
+    kociemba::{coords::coords::{CornerPermRawCoord, CornerPermSymCoord}, tables::{lookup_sym_corner_perm::LookupSymCornerPermTable, move_sym_corner_perm::MoveSymCornerPermTable}},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -11,14 +11,14 @@ pub struct CornerPermComboCoord {
 
 impl CornerPermComboCoord {
     pub fn from_raw(
-        tables: &crate::kociemba::tables::Tables,
+        tables: impl AsRef<LookupSymCornerPermTable>,
         raw_coord: CornerPermRawCoord,
     ) -> Self {
-        tables.lookup_sym_corner_perm.get_combo_from_raw(raw_coord)
+        tables.as_ref().get_combo_from_raw(raw_coord)
     }
 
-    pub fn into_raw(self, tables: &crate::kociemba::tables::Tables) -> CornerPermRawCoord {
-        tables.lookup_sym_corner_perm.get_raw_from_combo(self)
+    pub fn into_raw(self, tables: impl AsRef<LookupSymCornerPermTable>) -> CornerPermRawCoord {
+        tables.as_ref().get_raw_from_combo(self)
     }
 
     pub fn into_dense(self) -> u16 {
@@ -34,12 +34,12 @@ impl CornerPermComboCoord {
 
     pub fn apply_cube_move(
         self,
-        tables: &crate::kociemba::tables::Tables,
+        tables: impl AsRef<MoveSymCornerPermTable>,
         cube_move: CubeMove,
     ) -> Self {
         let preimage_move = cube_move.domino_conjugate(self.domino_conjugation);
         let mut result = tables
-            .move_sym_corner_perm
+            .as_ref()
             .apply_cube_move(self.sym_coord, preimage_move);
 
         result.domino_conjugation = self.domino_conjugation.then(result.domino_conjugation);

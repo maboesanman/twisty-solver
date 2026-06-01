@@ -11,6 +11,7 @@ use crate::{
             ud_edge_perm::UDEdgePerm,
         },
         search::phase_1_node::Phase1Node,
+        tables::{move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_2::PrunePhase2Table, prune_phase_2_corner_sym::PrunePhase2CornerSymTable},
     },
 };
 
@@ -61,20 +62,23 @@ impl Phase2Node {
         }
     }
 
-    pub fn weak_distance_heuristic(self, tables: &Tables) -> u8 {
-        tables
-            .get_prune_phase_2_corners()
+    pub fn weak_distance_heuristic(self, table: impl AsRef<PrunePhase2CornerSymTable>) -> u8 {
+        table.as_ref()
             .get_value(self.corner_perm_combo.sym_coord)
     }
 
-    pub fn distance_heuristic(self, tables: &Tables) -> u8 {
-        let ud_edge_perm_adjusted = tables.move_raw_ud_edge_perm.domino_conjugate(
+    pub fn distance_heuristic(
+        self,
+        tables: impl AsRef<MoveRawUDEdgePermTable> + AsRef<PrunePhase2Table>,
+    ) -> u8 {
+        let move_table: &MoveRawUDEdgePermTable = tables.as_ref();
+        let prune_table: &PrunePhase2Table = tables.as_ref();
+
+        let ud_edge_perm_adjusted = move_table.domino_conjugate(
             self.ud_edge_perm_raw,
             self.corner_perm_combo.domino_conjugation,
         );
-        tables
-            .get_prune_phase_2()
-            .get_value(self.corner_perm_combo.sym_coord, ud_edge_perm_adjusted)
+        prune_table.get_value(self.corner_perm_combo.sym_coord, ud_edge_perm_adjusted)
     }
 
     pub fn is_solved(self) -> bool {
@@ -83,16 +87,21 @@ impl Phase2Node {
             && self.ud_edge_perm_raw.0 == 0
     }
 
-    pub fn produce_next_nodes(self, tables: &Tables) -> impl Iterator<Item = Self> {
+    pub fn produce_next_nodes(
+        self, 
+        tables: &(impl AsRef<MoveRawUDEdgePermTable> + AsRef<MoveRawEEdgePermTable> + AsRef<MoveSymCornerPermTable>),
+    ) -> impl Iterator<Item = Self> {
+        let move_table: &MoveRawUDEdgePermTable = tables.as_ref();
+        let prune_table: &MoveRawEEdgePermTable = tables.as_ref();
+
+
         DominoMove::new_axis_iter(self.previous_axis)
             .into_iter()
             .map(move |mv| Phase2Node {
                 corner_perm_combo: self.corner_perm_combo.apply_cube_move(tables, mv.into()),
-                ud_edge_perm_raw: tables
-                    .move_raw_ud_edge_perm
+                ud_edge_perm_raw: move_table
                     .apply_cube_move(self.ud_edge_perm_raw, mv),
-                e_edge_perm_raw: tables
-                    .move_raw_e_edge_perm
+                e_edge_perm_raw: prune_table
                     .apply_cube_move(self.e_edge_perm_raw, mv),
                 previous_axis: self.previous_axis.update_with_new_domino_move(mv),
             })

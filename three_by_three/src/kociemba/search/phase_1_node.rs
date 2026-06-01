@@ -2,7 +2,7 @@ use std::{
     hint::unreachable_unchecked,
     marker::PhantomData,
     num::NonZeroU8,
-    simd::{LaneCount, Simd, SupportedLaneCount, num::SimdUint, ptr::SimdConstPtr},
+    simd::{Simd, num::SimdUint, ptr::SimdConstPtr},
 };
 
 use itertools::Itertools;
@@ -25,6 +25,15 @@ use crate::{
                 DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions,
                 combine_edge_positions, split_edge_positions,
             },
+        },
+        tables::{
+            lookup_sym_corner_perm::LookupSymCornerPermTable,
+            lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable,
+            move_edge_positions::MoveEdgePositionsTable,
+            move_raw_corner_orient::MoveRawCornerOrientTable,
+            move_sym_corner_perm::MoveSymCornerPermTable,
+            move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable,
+            prune_phase_1::PrunePhase1Table,
         },
     },
 };
@@ -77,11 +86,10 @@ impl Phase1Node {
     pub(crate) fn from_phase_1_coords(
         edge_group_orient_sym: EdgeGroupOrientSymCoord,
         corner_orient_raw: CornerOrientRawCoord,
-        tables: &Tables,
+        tables: impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<LookupSymCornerPermTable>,
     ) -> Self {
-        let edge_group_orient_raw = tables
-            .lookup_sym_edge_group_orient
-            .get_rep_from_sym(edge_group_orient_sym);
+        let edge_table: &LookupSymEdgeGroupOrientTable = tables.as_ref();
+        let edge_group_orient_raw = edge_table.get_rep_from_sym(edge_group_orient_sym);
         let mut cube = ReprCube::SOLVED;
 
         let (edge_group_raw, edge_orient_raw_coord) = edge_group_orient_raw.split();
@@ -109,7 +117,10 @@ impl Phase1Node {
         Self::from_cube(cube, tables)
     }
 
-    pub fn from_cube(cube: ReprCube, tables: &Tables) -> Self {
+    pub fn from_cube(
+        cube: ReprCube,
+        tables: impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<LookupSymCornerPermTable>,
+    ) -> Self {
         let ReprCube {
             corner_perm,
             corner_orient,
@@ -126,8 +137,8 @@ impl Phase1Node {
             EdgeGroupOrientRawCoord::join(edge_group_raw_coord, edge_orient_raw);
 
         let edge_group_orient_combo =
-            EdgeGroupOrientComboCoord::from_raw(tables, edge_group_orient_raw_coord);
-        let corner_perm_combo = CornerPermComboCoord::from_raw(tables, corner_perm.into_coord());
+            EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
+        let corner_perm_combo = CornerPermComboCoord::from_raw(&tables, corner_perm.into_coord());
         let corner_orient_raw = corner_orient.into_coord();
 
         Self {
@@ -168,15 +179,19 @@ impl Phase1Node {
     }
 
     #[inline(always)]
-    pub fn distance_heuristic(self, tables: &Tables) -> u8 {
-        let corner_orient_adjusted = tables.move_raw_corner_orient.domino_conjugate(
+    pub fn distance_heuristic(
+        self,
+        tables: impl AsRef<MoveRawCornerOrientTable> + AsRef<PrunePhase1Table>,
+    ) -> u8 {
+        let move_table: &MoveRawCornerOrientTable = tables.as_ref();
+        let prune_table: &PrunePhase1Table = tables.as_ref();
+
+        let corner_orient_adjusted = move_table.domino_conjugate(
             self.corner_orient_raw,
             DominoSymmetry(self.edge_group_orient_correct as u8),
         );
 
-        tables
-            .get_prune_phase_1()
-            .get_value(self.edge_group_orient_sym, corner_orient_adjusted)
+        prune_table.get_value(self.edge_group_orient_sym, corner_orient_adjusted)
     }
 
     #[inline(always)]
@@ -189,8 +204,17 @@ impl Phase1Node {
         self,
         max_possible_distance: u8,
         moves_remaining: NonZeroU8,
-        tables: &Tables,
+        tables: &(
+             impl AsRef<MoveEdgePositionsTable>
+             + AsRef<MoveRawCornerOrientTable>
+             + AsRef<MoveSymCornerPermTable>
+             + AsRef<MoveSymEdgeGroupOrientTable>
+             + AsRef<PrunePhase1Table>
+         ),
     ) -> Option<Phase1FrameMetadata<impl Iterator<Item = Self>>> {
+        let move_table: &MoveEdgePositionsTable = tables.as_ref();
+        let prune_table: &MoveRawCornerOrientTable = tables.as_ref();
+
         // Get bounds for the current distance from self to solved, with the restriction
         // that the range must be within the allowed. If the range we have is not a subset of
         // [min_allowed_distance, max_allowed_distance], then we look up the actual distance to solved and
@@ -218,8 +242,7 @@ impl Phase1Node {
             )
         };
 
-        let children = tables
-            .move_edge_position
+        let children = move_table
             .apply_all_cube_moves(
                 self.u_edge_positions,
                 self.d_edge_positions,
@@ -242,8 +265,7 @@ impl Phase1Node {
                     .apply_cube_move(tables, cube_move);
 
                     Phase1Node {
-                        corner_orient_raw: tables
-                            .move_raw_corner_orient
+                        corner_orient_raw: prune_table
                             .apply_cube_move(self.corner_orient_raw, cube_move),
                         u_edge_positions,
                         d_edge_positions,
@@ -439,10 +461,7 @@ struct MoveSimd<const N: usize> {
 
 // struct MoveSimdRef<
 
-impl<const N: usize> MoveSimd<N>
-where
-    LaneCount<N>: SupportedLaneCount,
-{
+impl<const N: usize> MoveSimd<N> {
     fn new(prev_axis: CubePreviousAxis) -> Self {
         let moves = CubeMove::new_axis_iter(prev_axis, false);
         let mut new_prev_moves = Box::new([0u16; N]);
@@ -566,7 +585,14 @@ unsafe impl<'t> Send for TableOffsets<'t> {}
 unsafe impl<'t> Sync for TableOffsets<'t> {}
 
 impl<'t> TableOffsets<'t> {
-    pub fn new(tables: &'t Tables) -> Self {
+    pub fn new(
+        tables: &'t (
+                impl AsRef<MoveEdgePositionsTable>
+                + AsRef<MoveRawCornerOrientTable>
+                + AsRef<MoveSymEdgeGroupOrientTable>
+                + AsRef<MoveSymCornerPermTable>
+            ),
+    ) -> Self {
         let u = MoveSimd::new(CubePreviousAxis::U);
         let d_ud = MoveSimd::new(CubePreviousAxis::D);
         let f = MoveSimd::new(CubePreviousAxis::F);
@@ -580,12 +606,17 @@ impl<'t> TableOffsets<'t> {
         let end_r = MoveSimd::new(CubePreviousAxis::R);
         let end_l_rl = MoveSimd::new(CubePreviousAxis::L);
 
+        let edge_pos_ref: &'t MoveEdgePositionsTable = tables.as_ref();
+        let corner_orient_raw_ref: &'t MoveRawCornerOrientTable = tables.as_ref();
+        let edge_group_orient_ref: &'t MoveSymEdgeGroupOrientTable = tables.as_ref();
+        let corner_combo_ref: &'t MoveSymCornerPermTable = tables.as_ref();
+
         let row_0_starts = unsafe {
             RowStartsBase {
-                edge_pos: tables.move_edge_position.as_ptr(),
-                corner_orient_raw: tables.move_raw_corner_orient.as_ptr(),
-                edge_group_orient: tables.move_sym_edge_group_orient.as_ptr(),
-                corner_combo: tables.move_sym_corner_perm.as_ptr(),
+                edge_pos: edge_pos_ref.as_ptr(),
+                corner_orient_raw: corner_orient_raw_ref.as_ptr(),
+                edge_group_orient: edge_group_orient_ref.as_ptr(),
+                corner_combo: corner_combo_ref.as_ptr(),
             }
         };
         Self {
@@ -676,19 +707,19 @@ mod tests {
         let tables = Box::leak(Box::new(Tables::new("tables")?));
         let cube = cube![D R2 L];
 
-        let a = Phase1Node::from_cube(cube, tables);
+        let a = Phase1Node::from_cube(cube, &tables);
 
         // [R3, R2, F2, L3, R1]
 
         let next_moves = a
-            .produce_next_nodes(20, NonZeroU8::new(5).unwrap(), tables)
+            .produce_next_nodes(20, NonZeroU8::new(5).unwrap(), &tables)
             .unwrap();
         let b = next_moves.children.skip(14).next().unwrap();
         let next_moves = b
             .produce_next_nodes(
                 next_moves.max_possible_distance + 1,
                 NonZeroU8::new(4).unwrap(),
-                tables,
+                &tables,
             )
             .unwrap();
 
@@ -772,19 +803,19 @@ mod tests {
     #[test]
     fn simd_matches_scalar_single_random() -> anyhow::Result<()> {
         let tables = Box::leak(Box::new(Tables::new("tables")?));
-        let table_offsets = TableOffsets::new(tables);
+        let table_offsets = TableOffsets::new(&tables);
 
         let mut rng = ChaCha8Rng::seed_from_u64(123);
         let cube: ReprCube =
             rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
 
-        let mut node = Phase1Node::from_cube(cube, tables);
+        let mut node = Phase1Node::from_cube(cube, &tables);
         node.previous_axis = CubePreviousAxis::B as u8 as u16;
         let moves_remaining = NonZeroU8::new(10).unwrap();
         let max_possible_distance = 10;
 
         let (scalar_keys, scalar_max) =
-            collect_scalar_children(node, max_possible_distance, moves_remaining, tables);
+            collect_scalar_children(node, max_possible_distance, moves_remaining, &tables);
 
         let (simd_keys, simd_max) = collect_simd_children(
             node,
@@ -839,11 +870,11 @@ mod tests {
     #[bench]
     fn simd_micro_incremental_solutions(bench: &mut test::Bencher) {
         let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
-        let table_offsets = TableOffsets::new(tables);
+        let table_offsets = TableOffsets::new(&tables);
         let mut rng = ChaCha8Rng::seed_from_u64(3);
         let cube: ReprCube =
             rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
-        let mut phase_1 = Phase1Node::from_cube(cube, tables);
+        let mut phase_1 = Phase1Node::from_cube(cube, &tables);
         phase_1.previous_axis = CubePreviousAxis::B as u8 as u16;
 
         let mut buf = [phase_1; 16];
@@ -854,7 +885,7 @@ mod tests {
                 20,
                 unsafe { NonZeroU8::new_unchecked(30) },
                 &table_offsets,
-                tables,
+                &tables,
             );
         });
     }

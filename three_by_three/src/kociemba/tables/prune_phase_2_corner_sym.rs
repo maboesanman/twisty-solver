@@ -7,7 +7,8 @@ use anyhow::Result;
 use memmap2::Mmap;
 
 use crate::kociemba::coords::coords::{CornerPermSymCoord, UDEdgePermRawCoord};
-use crate::kociemba::tables::Tables;
+use crate::kociemba::tables::prune_phase_2::PrunePhase2Table;
+use crate::kociemba::tables::{MovesPreTables, Tables};
 
 use super::table_loader::load_table;
 
@@ -27,9 +28,7 @@ impl PrunePhase2CornerSymTable {
         (byte >> shift) & 0b1111
     }
 
-    fn generate(buffer: &mut [u8], tables: &Tables) {
-        let prune_phase_2 = tables.get_prune_phase_2();
-
+    fn generate(buffer: &mut [u8], prune_phase_2: &PrunePhase2Table) {
         let bits = buffer.view_bits_mut::<bitvec::order::Lsb0>();
 
         let mut set = |i: usize, val: u8| {
@@ -48,9 +47,9 @@ impl PrunePhase2CornerSymTable {
         }
     }
 
-    pub fn load<P: AsRef<Path>>(path: P, tables: &Tables) -> Result<Self> {
+    pub fn load<P: AsRef<Path>>(path: P, prune_phase_2: &PrunePhase2Table) -> Result<Self> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
-            Self::generate(buf, tables)
+            Self::generate(buf, prune_phase_2)
         })
         .map(Self)
     }
@@ -66,12 +65,12 @@ mod test {
     fn generate() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
+        let table: &PrunePhase2CornerSymTable = tables.as_ref();
+
         let mut histogram = BTreeMap::<_, u16>::new();
 
         (0..2768).for_each(|i| {
-            let v = tables
-                .get_prune_phase_2_corners()
-                .get_value(CornerPermSymCoord(i));
+            let v = table.get_value(CornerPermSymCoord(i));
             *histogram.entry(v).or_default() += 1;
         });
 

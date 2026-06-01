@@ -129,8 +129,7 @@ mod test {
     #[test]
     fn test() -> Result<()> {
         let tables = Tables::new("tables")?;
-
-        let table = &tables.lookup_sym_corner_perm;
+        let table: &LookupSymCornerPermTable = tables.as_ref();
 
         (0..40320).into_iter().for_each(|i| {
             let raw_coord = CornerPermRawCoord(i);
@@ -152,8 +151,7 @@ mod test {
     #[test]
     fn test_parity_preserved() -> Result<()> {
         let tables = Tables::new("tables")?;
-
-        let table = &tables.lookup_sym_corner_perm;
+        let table: &LookupSymCornerPermTable = tables.as_ref();
 
         (0..2768).into_iter().for_each(|i| {
             let sym_coord = CornerPermSymCoord(i);
@@ -169,12 +167,11 @@ mod test {
     #[test]
     fn test_stabilizing_conjugations() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-
-        let table = &tables.lookup_sym_corner_perm;
+        let table: &LookupSymCornerPermTable = tables.as_ref();
 
         (0..2768).into_par_iter().for_each(|i| {
             let sym = CornerPermSymCoord(i);
-            let rep = tables.lookup_sym_corner_perm.get_rep_from_sym(sym);
+            let rep = table.get_rep_from_sym(sym);
             let corner_perm = CornerPerm::from_coord(rep);
             let stabilizing_conjugations = table
                 .get_all_stabilizing_conjugations(sym)
@@ -192,6 +189,7 @@ mod test {
     #[test]
     fn check_for_stabilizing_conj() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
+        let table: &LookupSymCornerPermTable = tables.as_ref();
 
         // 444 of the 2768 sym coords have nontrivial stabilizing symmetries
         // there are 34 possible cardinalities
@@ -200,7 +198,7 @@ mod test {
             .into_par_iter()
             .map(|i| {
                 let sym = CornerPermSymCoord(i);
-                let rep = tables.lookup_sym_corner_perm.get_rep_from_sym(sym);
+                let rep = table.get_rep_from_sym(sym);
                 let perm = CornerPerm::from_coord(rep);
 
                 (
