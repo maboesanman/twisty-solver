@@ -14,7 +14,7 @@ use super::table_loader::{as_u16_slice, as_u16_slice_mut, load_table};
 const TABLE_SIZE_BYTES: usize = (40320 * 25) * 2;
 const FILE_CHECKSUM: u32 = 3192478996;
 
-pub struct MoveRawUDEdgePermTable(Mmap);
+pub struct MoveRawUDEdgePermTable([u8]);
 
 impl MoveRawUDEdgePermTable {
     fn chunks(&self) -> &[[UDEdgePermRawCoord; 25]] {
@@ -62,8 +62,12 @@ impl MoveRawUDEdgePermTable {
         });
     }
 
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
-        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate).map(Self)
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Mmap> {
+        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate)
+    }
+
+    pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
+        unsafe { &*(buf as *const [u8] as *const Self) }
     }
 }
 

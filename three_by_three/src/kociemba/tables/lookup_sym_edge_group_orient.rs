@@ -21,7 +21,7 @@ use super::table_loader::{as_u32_slice_mut, load_table};
 const TABLE_SIZE_BYTES: usize = 64430 * 4;
 const FILE_CHECKSUM: u32 = 4005177882;
 
-pub struct LookupSymEdgeGroupOrientTable(Mmap);
+pub struct LookupSymEdgeGroupOrientTable([u8]);
 
 impl LookupSymEdgeGroupOrientTable {
     pub fn get_rep_from_sym(&self, sym_coord: EdgeGroupOrientSymCoord) -> EdgeGroupOrientRawCoord {
@@ -84,11 +84,12 @@ impl LookupSymEdgeGroupOrientTable {
         debug_assert!(buffer.is_sorted())
     }
 
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
-        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
-            Self::generate(buf)
-        })
-        .map(Self)
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Mmap> {
+        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate)
+    }
+
+    pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
+        unsafe { &*(buf as *const [u8] as *const Self) }
     }
 }
 

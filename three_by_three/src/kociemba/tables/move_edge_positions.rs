@@ -19,7 +19,7 @@ use super::table_loader::load_table;
 const TABLE_SIZE_BYTES: usize = 495 * 24 * 64;
 const FILE_CHECKSUM: u32 = 524334554;
 
-pub struct MoveEdgePositionsTable(Mmap);
+pub struct MoveEdgePositionsTable([u8]);
 
 #[repr(align(64))]
 struct PackedEdgePositionRow([u16; 18]);
@@ -35,7 +35,7 @@ impl MoveEdgePositionsTable {
         self.0.as_ptr() as *const u16
     }
 
-    fn chunks(table: &Mmap) -> &[PackedEdgePositionRow] {
+    fn chunks(table: &[u8]) -> &[PackedEdgePositionRow] {
         unsafe {
             let slice: &[[u8; 32]] = table.as_chunks_unchecked();
             core::slice::from_raw_parts(slice.as_ptr() as *const PackedEdgePositionRow, slice.len())
@@ -79,8 +79,12 @@ impl MoveEdgePositionsTable {
             });
     }
 
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
-        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate).map(Self)
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Mmap> {
+        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate)
+    }
+
+    pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
+        unsafe { &*(buf as *const [u8] as *const Self) }
     }
 }
 

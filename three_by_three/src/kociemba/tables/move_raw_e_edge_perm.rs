@@ -14,7 +14,7 @@ use super::table_loader::load_table;
 const TABLE_SIZE_BYTES: usize = 24 * 25;
 const FILE_CHECKSUM: u32 = 1251937808;
 
-pub struct MoveRawEEdgePermTable(Mmap);
+pub struct MoveRawEEdgePermTable([u8]);
 
 impl MoveRawEEdgePermTable {
     fn chunks(&self) -> &[[EEdgePermRawCoord; 25]] {
@@ -61,8 +61,12 @@ impl MoveRawEEdgePermTable {
         });
     }
 
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
-        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate).map(Self)
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Mmap> {
+        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate)
+    }
+
+    pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
+        unsafe { &*(buf as *const [u8] as *const Self) }
     }
 }
 
