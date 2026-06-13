@@ -22,7 +22,7 @@ use super::table_loader::{as_atomic_u8_slice, load_table};
 
 const TABLE_ENTRY_COUNT: usize = 64430 * 2187;
 const WORKING_TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
-const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
+pub(crate) const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
 const FILE_CHECKSUM: u32 = 1275974730;
 
 static PRUNE_TABLE_SHORTCUTS: phf::Map<u32, u8> = phf::phf_map! {
@@ -430,6 +430,10 @@ impl PrunePhase1Table {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, tables)
         })
+    }
+
+    pub(crate) fn as_buffer(&self) -> &[u8] {
+        unsafe { &*(self as *const Self as *const [u8]) }
     }
 
     pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {

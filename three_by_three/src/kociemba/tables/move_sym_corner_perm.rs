@@ -16,7 +16,7 @@ use crate::{
 
 use super::table_loader::load_table;
 
-const TABLE_SIZE_BYTES: usize = 2768 * core::mem::size_of::<Row>();
+pub(crate) const TABLE_SIZE_BYTES: usize = 2768 * core::mem::size_of::<Row>();
 const FILE_CHECKSUM: u32 = 1209655720;
 
 #[repr(C)]
@@ -76,6 +76,10 @@ impl MoveSymCornerPermTable {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, sym_lookup_table)
         })
+    }
+
+    pub(crate) fn as_buffer(&self) -> &[u8] {
+        unsafe { &*(self as *const Self as *const [u8]) }
     }
 
     pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {

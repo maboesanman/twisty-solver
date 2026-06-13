@@ -11,7 +11,7 @@ use crate::{
 
 use super::table_loader::load_table;
 
-const TABLE_SIZE_BYTES: usize = 24 * 25;
+pub(crate) const TABLE_SIZE_BYTES: usize = 24 * 25;
 const FILE_CHECKSUM: u32 = 1251937808;
 
 pub struct MoveRawEEdgePermTable([u8]);
@@ -63,6 +63,10 @@ impl MoveRawEEdgePermTable {
 
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate)
+    }
+
+    pub(crate) fn as_buffer(&self) -> &[u8] {
+        unsafe { &*(self as *const Self as *const [u8]) }
     }
 
     pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {

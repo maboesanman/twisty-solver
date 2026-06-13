@@ -19,7 +19,7 @@ use super::{
     lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, table_loader::load_table,
 };
 
-const TABLE_SIZE_BYTES: usize = (64430 * 18 * 2) * 2;
+pub(crate) const TABLE_SIZE_BYTES: usize = (64430 * 18 * 2) * 2;
 const FILE_CHECKSUM: u32 = 3661454509;
 
 pub struct MoveSymEdgeGroupOrientTable([u8]);
@@ -83,6 +83,10 @@ impl MoveSymEdgeGroupOrientTable {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, sym_lookup_table)
         })
+    }
+
+    pub(crate) fn as_buffer(&self) -> &[u8] {
+        unsafe { &*(self as *const Self as *const [u8]) }
     }
 
     pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {

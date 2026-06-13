@@ -16,7 +16,7 @@ use crate::{
 
 use super::table_loader::load_table;
 
-const TABLE_SIZE_BYTES: usize = 495 * 24 * 64;
+pub(crate) const TABLE_SIZE_BYTES: usize = 495 * 24 * 64;
 const FILE_CHECKSUM: u32 = 524334554;
 
 pub struct MoveEdgePositionsTable([u8]);
@@ -81,6 +81,10 @@ impl MoveEdgePositionsTable {
 
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate)
+    }
+
+    pub(crate) fn as_buffer(&self) -> &[u8] {
+        unsafe { &*(self as *const Self as *const [u8]) }
     }
 
     pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
