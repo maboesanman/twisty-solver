@@ -1,7 +1,10 @@
 use crate::{
     cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry},
     kociemba::{
-        coords::{EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord},
+        coords::{
+            CoordIdentityPerm, EdgeGroupOrientCoordPermutation, EdgeGroupOrientRawCoord,
+            EdgeGroupOrientSymCoord,
+        },
         tables::{
             lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable,
             move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable,
@@ -10,12 +13,12 @@ use crate::{
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct EdgeGroupOrientComboCoord {
-    pub sym_coord: EdgeGroupOrientSymCoord,
+pub struct EdgeGroupOrientComboCoord<P> {
+    pub sym_coord: EdgeGroupOrientSymCoord<P>,
     pub domino_conjugation: DominoSymmetry,
 }
 
-impl EdgeGroupOrientComboCoord {
+impl EdgeGroupOrientComboCoord<CoordIdentityPerm> {
     pub fn from_raw(
         table: impl AsRef<LookupSymEdgeGroupOrientTable>,
         raw_coord: EdgeGroupOrientRawCoord,
@@ -29,10 +32,12 @@ impl EdgeGroupOrientComboCoord {
     ) -> EdgeGroupOrientRawCoord {
         table.as_ref().get_raw_from_combo(self)
     }
+}
 
+impl<P: EdgeGroupOrientCoordPermutation> EdgeGroupOrientComboCoord<P> {
     pub fn apply_cube_move(
         self,
-        table: impl AsRef<MoveSymEdgeGroupOrientTable>,
+        table: impl AsRef<MoveSymEdgeGroupOrientTable<P>>,
         cube_move: CubeMove,
     ) -> Self {
         let preimage_move = cube_move.domino_conjugate(self.domino_conjugation);

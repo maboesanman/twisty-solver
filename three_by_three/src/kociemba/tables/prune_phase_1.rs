@@ -13,7 +13,7 @@ use memmap2::Mmap;
 use crate::cube_ops::cube_move::CubeMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::edge_group_orient_combo_coord::EdgeGroupOrientComboCoord;
-use crate::kociemba::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
+use crate::kociemba::coords::{CoordIdentityPerm, CornerOrientRawCoord, EdgeGroupOrientSymCoord};
 use crate::kociemba::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
 use crate::kociemba::tables::move_raw_corner_orient::MoveRawCornerOrientTable;
 use crate::kociemba::tables::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
@@ -103,8 +103,8 @@ impl<'a> WorkingTable<'a> {
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct PartialPhase1 {
-    pub edge_group_orient_combo_coord: EdgeGroupOrientComboCoord,
-    pub corner_orient_raw_coord: CornerOrientRawCoord,
+    pub edge_group_orient_combo_coord: EdgeGroupOrientComboCoord<CoordIdentityPerm>,
+    pub corner_orient_raw_coord: CornerOrientRawCoord<CoordIdentityPerm>,
 }
 
 impl PartialPhase1 {
@@ -112,19 +112,22 @@ impl PartialPhase1 {
         let (e, c) = index.div_rem(&2187);
         Self {
             edge_group_orient_combo_coord: EdgeGroupOrientComboCoord {
-                sym_coord: EdgeGroupOrientSymCoord(e as u16),
+                sym_coord: EdgeGroupOrientSymCoord::new(e as u16),
                 domino_conjugation: DominoSymmetry::IDENTITY,
             },
-            corner_orient_raw_coord: CornerOrientRawCoord(c as u16),
+            corner_orient_raw_coord: CornerOrientRawCoord::new(c as u16),
         }
     }
 
     pub fn from_index_exhaustive(
         index: usize,
-        tables: &(impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<MoveRawCornerOrientTable>),
+        tables: &(
+             impl AsRef<LookupSymEdgeGroupOrientTable>
+             + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+         ),
     ) -> impl IntoIterator<Item = Self> {
         let sym_lookup: &LookupSymEdgeGroupOrientTable = tables.as_ref();
-        let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
+        let move_corner: &MoveRawCornerOrientTable<CoordIdentityPerm> = tables.as_ref();
 
         let base = Self::from_index(index);
 
@@ -143,18 +146,21 @@ impl PartialPhase1 {
             self.edge_group_orient_combo_coord.domino_conjugation,
             DominoSymmetry::IDENTITY
         );
-        let a = self.edge_group_orient_combo_coord.sym_coord.0;
-        let b = self.corner_orient_raw_coord.0;
+        let a = self.edge_group_orient_combo_coord.sym_coord.coord;
+        let b = self.corner_orient_raw_coord.coord;
 
         (a as usize) * 2187 + (b as usize)
     }
 
     pub fn apply_cube_move(
         self,
-        tables: &(impl AsRef<MoveRawCornerOrientTable> + AsRef<MoveSymEdgeGroupOrientTable>),
+        tables: &(
+             impl AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+             + AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>>
+         ),
         cube_move: CubeMove,
     ) -> Self {
-        let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
+        let move_corner: &MoveRawCornerOrientTable<CoordIdentityPerm> = tables.as_ref();
 
         let edge_group_orient_combo_coord = self
             .edge_group_orient_combo_coord
@@ -171,10 +177,10 @@ impl PartialPhase1 {
 
     pub fn domino_conjugate(
         self,
-        tables: impl AsRef<MoveRawCornerOrientTable>,
+        tables: impl AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>,
         sym: DominoSymmetry,
     ) -> Self {
-        let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
+        let move_corner: &MoveRawCornerOrientTable<CoordIdentityPerm> = tables.as_ref();
         if sym == DominoSymmetry::IDENTITY {
             return self;
         }
@@ -193,10 +199,13 @@ impl PartialPhase1 {
 
     pub fn normalize(
         self,
-        tables: &(impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<MoveRawCornerOrientTable>),
+        tables: &(
+             impl AsRef<LookupSymEdgeGroupOrientTable>
+             + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+         ),
     ) -> impl IntoIterator<Item = Self> {
         let sym_lookup: &LookupSymEdgeGroupOrientTable = tables.as_ref();
-        let move_corner: &MoveRawCornerOrientTable = tables.as_ref();
+        let move_corner: &MoveRawCornerOrientTable<CoordIdentityPerm> = tables.as_ref();
 
         let rep = self.domino_conjugate(
             tables,
@@ -213,7 +222,10 @@ impl PartialPhase1 {
             })
     }
 
-    pub fn single_normalize(self, tables: impl AsRef<MoveRawCornerOrientTable>) -> Self {
+    pub fn single_normalize(
+        self,
+        tables: impl AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>,
+    ) -> Self {
         self.domino_conjugate(
             tables,
             self.edge_group_orient_combo_coord.domino_conjugation,
@@ -225,8 +237,8 @@ pub fn top_down_adjacent(
     index: usize,
     tables: &(
          impl AsRef<LookupSymEdgeGroupOrientTable>
-         + AsRef<MoveRawCornerOrientTable>
-         + AsRef<MoveSymEdgeGroupOrientTable>
+         + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+         + AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>>
      ),
 ) -> impl IntoIterator<Item = usize> {
     let starts = PartialPhase1::from_index_exhaustive(index, tables);
@@ -241,8 +253,8 @@ pub fn bottom_up_adjacent(
     index: usize,
     tables: &(
          impl AsRef<LookupSymEdgeGroupOrientTable>
-         + AsRef<MoveRawCornerOrientTable>
-         + AsRef<MoveSymEdgeGroupOrientTable>
+         + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+         + AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>>
      ),
 ) -> impl IntoIterator<Item = usize> {
     let start = PartialPhase1::from_index(index);
@@ -258,7 +270,9 @@ pub fn bottom_up_adjacent(
 
 pub fn equivalent(
     index: usize,
-    tables: &(impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<MoveRawCornerOrientTable>),
+    tables: &(
+         impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+     ),
 ) -> impl IntoIterator<Item = usize> {
     PartialPhase1::from_index_exhaustive(index, tables)
         .into_iter()
@@ -270,8 +284,8 @@ pub fn adjacent(
     index: usize,
     tables: &(
          impl AsRef<LookupSymEdgeGroupOrientTable>
-         + AsRef<MoveRawCornerOrientTable>
-         + AsRef<MoveSymEdgeGroupOrientTable>
+         + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+         + AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>>
      ),
 ) -> impl IntoIterator<Item = usize> {
     let starts = PartialPhase1::from_index_exhaustive(index, tables);
@@ -292,11 +306,11 @@ impl PrunePhase1Table {
     #[inline(always)]
     pub fn get_value(
         &self,
-        edge_group_orient_sym_coord: EdgeGroupOrientSymCoord,
-        corner_orient_raw_coord: CornerOrientRawCoord,
+        edge_group_orient_sym_coord: EdgeGroupOrientSymCoord<CoordIdentityPerm>,
+        corner_orient_raw_coord: CornerOrientRawCoord<CoordIdentityPerm>,
     ) -> u8 {
-        let a = edge_group_orient_sym_coord.0;
-        let b = corner_orient_raw_coord.0;
+        let a = edge_group_orient_sym_coord.coord;
+        let b = corner_orient_raw_coord.coord;
         let i = (a as usize) * 2187 + (b as usize);
 
         let byte = self.0[i >> 1];
@@ -310,8 +324,8 @@ impl PrunePhase1Table {
              impl Send
              + Sync
              + AsRef<LookupSymEdgeGroupOrientTable>
-             + AsRef<MoveRawCornerOrientTable>
-             + AsRef<MoveSymEdgeGroupOrientTable>
+             + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+             + AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>>
          ),
     ) {
         let mut working_buffer = vec![0u8; WORKING_TABLE_SIZE_BYTES];
@@ -423,8 +437,8 @@ impl PrunePhase1Table {
              impl Send
              + Sync
              + AsRef<LookupSymEdgeGroupOrientTable>
-             + AsRef<MoveRawCornerOrientTable>
-             + AsRef<MoveSymEdgeGroupOrientTable>
+             + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+             + AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>>
          ),
     ) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
@@ -499,8 +513,8 @@ mod test {
              impl Send
              + Sync
              + AsRef<LookupSymEdgeGroupOrientTable>
-             + AsRef<MoveRawCornerOrientTable>
-             + AsRef<MoveSymEdgeGroupOrientTable>
+             + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+             + AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>>
          ),
     ) -> Vec<u16> {
         let expand = move |corner: u16| {
@@ -541,20 +555,20 @@ mod test {
     }
 
     fn find_edge_preserving(
-        edge_coord: EdgeGroupOrientSymCoord,
+        edge_coord: EdgeGroupOrientSymCoord<CoordIdentityPerm>,
         tables: &(
              impl Send
              + Sync
              + AsRef<LookupSymEdgeGroupOrientTable>
-             + AsRef<MoveRawCornerOrientTable>
-             + AsRef<MoveSymEdgeGroupOrientTable>
+             + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+             + AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>>
          ),
     ) -> Vec<Vec<u16>> {
         let mut todo: BTreeSet<u16> = (0..2187u16).rev().collect();
         let mut result = Vec::new();
 
         while let Some(first) = todo.pop_first() {
-            let set = find_single_edge_preserving(edge_coord.0, first, tables);
+            let set = find_single_edge_preserving(edge_coord.coord, first, tables);
 
             if set.len() == 1 {
                 continue;
@@ -581,7 +595,7 @@ mod test {
             .into_par_iter()
             .map(|x| {
                 find_edge_preserving(
-                    EdgeGroupOrientSymCoord(x),
+                    EdgeGroupOrientSymCoord::new(x),
                     &tables.prune_pre_tables.moves_pre_table,
                 )
             })
