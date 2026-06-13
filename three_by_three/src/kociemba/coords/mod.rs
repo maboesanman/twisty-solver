@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 pub mod corner_perm_combo_coord;
 pub mod edge_group_orient_combo_coord;
 // pub mod repr_coord;
@@ -21,7 +23,21 @@ pub struct EdgeOrientRawCoord(pub u16);
 /// fits in 12 bits. (2187 values)
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(transparent)]
-pub struct CornerOrientRawCoord(pub u16);
+pub struct CornerOrientRawCoord<P> {
+    pub coord: u16,
+    phantom: PhantomData<P>,
+}
+
+pub trait CornerOrientCoordPermutation {}
+
+impl<P> CornerOrientRawCoord<P> {
+    pub const fn new(coord: u16) -> Self {
+        Self {
+            phantom: PhantomData,
+            coord,
+        }
+    }
+}
 
 /// The raw coordinate for corner permutation.
 /// tracks the permutation of the corners.
@@ -63,7 +79,27 @@ pub struct EdgeGroupOrientRawCoord(pub u32);
 /// fits in 16 bits. (64430 values)
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(transparent)]
-pub struct EdgeGroupOrientSymCoord(pub u16);
+pub struct EdgeGroupOrientSymCoord<P> {
+    pub coord: u16,
+    phantom: PhantomData<P>,
+}
+
+pub trait EdgeGroupOrientCoordPermutation {}
+
+impl<P> EdgeGroupOrientSymCoord<P> {
+    pub const fn new(coord: u16) -> Self {
+        Self {
+            phantom: PhantomData,
+            coord,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct CoordIdentityPerm;
+
+impl EdgeGroupOrientCoordPermutation for CoordIdentityPerm {}
+impl CornerOrientCoordPermutation for CoordIdentityPerm {}
 
 /// The sym coordinate for corner permutation, reduced by domino symmetries
 /// fits in 12 bits. (2768 values)

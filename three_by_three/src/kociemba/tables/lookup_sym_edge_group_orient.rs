@@ -6,13 +6,13 @@ use rayon::prelude::*;
 
 use crate::{
     cube_ops::cube_sym::DominoSymmetry,
-    kociemba::tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
     kociemba::{
         coords::{
-            EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord,
+            CoordIdentityPerm, EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         },
         partial_reprs::edge_group_orient::EdgeGroupOrient,
+        tables::table_loader::{as_u32_slice, collect_unique_sorted_parallel},
     },
 };
 
@@ -24,14 +24,17 @@ const FILE_CHECKSUM: u32 = 4005177882;
 pub struct LookupSymEdgeGroupOrientTable([u8]);
 
 impl LookupSymEdgeGroupOrientTable {
-    pub fn get_rep_from_sym(&self, sym_coord: EdgeGroupOrientSymCoord) -> EdgeGroupOrientRawCoord {
+    pub fn get_rep_from_sym(
+        &self,
+        sym_coord: EdgeGroupOrientSymCoord<CoordIdentityPerm>,
+    ) -> EdgeGroupOrientRawCoord {
         let buffer = as_u32_slice(&self.0);
-        EdgeGroupOrientRawCoord(buffer[sym_coord.0 as usize])
+        EdgeGroupOrientRawCoord(buffer[sym_coord.coord as usize])
     }
 
     pub fn get_raw_from_combo(
         &self,
-        combo_coord: EdgeGroupOrientComboCoord,
+        combo_coord: EdgeGroupOrientComboCoord<CoordIdentityPerm>,
     ) -> EdgeGroupOrientRawCoord {
         EdgeGroupOrient::from_coord(self.get_rep_from_sym(combo_coord.sym_coord))
             .domino_conjugate(combo_coord.domino_conjugation.inverse())
@@ -41,7 +44,7 @@ impl LookupSymEdgeGroupOrientTable {
     pub fn get_combo_from_raw(
         &self,
         raw_coord: EdgeGroupOrientRawCoord,
-    ) -> EdgeGroupOrientComboCoord {
+    ) -> EdgeGroupOrientComboCoord<CoordIdentityPerm> {
         let buffer = as_u32_slice(&self.0);
         let edge_group_orient = EdgeGroupOrient::from_coord(raw_coord);
         let (rep_coord, domino_conjugation) = DominoSymmetry::all_iter()
@@ -50,7 +53,9 @@ impl LookupSymEdgeGroupOrientTable {
             .unwrap();
 
         EdgeGroupOrientComboCoord {
-            sym_coord: EdgeGroupOrientSymCoord(buffer.binary_search(&rep_coord.0).unwrap() as u16),
+            sym_coord: EdgeGroupOrientSymCoord::new(
+                buffer.binary_search(&rep_coord.0).unwrap() as u16
+            ),
             domino_conjugation,
         }
     }
@@ -58,7 +63,7 @@ impl LookupSymEdgeGroupOrientTable {
     /// includes the identity
     pub fn get_all_stabilizing_conjugations(
         &self,
-        sym_coord: EdgeGroupOrientSymCoord,
+        sym_coord: EdgeGroupOrientSymCoord<CoordIdentityPerm>,
     ) -> impl IntoIterator<Item = DominoSymmetry> {
         let rep = self.get_rep_from_sym(sym_coord);
         let group_orient = EdgeGroupOrient::from_coord(rep);
@@ -148,7 +153,7 @@ mod test {
         let table: &LookupSymEdgeGroupOrientTable = tables.as_ref();
 
         (0..64430).into_par_iter().for_each(|i| {
-            let sym = EdgeGroupOrientSymCoord(i);
+            let sym = EdgeGroupOrientSymCoord::new(i);
             let rep = table.get_rep_from_sym(sym);
             let group_orient = EdgeGroupOrient::from_coord(rep);
             let stabilizing_conjugations = table
@@ -175,12 +180,12 @@ mod test {
         let nonzero_count: HashMap<_, _> = (0..64430)
             .into_par_iter()
             .map(|i| {
-                let sym = EdgeGroupOrientSymCoord(i);
+                let sym = EdgeGroupOrientSymCoord::new(i);
                 let rep = table.get_rep_from_sym(sym);
                 let group_orient = EdgeGroupOrient::from_coord(rep);
 
                 (
-                    sym.0,
+                    sym.coord,
                     DominoSymmetry::all_iter().fold(0u16, |acc, sym| {
                         acc | ((group_orient == group_orient.domino_conjugate(sym)) as u16) << sym.0
                     }),

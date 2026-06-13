@@ -1,4 +1,4 @@
-use crate::kociemba::coords::CornerOrientRawCoord;
+use crate::kociemba::coords::{CoordIdentityPerm, CornerOrientRawCoord};
 
 use super::corner_perm::CornerPerm;
 
@@ -68,17 +68,17 @@ impl CornerOrient {
         self
     }
 
-    pub const fn from_coord(mut coord: CornerOrientRawCoord) -> Self {
+    pub const fn from_coord(mut coord: CornerOrientRawCoord<CoordIdentityPerm>) -> Self {
         let mut corner_orient = [0; 8];
 
         let mut sum = 0;
         let mut i = 7;
         while i > 0 {
             i -= 1;
-            let value = (coord.0 % 3) as u8;
+            let value = (coord.coord % 3) as u8;
             corner_orient[i] = value;
             sum += value as u16;
-            coord.0 /= 3;
+            coord.coord /= 3;
         }
 
         corner_orient[7] = ((3 - (sum % 3)) % 3) as u8;
@@ -86,7 +86,7 @@ impl CornerOrient {
         Self(corner_orient)
     }
 
-    pub const fn into_coord(self) -> CornerOrientRawCoord {
+    pub const fn into_coord(self) -> CornerOrientRawCoord<CoordIdentityPerm> {
         let mut total = 0u16;
         let mut i = 0;
         while i < 7 {
@@ -94,7 +94,7 @@ impl CornerOrient {
             i += 1;
         }
 
-        CornerOrientRawCoord(total)
+        CornerOrientRawCoord::new(total)
     }
 
     pub const fn const_eq(self, other: Self) -> bool {

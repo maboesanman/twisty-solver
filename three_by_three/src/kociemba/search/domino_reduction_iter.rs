@@ -12,7 +12,7 @@ use rayon::iter::{
 use crate::{
     cube_ops::{cube_sym::CubeSymmetry, repr_cube::ReprCube},
     kociemba::{
-        coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord},
+        coords::{CoordIdentityPerm, CornerOrientRawCoord, EdgeGroupOrientSymCoord},
         search::{
             phase_1_node::{Phase1Node, TableOffsets},
             phase_2_node::Phase2Node,
@@ -37,8 +37,8 @@ pub fn all_domino_reductions<'a, const N: usize>(
 }
 
 pub fn any_domino_reductions_const<const N: usize>(
-    edge_group_orient_sym: EdgeGroupOrientSymCoord,
-    corner_orient_raw: CornerOrientRawCoord,
+    edge_group_orient_sym: EdgeGroupOrientSymCoord<CoordIdentityPerm>,
+    corner_orient_raw: CornerOrientRawCoord<CoordIdentityPerm>,
     tables: &Tables,
     table_offsets: &TableOffsets,
 ) -> u8 {
@@ -49,8 +49,8 @@ pub fn any_domino_reductions_const<const N: usize>(
 }
 
 pub fn any_domino_reductions(
-    edge_group_orient_sym: EdgeGroupOrientSymCoord,
-    corner_orient_raw: CornerOrientRawCoord,
+    edge_group_orient_sym: EdgeGroupOrientSymCoord<CoordIdentityPerm>,
+    corner_orient_raw: CornerOrientRawCoord<CoordIdentityPerm>,
     tables: &Tables,
     table_offsets: &TableOffsets,
     n: u8,
