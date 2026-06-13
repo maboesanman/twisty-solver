@@ -23,7 +23,7 @@ const FILE_CHECKSUM: u32 = 1209655720;
 #[repr(align(64))]
 struct Row([u16; 18]);
 
-pub struct MoveSymCornerPermTable(Mmap);
+pub struct MoveSymCornerPermTable([u8]);
 
 impl MoveSymCornerPermTable {
     pub unsafe fn as_ptr(&self) -> *const u16 {
@@ -72,10 +72,13 @@ impl MoveSymCornerPermTable {
     pub fn load<P: AsRef<Path>>(
         path: P,
         sym_lookup_table: &LookupSymCornerPermTable,
-    ) -> Result<Self> {
+    ) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, sym_lookup_table)
         })
-        .map(Self)
+    }
+
+    pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
+        unsafe { &*(buf as *const [u8] as *const Self) }
     }
 }

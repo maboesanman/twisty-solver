@@ -286,7 +286,7 @@ pub fn adjacent(
         .map(PartialPhase1::into_index)
 }
 
-pub struct PrunePhase1Table(Mmap);
+pub struct PrunePhase1Table([u8]);
 
 impl PrunePhase1Table {
     #[inline(always)]
@@ -426,11 +426,14 @@ impl PrunePhase1Table {
              + AsRef<MoveRawCornerOrientTable>
              + AsRef<MoveSymEdgeGroupOrientTable>
          ),
-    ) -> Result<Self> {
+    ) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, tables)
         })
-        .map(Self)
+    }
+
+    pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
+        unsafe { &*(buf as *const [u8] as *const Self) }
     }
 }
 

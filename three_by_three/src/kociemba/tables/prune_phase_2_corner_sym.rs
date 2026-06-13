@@ -16,7 +16,7 @@ const WORKING_TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT;
 const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
 const FILE_CHECKSUM: u32 = 163716575;
 
-pub struct PrunePhase2CornerSymTable(Mmap);
+pub struct PrunePhase2CornerSymTable([u8]);
 
 impl PrunePhase2CornerSymTable {
     pub fn get_value(&self, corner_perm_sym_coord: CornerPermSymCoord) -> u8 {
@@ -46,11 +46,14 @@ impl PrunePhase2CornerSymTable {
         }
     }
 
-    pub fn load<P: AsRef<Path>>(path: P, prune_phase_2: &PrunePhase2Table) -> Result<Self> {
+    pub fn load<P: AsRef<Path>>(path: P, prune_phase_2: &PrunePhase2Table) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, prune_phase_2)
         })
-        .map(Self)
+    }
+
+    pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
+        unsafe { &*(buf as *const [u8] as *const Self) }
     }
 }
 

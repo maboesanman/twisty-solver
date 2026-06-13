@@ -22,7 +22,7 @@ use super::{
 const TABLE_SIZE_BYTES: usize = (64430 * 18 * 2) * 2;
 const FILE_CHECKSUM: u32 = 3661454509;
 
-pub struct MoveSymEdgeGroupOrientTable(Mmap);
+pub struct MoveSymEdgeGroupOrientTable([u8]);
 
 impl MoveSymEdgeGroupOrientTable {
     pub unsafe fn as_ptr(&self) -> *const u16 {
@@ -79,11 +79,14 @@ impl MoveSymEdgeGroupOrientTable {
     pub fn load<P: AsRef<Path>>(
         path: P,
         sym_lookup_table: &LookupSymEdgeGroupOrientTable,
-    ) -> Result<Self> {
+    ) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, sym_lookup_table)
         })
-        .map(Self)
+    }
+
+    pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
+        unsafe { &*(buf as *const [u8] as *const Self) }
     }
 }
 

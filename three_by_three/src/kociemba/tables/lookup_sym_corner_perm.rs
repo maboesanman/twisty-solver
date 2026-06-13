@@ -18,7 +18,7 @@ use super::table_loader::{
 const TABLE_SIZE_BYTES: usize = 2768 * 2;
 const FILE_CHECKSUM: u32 = 188933558;
 
-pub struct LookupSymCornerPermTable(Mmap);
+pub struct LookupSymCornerPermTable([u8]);
 
 impl LookupSymCornerPermTable {
     pub fn get_rep_from_sym(&self, sym_coord: CornerPermSymCoord) -> CornerPermRawCoord {
@@ -107,11 +107,12 @@ impl LookupSymCornerPermTable {
         }
     }
 
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
-        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
-            Self::generate(buf)
-        })
-        .map(Self)
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Mmap> {
+        load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate)
+    }
+
+    pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
+        unsafe { &*(buf as *const [u8] as *const Self) }
     }
 }
 

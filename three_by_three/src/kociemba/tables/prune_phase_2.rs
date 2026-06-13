@@ -230,7 +230,7 @@ pub fn bottom_up_adjacent(
         .map(PartialPhase2::into_index)
 }
 
-pub struct PrunePhase2Table(Mmap);
+pub struct PrunePhase2Table([u8]);
 
 impl PrunePhase2Table {
     pub fn get_value(
@@ -376,11 +376,14 @@ impl PrunePhase2Table {
              + AsRef<MoveSymCornerPermTable>
              + AsRef<LookupSymCornerPermTable>
          ),
-    ) -> Result<Self> {
+    ) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, tables)
         })
-        .map(Self)
+    }
+
+    pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
+        unsafe { &*(buf as *const [u8] as *const Self) }
     }
 }
 
