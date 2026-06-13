@@ -13,7 +13,7 @@ use super::table_loader::load_table;
 
 const TABLE_ENTRY_COUNT: usize = 2768;
 const WORKING_TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT;
-const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
+pub(crate) const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 2;
 const FILE_CHECKSUM: u32 = 163716575;
 
 pub struct PrunePhase2CornerSymTable([u8]);
@@ -50,6 +50,10 @@ impl PrunePhase2CornerSymTable {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, prune_phase_2)
         })
+    }
+
+    pub(crate) fn as_buffer(&self) -> &[u8] {
+        unsafe { &*(self as *const Self as *const [u8]) }
     }
 
     pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {

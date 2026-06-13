@@ -14,7 +14,7 @@ use crate::{
 
 use super::table_loader::load_table;
 
-const TABLE_SIZE_BYTES: usize = 2187 * const { core::mem::size_of::<Row>() };
+pub(crate) const TABLE_SIZE_BYTES: usize = 2187 * const { core::mem::size_of::<Row>() };
 const FILE_CHECKSUM: u32 = 3314415234;
 
 pub struct MoveRawCornerOrientTable([u8]);
@@ -95,6 +95,10 @@ impl MoveRawCornerOrientTable {
 
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, Self::generate)
+    }
+
+    pub(crate) fn as_buffer(&self) -> &[u8] {
+        unsafe { &*(self as *const Self as *const [u8]) }
     }
 
     pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
