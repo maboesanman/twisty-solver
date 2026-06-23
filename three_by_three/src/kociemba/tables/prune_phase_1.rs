@@ -3,6 +3,7 @@ use bitvec::view::BitView;
 use num_integer::Integer;
 use rayon::prelude::*;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU8, Ordering, fence};
 
 use std::path::Path;
@@ -13,7 +14,7 @@ use memmap2::Mmap;
 use crate::cube_ops::cube_move::CubeMove;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::edge_group_orient_combo_coord::EdgeGroupOrientComboCoord;
-use crate::kociemba::coords::{CoordIdentityPerm, CornerOrientRawCoord, EdgeGroupOrientSymCoord};
+use crate::kociemba::coords::{CoordIdentityPerm, CornerOrientCoordPermutation, CornerOrientRawCoord, EdgeGroupOrientCoordPermutation, EdgeGroupOrientSymCoord};
 use crate::kociemba::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
 use crate::kociemba::tables::move_raw_corner_orient::MoveRawCornerOrientTable;
 use crate::kociemba::tables::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
@@ -300,24 +301,52 @@ pub fn adjacent(
         .map(PartialPhase1::into_index)
 }
 
-pub struct PrunePhase1Table([u8]);
+pub struct PrunePhase1Table<EgoP, CoP, S> {
+    phantom: PhantomData<(EgoP, CoP, S)>,
+    buffer: [u8],
+}
 
-impl PrunePhase1Table {
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct DenseSample;
+
+impl PrunePhase1TableSample for DenseSample {
+    #[inline(always)]
+    fn get_index(
+        edge_group_orient_sym_coord: u16,
+        corner_orient_raw_coord: u16,
+    ) -> usize {
+        (edge_group_orient_sym_coord as usize) * 2187 + (corner_orient_raw_coord as usize)
+    }
+}
+
+pub trait PrunePhase1TableSample: 'static + Copy {
+    fn get_index(
+        edge_group_orient_sym_coord: u16,
+        corner_orient_raw_coord: u16,
+    ) -> usize;
+}
+
+impl<EgoP, CoP, S> PrunePhase1Table<EgoP, CoP, S>
+where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation, S: PrunePhase1TableSample
+{
     #[inline(always)]
     pub fn get_value(
         &self,
-        edge_group_orient_sym_coord: EdgeGroupOrientSymCoord<CoordIdentityPerm>,
-        corner_orient_raw_coord: CornerOrientRawCoord<CoordIdentityPerm>,
+        edge_group_orient_sym_coord: EdgeGroupOrientSymCoord<EgoP>,
+        corner_orient_raw_coord: CornerOrientRawCoord<CoP>,
     ) -> u8 {
-        let a = edge_group_orient_sym_coord.coord;
-        let b = corner_orient_raw_coord.coord;
-        let i = (a as usize) * 2187 + (b as usize);
+        let i = S::get_index(
+            edge_group_orient_sym_coord.coord,
+            corner_orient_raw_coord.coord
+        );
 
-        let byte = self.0[i >> 1];
+        let byte = self.buffer[i >> 1];
         let shift = (i & 1) << 2;
         (byte >> shift) & 0b1111
     }
+}
 
+impl PrunePhase1Table<CoordIdentityPerm, CoordIdentityPerm, DenseSample> {
     fn generate(
         buffer: &mut [u8],
         tables: &(

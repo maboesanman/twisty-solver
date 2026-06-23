@@ -12,9 +12,7 @@ use crate::{
     cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
     kociemba::{
         coords::{
-            CoordIdentityPerm, CornerOrientRawCoord, CornerPermRawCoord, EdgeGroupOrientRawCoord,
-            EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord,
-            edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
+            CoordIdentityPerm, CornerOrientCoordPermutation, CornerOrientRawCoord, CornerPermRawCoord, EdgeGroupOrientCoordPermutation, EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord, edge_group_orient_combo_coord::EdgeGroupOrientComboCoord
         },
         partial_reprs::{
             edge_group::EdgeGroup,
@@ -30,22 +28,22 @@ use crate::{
             move_raw_corner_orient::MoveRawCornerOrientTable,
             move_sym_corner_perm::MoveSymCornerPermTable,
             move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable,
-            prune_phase_1::PrunePhase1Table,
+            prune_phase_1::{PrunePhase1Table, PrunePhase1TableSample},
         },
     },
 };
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Phase1Node {
+pub struct Phase1Node<EgoP, CoP> {
     // corners
-    pub edge_group_orient_sym: EdgeGroupOrientSymCoord<CoordIdentityPerm>,
+    pub edge_group_orient_sym: EdgeGroupOrientSymCoord<EgoP>,
 
     pub edge_group_orient_correct: u16,
     pub corner_perm_combo: u16,
 
     // edges
-    pub corner_orient_raw: CornerOrientRawCoord<CoordIdentityPerm>,
+    pub corner_orient_raw: CornerOrientRawCoord<CoP>,
     pub u_edge_positions: UEdgePositions,
     pub d_edge_positions: DEdgePositions,
     pub e_edge_positions: EEdgePositions,
@@ -60,7 +58,7 @@ pub struct Phase1FrameMetadata<I> {
     pub max_possible_distance: u8,
 }
 
-impl Default for Phase1Node {
+impl<EgoP, CoP> Default for Phase1Node<EgoP, CoP> {
     fn default() -> Self {
         const {
             let (u_edge_positions, d_edge_positions, e_edge_positions) =
@@ -79,7 +77,7 @@ impl Default for Phase1Node {
     }
 }
 
-impl Phase1Node {
+impl Phase1Node<CoordIdentityPerm, CoordIdentityPerm> {
     pub(crate) fn from_phase_1_coords(
         edge_group_orient_sym: EdgeGroupOrientSymCoord<CoordIdentityPerm>,
         corner_orient_raw: CornerOrientRawCoord<CoordIdentityPerm>,
@@ -174,14 +172,24 @@ impl Phase1Node {
             edge_orient,
         }
     }
+}
+
+impl<EgoP, CoP> Phase1Node<EgoP, CoP>
+where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
+{
 
     #[inline(always)]
-    pub fn distance_heuristic(
+    pub fn is_domino_reduced(self) -> bool {
+        self.corner_orient_raw.coord == 0 && self.edge_group_orient_sym.coord == 0
+    }
+
+    #[inline(always)]
+    pub fn distance_heuristic<S>(
         self,
-        tables: impl AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>> + AsRef<PrunePhase1Table>,
-    ) -> u8 {
-        let move_table: &MoveRawCornerOrientTable<CoordIdentityPerm> = tables.as_ref();
-        let prune_table: &PrunePhase1Table = tables.as_ref();
+        tables: impl AsRef<MoveRawCornerOrientTable<CoP>> + AsRef<PrunePhase1Table<EgoP, CoP, S>>,
+    ) -> u8 where S: PrunePhase1TableSample {
+        let move_table: &MoveRawCornerOrientTable<CoP> = tables.as_ref();
+        let prune_table: &PrunePhase1Table<EgoP, CoP, S> = tables.as_ref();
 
         let corner_orient_adjusted = move_table.domino_conjugate(
             self.corner_orient_raw,
@@ -192,25 +200,20 @@ impl Phase1Node {
     }
 
     #[inline(always)]
-    pub fn is_domino_reduced(self) -> bool {
-        self.corner_orient_raw.coord == 0 && self.edge_group_orient_sym.coord == 0
-    }
-
-    #[inline(always)]
-    pub fn produce_next_nodes(
+    pub fn produce_next_nodes<S>(
         self,
         max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         tables: &(
              impl AsRef<MoveEdgePositionsTable>
-             + AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>>
+             + AsRef<MoveRawCornerOrientTable<CoP>>
              + AsRef<MoveSymCornerPermTable>
-             + AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>>
-             + AsRef<PrunePhase1Table>
+             + AsRef<MoveSymEdgeGroupOrientTable<EgoP>>
+             + AsRef<PrunePhase1Table<EgoP, CoP, S>>
          ),
-    ) -> Option<Phase1FrameMetadata<impl Iterator<Item = Self>>> {
+    ) -> Option<Phase1FrameMetadata<impl Iterator<Item = Self>>>  where S: PrunePhase1TableSample {
         let move_table: &MoveEdgePositionsTable = tables.as_ref();
-        let prune_table: &MoveRawCornerOrientTable<CoordIdentityPerm> = tables.as_ref();
+        let prune_table: &MoveRawCornerOrientTable<CoP> = tables.as_ref();
 
         // Get bounds for the current distance from self to solved, with the restriction
         // that the range must be within the allowed. If the range we have is not a subset of
@@ -315,13 +318,19 @@ impl Phase1Node {
     /// Places the children from the first item in the array into the remainder of the array in place.
     /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
     #[inline(always)]
-    pub fn produce_next_nodes_simd<const CACHE_PREFETCH: bool>(
-        slice: &mut [Phase1Node; 16],
+    pub fn produce_next_nodes_simd<const CACHE_PREFETCH: bool, S>(
+        slice: &mut [Self; 16],
         max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         table_offsets: &TableOffsets,
-        tables: &Tables,
-    ) -> (usize, u8) {
+        tables: &(
+             impl AsRef<MoveEdgePositionsTable>
+             + AsRef<MoveRawCornerOrientTable<CoP>>
+             + AsRef<MoveSymCornerPermTable>
+             + AsRef<MoveSymEdgeGroupOrientTable<EgoP>>
+             + AsRef<PrunePhase1Table<EgoP, CoP, S>>
+         ),
+    ) -> (usize, u8) where S: PrunePhase1TableSample  {
         let start_node = slice[0];
         // Get bounds for the current distance from self to solved, with the restriction
         // that the range must be within the allowed. If the range we have is not a subset of
@@ -373,7 +382,7 @@ impl Phase1Node {
             let out_slot = &mut slice[i];
             unsafe {
                 let out = Simd::gather_ptr(source).to_array();
-                *out_slot = core::mem::transmute::<[u16; 8], Phase1Node>(out);
+                *out_slot = core::mem::transmute::<[u16; 8], Self>(out);
             }
 
             // the last cube must be domino reduced, so if moves_remaining is 1,
@@ -455,8 +464,6 @@ struct MoveSimd<const N: usize> {
     new_prev_moves: Box<[u16; N]>, // this is pointed into by some of the above pointers.
     count: usize,
 }
-
-// struct MoveSimdRef<
 
 impl<const N: usize> MoveSimd<N> {
     fn new(prev_axis: CubePreviousAxis) -> Self {
