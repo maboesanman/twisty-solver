@@ -28,7 +28,8 @@ pub struct CornerOrientRawCoord<P> {
     phantom: PhantomData<P>,
 }
 
-pub trait CornerOrientCoordPermutation {}
+/// MUST KEEP IDENTITY AT 0
+pub trait CornerOrientCoordPermutation: 'static + Copy + Clone {}
 
 impl<P> CornerOrientRawCoord<P> {
     pub const fn new(coord: u16) -> Self {
@@ -84,7 +85,8 @@ pub struct EdgeGroupOrientSymCoord<P> {
     phantom: PhantomData<P>,
 }
 
-pub trait EdgeGroupOrientCoordPermutation {}
+/// MUST KEEP IDENTITY AT 0
+pub trait EdgeGroupOrientCoordPermutation: 'static + Copy + Clone {}
 
 impl<P> EdgeGroupOrientSymCoord<P> {
     pub const fn new(coord: u16) -> Self {

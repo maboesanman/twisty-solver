@@ -71,7 +71,7 @@ pub struct Tables {
 
 #[rustfmt::skip]
 mod unformatted {
-    use crate::kociemba::coords::CoordIdentityPerm;
+    use crate::kociemba::{coords::CoordIdentityPerm, tables::prune_phase_1::DenseSample};
 
 use super::*;
     impl AsRef<LookupSymCornerPermTable> for MovesPreTables { fn as_ref(&self) -> &LookupSymCornerPermTable { unsafe { LookupSymCornerPermTable::from_buffer(&self.lookup_sym_corner_perm) } } }
@@ -91,7 +91,7 @@ use super::*;
     impl AsRef<MoveEdgePositionsTable> for PrunePreTables { fn as_ref(&self) -> &MoveEdgePositionsTable { self.moves_pre_table.as_ref() } }
     impl AsRef<MoveRawEEdgePermTable> for PrunePreTables { fn as_ref(&self) -> &MoveRawEEdgePermTable { self.moves_pre_table.as_ref() } }
     impl AsRef<MoveRawUDEdgePermTable> for PrunePreTables { fn as_ref(&self) -> &MoveRawUDEdgePermTable { self.moves_pre_table.as_ref() } }
-    impl AsRef<PrunePhase1Table> for PrunePreTables { fn as_ref(&self) -> &PrunePhase1Table { unsafe { PrunePhase1Table::from_buffer( &self.prune_phase_1) } } }
+    impl AsRef<PrunePhase1Table<CoordIdentityPerm, CoordIdentityPerm, DenseSample>> for PrunePreTables { fn as_ref(&self) -> &PrunePhase1Table<CoordIdentityPerm, CoordIdentityPerm, DenseSample> { unsafe { PrunePhase1Table::from_buffer( &self.prune_phase_1) } } }
     impl AsRef<PrunePhase2Table> for PrunePreTables { fn as_ref(&self) -> &PrunePhase2Table { unsafe { PrunePhase2Table::from_buffer( &self.prune_phase_2) } } }
     impl AsRef<PrunePhase2CornerSymTable> for PrunePreTables { fn as_ref(&self) -> &PrunePhase2CornerSymTable { unsafe { PrunePhase2CornerSymTable::from_buffer( &self.prune_phase_2_corner_sym) } } }
 
@@ -103,7 +103,7 @@ use super::*;
     impl AsRef<MoveEdgePositionsTable> for Tables { fn as_ref(&self) -> &MoveEdgePositionsTable { self.prune_pre_tables.as_ref() } }
     impl AsRef<MoveRawEEdgePermTable> for Tables { fn as_ref(&self) -> &MoveRawEEdgePermTable { self.prune_pre_tables.as_ref() } }
     impl AsRef<MoveRawUDEdgePermTable> for Tables { fn as_ref(&self) -> &MoveRawUDEdgePermTable { self.prune_pre_tables.as_ref() } }
-    impl AsRef<PrunePhase1Table> for Tables { fn as_ref(&self) -> &PrunePhase1Table { self.prune_pre_tables.as_ref() } }
+    impl AsRef<PrunePhase1Table<CoordIdentityPerm, CoordIdentityPerm, DenseSample>> for Tables { fn as_ref(&self) -> &PrunePhase1Table<CoordIdentityPerm, CoordIdentityPerm, DenseSample> { self.prune_pre_tables.as_ref() } }
     impl AsRef<PrunePhase2Table> for Tables { fn as_ref(&self) -> &PrunePhase2Table { self.prune_pre_tables.as_ref() } }
     impl AsRef<PrunePhase2CornerSymTable> for Tables { fn as_ref(&self) -> &PrunePhase2CornerSymTable { self.prune_pre_tables.as_ref() } }
 }
