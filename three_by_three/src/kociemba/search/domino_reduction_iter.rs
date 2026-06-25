@@ -17,20 +17,17 @@ use crate::{
             phase_1_node::{Phase1Node, TableOffsets},
             phase_2_node::Phase2Node,
         },
-        tables::Tables,
+        tables::{Tables, prune_phase_1::DenseSample},
     },
 };
 
 /// returns all sequences of sym cubes which correspond with a
 /// domino reduction of exactly N + 1 moves.
-///
-/// if S is false, the move sequence is not allowed to be domino reduced at any time before the final state.
-/// if S is true, only the second-to-last state is prevented from being domino reduced
 pub fn all_domino_reductions<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
     table_offsets: &'a TableOffsets<'a>,
-) -> impl Iterator<Item = ([Phase1Node; N], Phase2Node, Phase2Node)> {
+) -> impl Iterator<Item = ([Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N], Phase2Node, Phase2Node)> {
     Stack::<_, _>::new(cube, tables, table_offsets, ())
         .into_iter()
         .flatten()
@@ -188,15 +185,12 @@ pub fn any_domino_reductions(
 
 /// returns all sequences of sym cubes which correspond with a
 /// domino reduction of exactly N + 1 moves.
-///
-/// if S is false, the move sequence is not allowed to be domino reduced at any time before the final state.
-/// if S is true, only the second-to-last state is prevented from being domino reduced
 pub fn all_domino_reductions_par<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
     table_offsets: &'a TableOffsets<'a>,
     cancel: &'a AtomicBool,
-) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node, Phase2Node)> {
+) -> impl 'a + ParallelIterator<Item = ([Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N], Phase2Node, Phase2Node)> {
     Stack::<'a, N, &'a AtomicBool>::new(cube, tables, table_offsets, cancel)
         .into_par_iter()
         .flatten()
@@ -214,7 +208,7 @@ struct Stack<'t, const N: usize, C> {
     frame_metadata: [FrameMetadata; N],
 
     // 3, 18, 15 * (N - 1) at most. when N=20, 306 at most
-    frame_data: Vec<Phase1Node>,
+    frame_data: Vec<Phase1Node<CoordIdentityPerm, CoordIdentityPerm>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -258,7 +252,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         cancel: C,
     ) -> Vec<Self> {
         let mut options =
-            [0, 1, 2].map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
+            [0, 1, 2].map(|x| Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
         options.sort_by_key(|n| n.distance_heuristic(tables));
         options
             .into_iter()
@@ -267,7 +261,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     }
 
     fn new_inner(
-        start: Phase1Node,
+        start: Phase1Node<CoordIdentityPerm, CoordIdentityPerm>,
         tables: &'t Tables,
         table_offsets: &'t TableOffsets,
         cancel: C,
@@ -390,9 +384,9 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
             let last_frame = unsafe { *self.frame_metadata.get_unchecked(i - 1) };
 
-            let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
+            let slice = unsafe { &mut *(last_data as *mut Phase1Node<CoordIdentityPerm, CoordIdentityPerm>).cast_array::<16>() };
 
-            let (added, new_max_dist) = Phase1Node::produce_next_nodes_simd::<true>(
+            let (added, new_max_dist) = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<true, DenseSample>(
                 slice,
                 last_frame.max_distance,
                 unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
@@ -423,7 +417,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 }
 
 impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
-    type Item = ([Phase1Node; N], Phase2Node, Phase2Node);
+    type Item = ([Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N], Phase2Node, Phase2Node);
 
     fn next(&mut self) -> Option<Self::Item> {
         let phase_1_tail_a = self.frame_data.pop()?;
@@ -522,7 +516,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 }
 
 impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
-    type Item = ([Phase1Node; N], Phase2Node, Phase2Node);
+    type Item = ([Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N], Phase2Node, Phase2Node);
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
     where
@@ -560,7 +554,7 @@ mod test {
         let table_offsets = TableOffsets::new(&tables);
         let cube = cube![R U Rp Up];
         // let cube = cube![D R2 L];
-        let res = move |path: &[Phase1Node], last: &Phase2Node| {
+        let res = move |path: &[Phase1Node<CoordIdentityPerm, CoordIdentityPerm>], last: &Phase2Node| {
             let cubes = path
                 .into_iter()
                 .map(|x| x.into_cube(table_ref))
