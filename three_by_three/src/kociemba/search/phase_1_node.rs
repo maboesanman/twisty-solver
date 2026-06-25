@@ -485,7 +485,7 @@ impl<const N: usize> MoveSimd<N> {
     }
 
     #[inline(always)]
-    fn node_to_sym_move_offsets(&self, node: Phase1Node) -> Offsets<N> {
+    fn node_to_sym_move_offsets<EgoP, CoP>(&self, node: Phase1Node<EgoP, CoP>) -> Offsets<N> {
         const LOOKUP: [u16; 18 * 16] = {
             let mut table = [0u16; 18 * 16];
             let mut i = 0usize;
@@ -522,10 +522,10 @@ impl<const N: usize> MoveSimd<N> {
     }
 
     #[inline(always)]
-    fn node_to_row_starts(
+    fn node_to_row_starts<EgoP, CoP>(
         &self,
         table_offsets: &TableOffsets,
-        node: Phase1Node,
+        node: Phase1Node<EgoP, CoP>,
     ) -> Simd<*const u16, 8> {
         let RowStartsBase {
             edge_pos,
@@ -687,13 +687,14 @@ mod tests {
 
     use crate::cube;
     use crate::kociemba::partial_reprs::edge_positions::EdgePositions;
+    use crate::kociemba::tables::prune_phase_1::DenseSample;
 
     use super::*;
     use std::collections::BTreeSet;
     use std::num::NonZeroU8;
     extern crate test;
 
-    fn phase1_key(n: &Phase1Node, tables: &Tables) -> [u32; 6] {
+    fn phase1_key(n: &Phase1Node<CoordIdentityPerm, CoordIdentityPerm>, tables: &Tables) -> [u32; 6] {
         let e = EdgeGroupOrientComboCoord {
             sym_coord: n.edge_group_orient_sym,
             domino_conjugation: unsafe { core::mem::transmute(n.edge_group_orient_correct as u8) },
@@ -760,7 +761,7 @@ mod tests {
     }
 
     fn collect_scalar_children(
-        node: Phase1Node,
+        node: Phase1Node<CoordIdentityPerm, CoordIdentityPerm>,
         max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         tables: &Tables,
@@ -779,7 +780,7 @@ mod tests {
     }
 
     fn collect_simd_children(
-        node: Phase1Node,
+        node: Phase1Node<CoordIdentityPerm, CoordIdentityPerm>,
         max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         table_offsets: &TableOffsets,
@@ -788,7 +789,7 @@ mod tests {
         // SIMD API requires a 16-wide buffer with node in slot 0
         let mut buf = [node; 16];
 
-        let (count, new_max) = Phase1Node::produce_next_nodes_simd::<false>(
+        let (count, new_max) = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<false, DenseSample>(
             &mut buf,
             max_possible_distance,
             moves_remaining,
@@ -886,7 +887,7 @@ mod tests {
         let mut buf = [phase_1; 16];
 
         bench.iter(|| {
-            let _ = Phase1Node::produce_next_nodes_simd::<false>(
+            let _ = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<false, DenseSample>(
                 &mut buf,
                 20,
                 unsafe { NonZeroU8::new_unchecked(30) },
