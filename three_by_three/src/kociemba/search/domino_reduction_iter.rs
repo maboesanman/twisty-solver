@@ -3,6 +3,7 @@ use std::{
     sync::atomic::AtomicBool,
 };
 
+use arrayvec::ArrayVec;
 use itertools::Itertools;
 use rayon::iter::{
     IntoParallelIterator, ParallelIterator,
@@ -23,7 +24,7 @@ use crate::{
 
 /// returns all sequences of sym cubes which correspond with a
 /// domino reduction of exactly N + 1 moves.
-pub fn all_domino_reductions<'a, const N: usize>(
+pub fn all_domino_reductions<'a, const N: usize, const Cap: usize>(
     cube: ReprCube,
     tables: &'a Tables,
     table_offsets: &'a TableOffsets<'a>,
@@ -34,19 +35,19 @@ pub fn all_domino_reductions<'a, const N: usize>(
         Phase2Node,
     ),
 > {
-    Stack::<_, _>::new(cube, tables, table_offsets, ())
+    Stack::<_, Cap, _>::new(cube, tables, table_offsets, ())
         .into_iter()
         .flatten()
 }
 
-pub fn any_domino_reductions_const<const N: usize>(
+pub fn any_domino_reductions_const<const N: usize, const Cap: usize>(
     edge_group_orient_sym: EdgeGroupOrientSymCoord<CoordIdentityPerm>,
     corner_orient_raw: CornerOrientRawCoord<CoordIdentityPerm>,
     tables: &Tables,
     table_offsets: &TableOffsets,
 ) -> u8 {
     let cube = Phase1Node::from_phase_1_coords(edge_group_orient_sym, corner_orient_raw, tables);
-    Stack::<N, _>::new_inner(cube, tables, table_offsets, ())
+    Stack::<N, Cap, _>::new_inner(cube, tables, table_offsets, ())
         .take(255)
         .count() as u8
 }
@@ -59,127 +60,127 @@ pub fn any_domino_reductions(
     n: u8,
 ) -> u8 {
     match n {
-        0 => any_domino_reductions_const::<0>(
+        0 => any_domino_reductions_const::<0, {0 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        1 => any_domino_reductions_const::<1>(
+        1 => any_domino_reductions_const::<1, {1 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        2 => any_domino_reductions_const::<2>(
+        2 => any_domino_reductions_const::<2, {2 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        3 => any_domino_reductions_const::<3>(
+        3 => any_domino_reductions_const::<3, {3 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        4 => any_domino_reductions_const::<4>(
+        4 => any_domino_reductions_const::<4, {4 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        5 => any_domino_reductions_const::<5>(
+        5 => any_domino_reductions_const::<5, {5 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        6 => any_domino_reductions_const::<6>(
+        6 => any_domino_reductions_const::<6, {6 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        7 => any_domino_reductions_const::<7>(
+        7 => any_domino_reductions_const::<7, {7 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        8 => any_domino_reductions_const::<8>(
+        8 => any_domino_reductions_const::<8, {8 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        9 => any_domino_reductions_const::<9>(
+        9 => any_domino_reductions_const::<9, {9 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        10 => any_domino_reductions_const::<10>(
+        10 => any_domino_reductions_const::<10, {10 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        11 => any_domino_reductions_const::<11>(
+        11 => any_domino_reductions_const::<11, {11 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        12 => any_domino_reductions_const::<12>(
+        12 => any_domino_reductions_const::<12, {12 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        13 => any_domino_reductions_const::<13>(
+        13 => any_domino_reductions_const::<13, {13 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        14 => any_domino_reductions_const::<14>(
+        14 => any_domino_reductions_const::<14, {14 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        15 => any_domino_reductions_const::<15>(
+        15 => any_domino_reductions_const::<15, {15 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        16 => any_domino_reductions_const::<16>(
+        16 => any_domino_reductions_const::<16, {16 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        17 => any_domino_reductions_const::<17>(
+        17 => any_domino_reductions_const::<17, {17 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        18 => any_domino_reductions_const::<18>(
+        18 => any_domino_reductions_const::<18, {18 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        19 => any_domino_reductions_const::<19>(
+        19 => any_domino_reductions_const::<19, {19 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
             table_offsets,
         ),
-        20 => any_domino_reductions_const::<20>(
+        20 => any_domino_reductions_const::<20, {20 * 15 + 4}>(
             edge_group_orient_sym,
             corner_orient_raw,
             tables,
@@ -191,7 +192,7 @@ pub fn any_domino_reductions(
 
 /// returns all sequences of sym cubes which correspond with a
 /// domino reduction of exactly N + 1 moves.
-pub fn all_domino_reductions_par<'a, const N: usize>(
+pub fn all_domino_reductions_par<'a, const N: usize, const Cap: usize>(
     cube: ReprCube,
     tables: &'a Tables,
     table_offsets: &'a TableOffsets<'a>,
@@ -204,7 +205,7 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
         Phase2Node,
     ),
 > {
-    Stack::<'a, N, &'a AtomicBool>::new(cube, tables, table_offsets, cancel)
+    Stack::<'a, N, Cap, &'a AtomicBool>::new(cube, tables, table_offsets, cancel)
         .into_par_iter()
         .flatten()
 }
@@ -212,7 +213,7 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
 // N is number of moves
 // this doesn't work if the cube is already domino reduced.
 #[derive(Debug, Clone)]
-struct Stack<'t, const N: usize, C> {
+struct Stack<'t, const N: usize, const Cap: usize, C> {
     tables: &'t Tables,
     table_offsets: &'t TableOffsets<'t>,
 
@@ -220,8 +221,8 @@ struct Stack<'t, const N: usize, C> {
 
     frame_metadata: [FrameMetadata; N],
 
-    // 3, 18, 15 * (N - 1) at most. when N=20, 306 at most
-    frame_data: Vec<Phase1Node<CoordIdentityPerm, CoordIdentityPerm>>,
+    // 1, 18, 15 * (N - 1) at most. when N=20, 304 at most (4 + 15N)
+    frame_data: ArrayVec<Phase1Node<CoordIdentityPerm, CoordIdentityPerm>, Cap>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -231,7 +232,7 @@ pub struct FrameMetadata {
     start: u16,
 }
 
-impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
+impl<'t, const N: usize, const Cap: usize, C: Clone> Stack<'t, N, Cap, C> {
     const FRAME_DATA_CAP: usize = 3 + 15 * N;
 
     pub fn new(
@@ -240,6 +241,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         table_offsets: &'t TableOffsets,
         cancel: C,
     ) -> Vec<Self> {
+        debug_assert_eq!(15 * N + 4, Cap);
         let mut options = [0, 1, 2].map(|x| {
             Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::from_cube(
                 cube.conjugate(CubeSymmetry(x << 4)),
@@ -260,16 +262,14 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         cancel: C,
     ) -> Self {
         let starts = Some(start);
-        let mut frame_data = if N == 0 {
+        let frame_data = if N == 0 {
             starts
                 .into_iter()
                 .filter(|n| n.is_domino_reduced())
-                .collect_vec()
+                .collect()
         } else {
-            starts.into_iter().collect_vec()
+            starts.into_iter().collect()
         };
-
-        frame_data.reserve_exact(Self::FRAME_DATA_CAP);
 
         let mut stack = Self {
             tables,
@@ -396,7 +396,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     }
 }
 
-impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
+impl<'t, const N: usize, const Cap: usize, C: Clone> Iterator for Stack<'t, N, Cap, C> {
     type Item = (
         [Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N],
         Phase2Node,
@@ -422,7 +422,7 @@ impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
     }
 }
 
-impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
+impl<'t, const N: usize, const Cap: usize> UnindexedProducer for Stack<'t, N, Cap, &'t AtomicBool> {
     type Item = <Self as Iterator>::Item;
 
     fn split(mut self) -> (Self, Option<Self>) {
@@ -456,8 +456,8 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
             // give more items to the latter half (round down)
             let frame_split = (frame_start + frame_end) / 2;
 
-            let mut new_frame_data = Vec::with_capacity(Self::FRAME_DATA_CAP);
-            new_frame_data.extend_from_slice(&self.frame_data[0..frame_split]);
+            let mut new_frame_data = ArrayVec::new();
+            unsafe { new_frame_data.try_extend_from_slice(&self.frame_data[0..frame_split]).unwrap_unchecked() };
 
             self.frame_data.drain(frame_start..frame_split);
 
@@ -501,7 +501,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
     }
 }
 
-impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
+impl<'t, const N: usize, const Cap: usize> ParallelIterator for Stack<'t, N, Cap, &'t AtomicBool> {
     type Item = (
         [Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N],
         Phase2Node,
@@ -530,7 +530,7 @@ mod test {
         let tables = Tables::new("tables")?;
         let table_offsets = TableOffsets::new(&tables);
         let cube = cube![R U Rp Up];
-        let stack = all_domino_reductions::<0>(cube, &tables, &table_offsets).collect_vec();
+        let stack = all_domino_reductions::<0, {0 * 15 + 4}>(cube, &tables, &table_offsets).collect_vec();
 
         println!("{stack:#?}");
 
@@ -553,19 +553,19 @@ mod test {
 
             move_resolver_multi_dimension_domino(cube, cubes)
         };
-        let stack = all_domino_reductions::<2>(cube, &tables, &table_offsets);
+        let stack = all_domino_reductions::<2, {2 * 15 + 4}>(cube, &tables, &table_offsets);
         stack.for_each(|(path, last_a, last_b)| {
             println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
-        let stack = all_domino_reductions::<3>(cube, &tables, &table_offsets);
+        let stack = all_domino_reductions::<3, {3 * 15 + 4}>(cube, &tables, &table_offsets);
         stack.for_each(|(path, last_a, last_b)| {
             println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
-        let stack = all_domino_reductions::<4>(cube, &tables, &table_offsets);
+        let stack = all_domino_reductions::<4, {4 * 15 + 4}>(cube, &tables, &table_offsets);
         stack.for_each(|(path, last_a, last_b)| {
             println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
-        let stack = all_domino_reductions::<5>(cube, &tables, &table_offsets);
+        let stack = all_domino_reductions::<5, {5 * 15 + 4}>(cube, &tables, &table_offsets);
         stack.for_each(|(path, last_a, last_b)| {
             println!("{:?} {:?}", res(&path, &last_a), res(&path, &last_b));
         });
@@ -578,7 +578,7 @@ mod test {
         let tables = Tables::new("tables")?;
         let table_offsets = TableOffsets::new(&tables);
 
-        let stack = all_domino_reductions::<11>(
+        let stack = all_domino_reductions::<11, {11 * 15 + 4}>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
             &table_offsets,
@@ -596,7 +596,7 @@ mod test {
 
         let cancel = AtomicBool::new(false);
 
-        let stack = all_domino_reductions_par::<11>(
+        let stack = all_domino_reductions_par::<11, {11 * 15 + 4}>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
             &table_offsets,
@@ -620,55 +620,55 @@ mod test {
 
         println!(
             "0: {}",
-            all_domino_reductions_par::<0>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<0, {0 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "1: {}",
-            all_domino_reductions_par::<1>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<1, {1 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "2: {}",
-            all_domino_reductions_par::<2>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<2, {2 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "3: {}",
-            all_domino_reductions_par::<3>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<3, {3 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "4: {}",
-            all_domino_reductions_par::<4>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<4, {4 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "5: {}",
-            all_domino_reductions_par::<5>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<5, {5 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "6: {}",
-            all_domino_reductions_par::<6>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<6, {6 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "7: {}",
-            all_domino_reductions_par::<7>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<7, {7 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "8: {}",
-            all_domino_reductions_par::<8>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<8, {8 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "9: {}",
-            all_domino_reductions_par::<9>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<9, {9 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "10: {}",
-            all_domino_reductions_par::<10>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<10, {10 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "11: {}",
-            all_domino_reductions_par::<11>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<11, {11 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
         println!(
             "12: {}",
-            all_domino_reductions_par::<12>(cube, &tables, &table_offsets, &cancel).count()
+            all_domino_reductions_par::<12, {12 * 15 + 4}>(cube, &tables, &table_offsets, &cancel).count()
         );
 
         Ok(())

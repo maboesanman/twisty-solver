@@ -12,7 +12,10 @@ use crate::{
     cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
     kociemba::{
         coords::{
-            CoordIdentityPerm, CornerOrientCoordPermutation, CornerOrientRawCoord, CornerPermRawCoord, EdgeGroupOrientCoordPermutation, EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord, edge_group_orient_combo_coord::EdgeGroupOrientComboCoord
+            CoordIdentityPerm, CornerOrientCoordPermutation, CornerOrientRawCoord,
+            CornerPermRawCoord, EdgeGroupOrientCoordPermutation, EdgeGroupOrientRawCoord,
+            EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord,
+            edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
         },
         partial_reprs::{
             edge_group::EdgeGroup,
@@ -173,9 +176,10 @@ impl Phase1Node<CoordIdentityPerm, CoordIdentityPerm> {
 }
 
 impl<EgoP, CoP> Phase1Node<EgoP, CoP>
-where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
+where
+    EgoP: EdgeGroupOrientCoordPermutation,
+    CoP: CornerOrientCoordPermutation,
 {
-
     #[inline(always)]
     pub fn is_domino_reduced(self) -> bool {
         self.corner_orient_raw.coord == 0 && self.edge_group_orient_sym.coord == 0
@@ -185,7 +189,10 @@ where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
     pub fn distance_heuristic<S>(
         self,
         tables: impl AsRef<MoveRawCornerOrientTable<CoP>> + AsRef<PrunePhase1Table<EgoP, CoP, S>>,
-    ) -> u8 where S: PrunePhase1TableSample {
+    ) -> u8
+    where
+        S: PrunePhase1TableSample,
+    {
         let move_table: &MoveRawCornerOrientTable<CoP> = tables.as_ref();
         let prune_table: &PrunePhase1Table<EgoP, CoP, S> = tables.as_ref();
 
@@ -208,7 +215,10 @@ where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
              + AsRef<MoveSymEdgeGroupOrientTable<EgoP>>
              + AsRef<PrunePhase1Table<EgoP, CoP, S>>
          ),
-    ) -> Option<Phase1FrameMetadata<impl Iterator<Item = Self>>>  where S: PrunePhase1TableSample {
+    ) -> Option<Phase1FrameMetadata<impl Iterator<Item = Self>>>
+    where
+        S: PrunePhase1TableSample,
+    {
         let move_table: &MoveEdgePositionsTable = tables.as_ref();
         let prune_table: &MoveRawCornerOrientTable<CoP> = tables.as_ref();
 
@@ -287,9 +297,7 @@ where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
                 true
             });
 
-        Some(Phase1FrameMetadata {
-            children,
-        })
+        Some(Phase1FrameMetadata { children })
     }
 
     /// Places the children from the first item in the array into the remainder of the array in place.
@@ -299,7 +307,10 @@ where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
         slice: &mut [Self; 16],
         moves_remaining: NonZeroU8,
         table_offsets: &TableOffsets,
-    ) -> usize where S: PrunePhase1TableSample  {
+    ) -> usize
+    where
+        S: PrunePhase1TableSample,
+    {
         let start_node = slice[0];
 
         let subtable = unsafe {
@@ -645,7 +656,10 @@ mod tests {
     use std::num::NonZeroU8;
     extern crate test;
 
-    fn phase1_key(n: &Phase1Node<CoordIdentityPerm, CoordIdentityPerm>, tables: &Tables) -> [u32; 6] {
+    fn phase1_key(
+        n: &Phase1Node<CoordIdentityPerm, CoordIdentityPerm>,
+        tables: &Tables,
+    ) -> [u32; 6] {
         let e = EdgeGroupOrientComboCoord {
             sym_coord: n.edge_group_orient_sym,
             domino_conjugation: unsafe { core::mem::transmute(n.edge_group_orient_correct as u8) },
@@ -674,10 +688,7 @@ mod tests {
             .unwrap();
         let b = next_moves.children.skip(14).next().unwrap();
         let next_moves = b
-            .produce_next_nodes(
-                NonZeroU8::new(4).unwrap(),
-                &tables,
-            )
+            .produce_next_nodes(NonZeroU8::new(4).unwrap(), &tables)
             .unwrap();
 
         for c in next_moves.children {
@@ -736,11 +747,10 @@ mod tests {
         // SIMD API requires a 16-wide buffer with node in slot 0
         let mut buf = [node; 16];
 
-        let count = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<false, DenseSample>(
-            &mut buf,
-            moves_remaining,
-            table_offsets,
-        );
+        let count = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<
+            false,
+            DenseSample,
+        >(&mut buf, moves_remaining, table_offsets);
 
         let keys = buf[1..=count]
             .iter()
@@ -764,16 +774,10 @@ mod tests {
         let mut node = Phase1Node::from_cube(cube, &tables);
         node.previous_axis = CubePreviousAxis::B as u8 as u16;
         let moves_remaining = NonZeroU8::new(10).unwrap();
-        let max_possible_distance = 10;
 
-        let scalar_keys =
-            collect_scalar_children(node, moves_remaining, &tables);
+        let scalar_keys = collect_scalar_children(node, moves_remaining, &tables);
 
-        let simd_keys = collect_simd_children(
-            node,
-            moves_remaining,
-            &table_offsets,
-        );
+        let simd_keys = collect_simd_children(node, moves_remaining, &table_offsets);
 
         assert_eq!(scalar_keys, simd_keys, "SIMD children differ from scalar");
 
@@ -798,14 +802,9 @@ mod tests {
 
         let moves_remaining = NonZeroU8::new(10).unwrap();
 
-        let scalar_keys =
-            collect_scalar_children(node, moves_remaining, tables);
+        let scalar_keys = collect_scalar_children(node, moves_remaining, tables);
 
-        let simd_keys = collect_simd_children(
-            node,
-            moves_remaining,
-            &table_offsets,
-        );
+        let simd_keys = collect_simd_children(node, moves_remaining, &table_offsets);
 
         assert_eq!(scalar_keys, simd_keys, "SIMD children differ from scalar");
 
@@ -825,7 +824,10 @@ mod tests {
         let mut buf = [phase_1; 16];
 
         bench.iter(|| {
-            let _ = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<false, DenseSample>(
+            let _ = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<
+                false,
+                DenseSample,
+            >(
                 &mut buf,
                 unsafe { NonZeroU8::new_unchecked(30) },
                 &table_offsets,
