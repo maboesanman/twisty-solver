@@ -54,8 +54,6 @@ pub struct Phase1Node<EgoP, CoP> {
 // a set of nodes which came from the same call to `produce_next_nodes`
 pub struct Phase1FrameMetadata<I> {
     pub children: I,
-    // pub min_possible_distance: u8,
-    pub max_possible_distance: u8,
 }
 
 impl<EgoP, CoP> Default for Phase1Node<EgoP, CoP> {
@@ -202,7 +200,6 @@ where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
     #[inline(always)]
     pub fn produce_next_nodes<S>(
         self,
-        max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         tables: &(
              impl AsRef<MoveEdgePositionsTable>
@@ -214,25 +211,6 @@ where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
     ) -> Option<Phase1FrameMetadata<impl Iterator<Item = Self>>>  where S: PrunePhase1TableSample {
         let move_table: &MoveEdgePositionsTable = tables.as_ref();
         let prune_table: &MoveRawCornerOrientTable<CoP> = tables.as_ref();
-
-        // Get bounds for the current distance from self to solved, with the restriction
-        // that the range must be within the allowed. If the range we have is not a subset of
-        // [min_allowed_distance, max_allowed_distance], then we look up the actual distance to solved and
-        // return a legal single point range or return None because we're outside the range and must be pruned.
-        let max_possible_current_distance = if max_possible_distance > moves_remaining.get() {
-            let distance = self.distance_heuristic(tables);
-
-            if distance > moves_remaining.get() {
-                return None;
-            }
-
-            distance
-        } else {
-            max_possible_distance
-        };
-
-        // prepare the values for feeding the child nodes.
-        let max_possible_distance = max_possible_current_distance + 1;
 
         // perform all new axis moves on all coords
         let move_iter = || {
@@ -311,7 +289,6 @@ where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
 
         Some(Phase1FrameMetadata {
             children,
-            max_possible_distance,
         })
     }
 
@@ -320,36 +297,10 @@ where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
     #[inline(always)]
     pub fn produce_next_nodes_simd<const CACHE_PREFETCH: bool, S>(
         slice: &mut [Self; 16],
-        max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         table_offsets: &TableOffsets,
-        tables: &(
-             impl AsRef<MoveEdgePositionsTable>
-             + AsRef<MoveRawCornerOrientTable<CoP>>
-             + AsRef<MoveSymCornerPermTable>
-             + AsRef<MoveSymEdgeGroupOrientTable<EgoP>>
-             + AsRef<PrunePhase1Table<EgoP, CoP, S>>
-         ),
-    ) -> (usize, u8) where S: PrunePhase1TableSample  {
+    ) -> usize where S: PrunePhase1TableSample  {
         let start_node = slice[0];
-        // Get bounds for the current distance from self to solved, with the restriction
-        // that the range must be within the allowed. If the range we have is not a subset of
-        // [min_allowed_distance, max_allowed_distance], then we look up the actual distance to solved and
-        // return a legal single point range or return None because we're outside the range and must be pruned.
-        let max_possible_current_distance = if max_possible_distance > moves_remaining.get() {
-            let distance = start_node.distance_heuristic(tables);
-
-            if distance > moves_remaining.get() {
-                return (0, 0);
-            }
-
-            distance
-        } else {
-            max_possible_distance
-        };
-
-        // prepare the values for feeding the child nodes.
-        let max_possible_distance = max_possible_current_distance + 1;
 
         let subtable = unsafe {
             table_offsets.get_simd_resources(
@@ -453,7 +404,7 @@ where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation,
             }
         }
 
-        (i - 1, max_possible_distance)
+        i - 1
     }
 }
 
@@ -719,12 +670,11 @@ mod tests {
         // [R3, R2, F2, L3, R1]
 
         let next_moves = a
-            .produce_next_nodes(20, NonZeroU8::new(5).unwrap(), &tables)
+            .produce_next_nodes(NonZeroU8::new(5).unwrap(), &tables)
             .unwrap();
         let b = next_moves.children.skip(14).next().unwrap();
         let next_moves = b
             .produce_next_nodes(
-                next_moves.max_possible_distance + 1,
                 NonZeroU8::new(4).unwrap(),
                 &tables,
             )
@@ -762,12 +712,11 @@ mod tests {
 
     fn collect_scalar_children(
         node: Phase1Node<CoordIdentityPerm, CoordIdentityPerm>,
-        max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         tables: &Tables,
-    ) -> (BTreeSet<String>, u8) {
+    ) -> BTreeSet<String> {
         let frame = node
-            .produce_next_nodes(max_possible_distance, moves_remaining, tables)
+            .produce_next_nodes(moves_remaining, tables)
             .expect("scalar path pruned unexpectedly");
 
         let keys = frame
@@ -776,25 +725,21 @@ mod tests {
             .map(|x| to_hex_underscored(&x))
             .collect::<BTreeSet<_>>();
 
-        (keys, frame.max_possible_distance)
+        keys
     }
 
     fn collect_simd_children(
         node: Phase1Node<CoordIdentityPerm, CoordIdentityPerm>,
-        max_possible_distance: u8,
         moves_remaining: NonZeroU8,
         table_offsets: &TableOffsets,
-        tables: &Tables,
-    ) -> (BTreeSet<String>, u8) {
+    ) -> BTreeSet<String> {
         // SIMD API requires a 16-wide buffer with node in slot 0
         let mut buf = [node; 16];
 
-        let (count, new_max) = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<false, DenseSample>(
+        let count = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<false, DenseSample>(
             &mut buf,
-            max_possible_distance,
             moves_remaining,
             table_offsets,
-            tables,
         );
 
         let keys = buf[1..=count]
@@ -804,7 +749,7 @@ mod tests {
             .map(|x| to_hex_underscored(&x))
             .collect::<BTreeSet<_>>();
 
-        (keys, new_max)
+        keys
     }
 
     #[test]
@@ -821,18 +766,15 @@ mod tests {
         let moves_remaining = NonZeroU8::new(10).unwrap();
         let max_possible_distance = 10;
 
-        let (scalar_keys, scalar_max) =
-            collect_scalar_children(node, max_possible_distance, moves_remaining, &tables);
+        let scalar_keys =
+            collect_scalar_children(node, moves_remaining, &tables);
 
-        let (simd_keys, simd_max) = collect_simd_children(
+        let simd_keys = collect_simd_children(
             node,
-            max_possible_distance,
             moves_remaining,
             &table_offsets,
-            tables,
         );
 
-        assert_eq!(scalar_max, simd_max, "max_possible_distance mismatch");
         assert_eq!(scalar_keys, simd_keys, "SIMD children differ from scalar");
 
         Ok(())
@@ -855,20 +797,16 @@ mod tests {
         };
 
         let moves_remaining = NonZeroU8::new(10).unwrap();
-        let max_possible_distance = 10;
 
-        let (scalar_keys, scalar_max) =
-            collect_scalar_children(node, max_possible_distance, moves_remaining, tables);
+        let scalar_keys =
+            collect_scalar_children(node, moves_remaining, tables);
 
-        let (simd_keys, simd_max) = collect_simd_children(
+        let simd_keys = collect_simd_children(
             node,
-            max_possible_distance,
             moves_remaining,
             &table_offsets,
-            tables,
         );
 
-        assert_eq!(scalar_max, simd_max, "max_possible_distance mismatch");
         assert_eq!(scalar_keys, simd_keys, "SIMD children differ from scalar");
 
         Ok(())
@@ -889,10 +827,8 @@ mod tests {
         bench.iter(|| {
             let _ = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<false, DenseSample>(
                 &mut buf,
-                20,
                 unsafe { NonZeroU8::new_unchecked(30) },
                 &table_offsets,
-                &tables,
             );
         });
     }

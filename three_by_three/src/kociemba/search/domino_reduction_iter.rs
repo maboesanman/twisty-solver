@@ -216,30 +216,6 @@ pub struct FrameMetadata {
     // the offset into the frame_data buffer that this begins.
     // note that this can never be empty
     start: u16,
-
-    // the bounds on the actual distance we know right now.
-    max_distance: u8,
-}
-
-impl FrameMetadata {
-    const fn default_const() -> Self {
-        Self {
-            start: 0,
-            max_distance: 20,
-        }
-    }
-
-    #[cold]
-    #[inline(never)]
-    fn cold_default() -> FrameMetadata {
-        FrameMetadata::default()
-    }
-}
-
-impl Default for FrameMetadata {
-    fn default() -> Self {
-        Self::default_const()
-    }
 }
 
 impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
@@ -283,7 +259,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             table_offsets,
             cancel,
             frame_data,
-            frame_metadata: [const { FrameMetadata::default_const() }; _],
+            frame_metadata: [FrameMetadata { start: 0 }; _],
         };
 
         stack.fill_recurse_no_simd(0);
@@ -301,15 +277,31 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         let mut len = self.frame_data.len() as u16;
         let frame_metadata = self.frame_metadata.as_ptr();
 
-        while unsafe { (*frame_metadata.add(*i - 1)).start } == len {
-            len -= 1;
-            if *i == 1 {
-                unsafe {
-                    self.frame_data.set_len(0);
+        loop {
+            unsafe {
+                let top_frame_empty = (*frame_metadata.add(*i - 1)).start == len;
+
+                if top_frame_empty {
+                    len -= 1;
+                    if *i == 1 {
+                        self.frame_data.set_len(0);
+                        return false;
+                    }
+                    *i -= 1;
+                    continue;
                 }
-                return false;
+
+
+                let moves_remaining = (N - *i) as u8;
+                let distance = (*self.frame_data.as_ptr().add((len - 1) as usize))
+                        .distance_heuristic(self.tables);
+
+                if distance <= moves_remaining {
+                    break;
+                }
+
+                len -= 1;
             }
-            *i -= 1;
         }
 
         unsafe {
@@ -338,19 +330,15 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         let mut i = i;
         while i < N {
             let last_data = self.frame_data.last().unwrap();
-            let last_frame = self.get_frame_metadata_i(i);
-
-            // 34 % of program runtime is spent in produce_next_nodes
+            let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
             let incoming = last_data.produce_next_nodes(
-                last_frame.max_distance,
-                unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
+                moves_remaining,
                 self.tables,
             );
 
             self.frame_metadata[i].start = self.frame_data.len() as u16;
 
             if let Some(incoming) = incoming {
-                self.frame_metadata[i].max_distance = incoming.max_possible_distance;
                 let dst = self.frame_data.as_mut_ptr();
                 let mut len = self.frame_data.len();
                 unsafe {
@@ -379,25 +367,19 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     fn fill_recurse_simd(&mut self, i: NonZeroUsize) {
         let mut i = i.get();
         while i < N {
-            let len = self.frame_data.len();
-            self.frame_metadata[i].start = len as u16;
+            self.frame_metadata[i].start = self.frame_data.len() as u16;
             let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
-            let last_frame = unsafe { *self.frame_metadata.get_unchecked(i - 1) };
 
             let slice = unsafe { &mut *(last_data as *mut Phase1Node<CoordIdentityPerm, CoordIdentityPerm>).cast_array::<16>() };
 
-            let (added, new_max_dist) = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<true, DenseSample>(
-                slice,
-                last_frame.max_distance,
-                unsafe { NonZeroU8::new_unchecked((N - i) as u8) },
-                self.table_offsets,
-                self.tables,
-            );
+            let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
 
-            self.frame_metadata[i].max_distance = new_max_dist;
-            unsafe {
-                self.frame_data.set_len(len + added);
-            }
+            let added = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<
+                    true,
+                    DenseSample,
+                >(slice, moves_remaining, self.table_offsets);
+
+            unsafe { self.frame_data.set_len(self.frame_data.len() + added); }
 
             i += 1;
 
@@ -407,12 +389,8 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         }
     }
 
-    fn get_frame_metadata_i(&self, i: usize) -> FrameMetadata {
-        if std::hint::likely(i != 0) {
-            unsafe { *self.frame_metadata.get_unchecked(i - 1) }
-        } else {
-            FrameMetadata::cold_default()
-        }
+    fn get_frame_metadata_i(&self, i: NonZeroUsize) -> FrameMetadata {
+        unsafe { *self.frame_metadata.get_unchecked(i.get() - 1) }
     }
 }
 
@@ -453,7 +431,10 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
                 if i + 2 > N {
                     return (self, None);
                 }
-                let start = self.get_frame_metadata_i(i).start;
+                let start = match NonZeroUsize::new(i) {
+                    Some(i) => self.get_frame_metadata_i(i).start,
+                    None => 0,
+                };
                 let end = self.frame_metadata[i].start;
 
                 if end - start > 1 {
