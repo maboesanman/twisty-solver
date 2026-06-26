@@ -27,7 +27,13 @@ pub fn all_domino_reductions<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
     table_offsets: &'a TableOffsets<'a>,
-) -> impl Iterator<Item = ([Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N], Phase2Node, Phase2Node)> {
+) -> impl Iterator<
+    Item = (
+        [Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N],
+        Phase2Node,
+        Phase2Node,
+    ),
+> {
     Stack::<_, _>::new(cube, tables, table_offsets, ())
         .into_iter()
         .flatten()
@@ -190,7 +196,14 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
     tables: &'a Tables,
     table_offsets: &'a TableOffsets<'a>,
     cancel: &'a AtomicBool,
-) -> impl 'a + ParallelIterator<Item = ([Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N], Phase2Node, Phase2Node)> {
+) -> impl 'a
++ ParallelIterator<
+    Item = (
+        [Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N],
+        Phase2Node,
+        Phase2Node,
+    ),
+> {
     Stack::<'a, N, &'a AtomicBool>::new(cube, tables, table_offsets, cancel)
         .into_par_iter()
         .flatten()
@@ -227,8 +240,12 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         table_offsets: &'t TableOffsets,
         cancel: C,
     ) -> Vec<Self> {
-        let mut options =
-            [0, 1, 2].map(|x| Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
+        let mut options = [0, 1, 2].map(|x| {
+            Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::from_cube(
+                cube.conjugate(CubeSymmetry(x << 4)),
+                tables,
+            )
+        });
         options.sort_by_key(|n| n.distance_heuristic(tables));
         options
             .into_iter()
@@ -267,12 +284,11 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
         stack
     }
 
-    /// drop the frame at the top (belonging to frame i)
+    /// ensure the top frame is non-empty and the top item is not too far away from reduced to reach in the remaining moves.
+    /// this should be called to clean up AFTER THE ITEM WAS POPPED OR AFTER AN UNKNOWN NUMBER OF ITEMS HAVE POPULATED THE NEW FRAME
     #[inline(always)]
     fn drop_recurse(&mut self, i: &mut usize) -> bool {
         debug_assert!(*i > 0);
-
-        // let initial_i = *i;
 
         let mut len = self.frame_data.len() as u16;
         let frame_metadata = self.frame_metadata.as_ptr();
@@ -291,10 +307,9 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
                     continue;
                 }
 
-
                 let moves_remaining = (N - *i) as u8;
                 let distance = (*self.frame_data.as_ptr().add((len - 1) as usize))
-                        .distance_heuristic(self.tables);
+                    .distance_heuristic(self.tables);
 
                 if distance <= moves_remaining {
                     break;
@@ -308,33 +323,15 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             self.frame_data.set_len(len as usize);
         }
 
-        // After k while-loop iterations, we've popped k ancestors. The deepest empty
-        // frame (initial_i) has max_distance M. Going up k hops, the sibling frame's
-        // nodes have distance ≤ M + k = M + (initial_i + 1 - *i).
-
-        // let smaller_max = self.frame_metadata[initial_i - 1].max_distance + (initial_i - *i) as u8;
-        // if self.frame_metadata[*i - 1].max_distance > smaller_max {
-        //     self.frame_metadata[*i - 1].max_distance = smaller_max
-        // }
-
         true
     }
-
-    // THIS IS THE HOTTEST OF HOT LOOPS. MOST OF THE ALGORITHM IS SPENT IN THIS FUNCTION
-    // 39 % of program runtime is spent in fill_recurse's implementation (not counting other function calls)
-    // recurse into frames
-
-    // ASSUMES frame_data is non-empty
 
     fn fill_recurse_no_simd(&mut self, i: usize) {
         let mut i = i;
         while i < N {
             let last_data = self.frame_data.last().unwrap();
             let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
-            let incoming = last_data.produce_next_nodes(
-                moves_remaining,
-                self.tables,
-            );
+            let incoming = last_data.produce_next_nodes(moves_remaining, self.tables);
 
             self.frame_metadata[i].start = self.frame_data.len() as u16;
 
@@ -370,16 +367,21 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             self.frame_metadata[i].start = self.frame_data.len() as u16;
             let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
 
-            let slice = unsafe { &mut *(last_data as *mut Phase1Node<CoordIdentityPerm, CoordIdentityPerm>).cast_array::<16>() };
+            let slice = unsafe {
+                &mut *(last_data as *mut Phase1Node<CoordIdentityPerm, CoordIdentityPerm>)
+                    .cast_array::<16>()
+            };
 
             let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
 
             let added = Phase1Node::<CoordIdentityPerm, CoordIdentityPerm>::produce_next_nodes_simd::<
-                    true,
-                    DenseSample,
-                >(slice, moves_remaining, self.table_offsets);
+                false,
+                DenseSample,
+            >(slice, moves_remaining, self.table_offsets);
 
-            unsafe { self.frame_data.set_len(self.frame_data.len() + added); }
+            unsafe {
+                self.frame_data.set_len(self.frame_data.len() + added);
+            }
 
             i += 1;
 
@@ -395,7 +397,11 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 }
 
 impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
-    type Item = ([Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N], Phase2Node, Phase2Node);
+    type Item = (
+        [Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N],
+        Phase2Node,
+        Phase2Node,
+    );
 
     fn next(&mut self) -> Option<Self::Item> {
         let phase_1_tail_a = self.frame_data.pop()?;
@@ -453,9 +459,8 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
             let mut new_frame_data = Vec::with_capacity(Self::FRAME_DATA_CAP);
             new_frame_data.extend_from_slice(&self.frame_data[0..frame_split]);
 
-            for _ in 0..frame_split - frame_start {
-                self.frame_data.remove(frame_start);
-            }
+            self.frame_data.drain(frame_start..frame_split);
+
             for x in 0..N {
                 if self.frame_metadata[x].start > frame_start as u16 {
                     self.frame_metadata[x].start -= (frame_split - frame_start) as u16;
@@ -497,7 +502,11 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 }
 
 impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
-    type Item = ([Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N], Phase2Node, Phase2Node);
+    type Item = (
+        [Phase1Node<CoordIdentityPerm, CoordIdentityPerm>; N],
+        Phase2Node,
+        Phase2Node,
+    );
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
     where
@@ -535,7 +544,8 @@ mod test {
         let table_offsets = TableOffsets::new(&tables);
         let cube = cube![R U Rp Up];
         // let cube = cube![D R2 L];
-        let res = move |path: &[Phase1Node<CoordIdentityPerm, CoordIdentityPerm>], last: &Phase2Node| {
+        let res = move |path: &[Phase1Node<CoordIdentityPerm, CoordIdentityPerm>],
+                        last: &Phase2Node| {
             let cubes = path
                 .into_iter()
                 .map(|x| x.into_cube(table_ref))
