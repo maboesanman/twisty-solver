@@ -1,6 +1,5 @@
 #![cfg_attr(test, feature(test))]
 #![feature(slice_swap_unchecked)]
-#![feature(likely_unlikely)]
 #![feature(portable_simd)]
 #![feature(ptr_cast_array)]
 #![feature(hint_prefetch)]

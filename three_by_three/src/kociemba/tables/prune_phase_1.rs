@@ -326,6 +326,10 @@ pub trait PrunePhase1TableSample: 'static + Copy {
     ) -> usize;
 }
 
+#[cfg(test)]
+pub static GET_VALUE_HIST: [std::sync::atomic::AtomicU64; 14] =
+    [const { std::sync::atomic::AtomicU64::new(0) }; 14];
+
 impl<EgoP, CoP, S> PrunePhase1Table<EgoP, CoP, S>
 where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation, S: PrunePhase1TableSample
 {
@@ -342,7 +346,13 @@ where EgoP: EdgeGroupOrientCoordPermutation, CoP: CornerOrientCoordPermutation, 
 
         let byte = self.buffer[i >> 1];
         let shift = (i & 1) << 2;
-        (byte >> shift) & 0b1111
+        let val = (byte >> shift) & 0b1111;
+
+        #[cfg(test)]
+        GET_VALUE_HIST[val as usize]
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        val
     }
 }
 

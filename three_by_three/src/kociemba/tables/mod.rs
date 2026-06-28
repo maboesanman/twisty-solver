@@ -27,6 +27,8 @@ pub mod prune_phase_1;
 pub mod prune_phase_2;
 pub mod prune_phase_2_corner_sym;
 
+// pub mod permuted_coordinates;
+
 // pub mod permute_sym_edge_group_orient;
 
 mod table_loader;

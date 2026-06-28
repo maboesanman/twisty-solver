@@ -798,12 +798,11 @@ mod test {
     fn gen_scrambles() -> anyhow::Result<()> {
         let tables = Box::leak(Box::new(Tables::new("tables")?));
         let mut rng = ChaCha8Rng::seed_from_u64(1);
-
-        for _ in 0..100 {
+        for _ in 0..10000 {
             let cube: ReprCube =
                 rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
 
-            cube.pretty_print();
+            // cube.pretty_print();
 
             let mut stream = get_incremental_solutions_stream(cube, tables, Some(20), true);
             let future = stream.next();
@@ -837,6 +836,14 @@ mod test {
                 }
                 println!("");
             }
+        }
+
+        let hist = &crate::kociemba::tables::prune_phase_1::GET_VALUE_HIST;
+        let total: u64 = hist.iter().map(|a| a.load(std::sync::atomic::Ordering::Relaxed)).sum();
+        println!("total: {total}");
+        for (v, a) in hist.iter().enumerate() {
+            let count = a.load(std::sync::atomic::Ordering::Relaxed);
+            println!("{v:2}: {count}  ({:.2}%)", 100.0 * count as f64 / total as f64);
         }
 
         Ok(())
