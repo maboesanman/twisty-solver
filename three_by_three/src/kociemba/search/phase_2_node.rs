@@ -30,15 +30,23 @@ pub struct Phase2Node {
 impl Phase2Node {
     pub fn from_phase_1_node(node: Phase1Node) -> Self {
         let Phase1Node {
-            corner_perm_combo,
             u_edge_positions,
             d_edge_positions,
             e_edge_positions,
             previous_axis,
-            ..
+            corner_perm_correct,
+            corner_perm_raw,
+
+            // phase 1 stuff we know is solved
+            edge_group_orient_sym: _,
+            edge_group_orient_correct: _,
+            corner_orient_raw: _,
         } = node;
 
-        let corner_perm_combo = CornerPermComboCoord::from_dense(corner_perm_combo);
+        let corner_perm_combo = CornerPermComboCoord {
+            sym_coord: corner_perm_raw,
+            domino_conjugation: corner_perm_correct,
+        };
 
         Self {
             corner_perm_combo,

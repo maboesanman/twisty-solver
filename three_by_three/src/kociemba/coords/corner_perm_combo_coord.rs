@@ -27,17 +27,6 @@ impl CornerPermComboCoord {
         tables.as_ref().get_raw_from_combo(self)
     }
 
-    pub fn into_dense(self) -> u16 {
-        (self.sym_coord.0 & 0x0FFF) | ((self.domino_conjugation.0 as u16) << 12)
-    }
-
-    pub fn from_dense(dense: u16) -> Self {
-        Self {
-            sym_coord: CornerPermSymCoord(dense & 0x0FFF),
-            domino_conjugation: DominoSymmetry((dense >> 12) as u8),
-        }
-    }
-
     pub fn apply_cube_move(
         self,
         tables: impl AsRef<MoveSymCornerPermTable>,

@@ -1,8 +1,7 @@
 #![cfg_attr(test, feature(test))]
 #![feature(slice_swap_unchecked)]
-#![feature(portable_simd)]
+// #![feature(portable_simd)]
 #![feature(ptr_cast_array)]
-#![feature(hint_prefetch)]
 #![allow(long_running_const_eval)]
 #![allow(dead_code)]
 

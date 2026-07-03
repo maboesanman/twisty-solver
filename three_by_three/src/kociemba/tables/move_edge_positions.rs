@@ -8,7 +8,7 @@ use crate::{
     cube_ops::cube_move::CubeMove,
     kociemba::{
         partial_reprs::edge_positions::{
-            DEdgePositions, EEdgePositions, UEdgePositions, split_edge_positions,
+            DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions, split_edge_positions,
         },
         tables::table_loader::as_u16_slice_mut,
     },
@@ -22,9 +22,9 @@ const FILE_CHECKSUM: u32 = 524334554;
 pub struct MoveEdgePositionsTable([u8]);
 
 #[repr(align(64))]
-struct PackedEdgePositionRow([u16; 18]);
+pub struct MoveEdgePositionsRow(pub [u16; 18]);
 
-impl PackedEdgePositionRow {
+impl MoveEdgePositionsRow {
     fn get(&self, index: CubeMove) -> u16 {
         self.0[index as u8 as usize]
     }
@@ -35,11 +35,15 @@ impl MoveEdgePositionsTable {
         self.0.as_ptr() as *const u16
     }
 
-    fn chunks(table: &[u8]) -> &[PackedEdgePositionRow] {
+    fn chunks(&self) -> &[MoveEdgePositionsRow] {
         unsafe {
-            let slice: &[[u8; 32]] = table.as_chunks_unchecked();
-            core::slice::from_raw_parts(slice.as_ptr() as *const PackedEdgePositionRow, slice.len())
+            let slice: &[[u8; 32]] = self.0.as_chunks_unchecked();
+            core::slice::from_raw_parts(slice.as_ptr() as *const MoveEdgePositionsRow, slice.len())
         }
+    }
+
+    pub fn row(&self, edge_pos: EdgePositions) -> &MoveEdgePositionsRow {
+        unsafe { self.chunks().get_unchecked(edge_pos.0 as usize) }
     }
 
     pub fn apply_all_cube_moves(
@@ -49,7 +53,7 @@ impl MoveEdgePositionsTable {
         e_coord: EEdgePositions,
         move_iter: impl IntoIterator<Item = CubeMove>,
     ) -> impl IntoIterator<Item = (UEdgePositions, DEdgePositions, EEdgePositions)> {
-        let chunks = &Self::chunks(&self.0);
+        let chunks = self.chunks();
 
         let u_chunk = &chunks[u_coord.into_index()];
         let d_chunk = &chunks[d_coord.into_index()];

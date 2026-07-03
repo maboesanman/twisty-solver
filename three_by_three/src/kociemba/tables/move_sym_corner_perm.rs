@@ -9,19 +9,20 @@ use crate::{
         cube_move::CubeMove, cube_sym::DominoSymmetry, partial_reprs::corner_perm::CornerPerm,
     },
     kociemba::coords::{CornerPermSymCoord, corner_perm_combo_coord::CornerPermComboCoord},
-    kociemba::tables::{
-        lookup_sym_corner_perm::LookupSymCornerPermTable, table_loader::as_u16_slice_mut,
-    },
+    kociemba::tables::lookup_sym_corner_perm::LookupSymCornerPermTable,
 };
 
 use super::table_loader::load_table;
 
-pub(crate) const TABLE_SIZE_BYTES: usize = 2768 * core::mem::size_of::<Row>();
-const FILE_CHECKSUM: u32 = 1209655720;
+pub(crate) const TABLE_SIZE_BYTES: usize = 2768 * core::mem::size_of::<MoveSymCornerPermRow>();
+const FILE_CHECKSUM: u32 = 3645794727;
 
 #[repr(C)]
 #[repr(align(64))]
-struct Row([u16; 18]);
+pub struct MoveSymCornerPermRow {
+    pub coords: [u16; 18],
+    pub conjugations: [u8; 18],
+}
 
 pub struct MoveSymCornerPermTable([u8]);
 
@@ -30,43 +31,53 @@ impl MoveSymCornerPermTable {
         self.0.as_ptr() as *const u16
     }
 
-    fn chunks(&self) -> &[Row] {
+    fn rows(&self) -> &[MoveSymCornerPermRow] {
         unsafe {
-            let slice: &[[u8; core::mem::size_of::<Row>()]] = self.0.as_chunks_unchecked();
-            core::slice::from_raw_parts(slice.as_ptr() as *const Row, slice.len())
+            let slice: &[[u8; core::mem::size_of::<MoveSymCornerPermRow>()]] =
+                self.0.as_chunks_unchecked();
+            core::slice::from_raw_parts(slice.as_ptr() as *const MoveSymCornerPermRow, slice.len())
         }
     }
 
-    fn chunk(&self, coord: CornerPermSymCoord) -> &[u16; 18] {
-        &self.chunks()[coord.0 as usize].0
+    pub fn row(&self, coord: CornerPermSymCoord) -> &MoveSymCornerPermRow {
+        &self.rows()[coord.0 as usize]
     }
 
     pub fn apply_cube_move(&self, coord: CornerPermSymCoord, mv: CubeMove) -> CornerPermComboCoord {
-        CornerPermComboCoord::from_dense(self.chunk(coord)[mv.into_index()])
+        let row = self.row(coord);
+        CornerPermComboCoord {
+            sym_coord: CornerPermSymCoord(row.coords[mv.into_index()]),
+            domino_conjugation: DominoSymmetry(row.conjugations[mv.into_index()]),
+        }
     }
 
     fn generate(buffer: &mut [u8], sym_lookup_table: &LookupSymCornerPermTable) {
         assert_eq!(buffer.len(), TABLE_SIZE_BYTES);
-        let buffer = as_u16_slice_mut(buffer);
+        let buffer = unsafe {
+            let slice: &mut [[u8; core::mem::size_of::<MoveSymCornerPermRow>()]] =
+                buffer.as_chunks_unchecked_mut();
+            core::slice::from_raw_parts_mut(
+                slice.as_mut_ptr() as *mut MoveSymCornerPermRow,
+                slice.len(),
+            )
+        };
 
-        buffer
-            .par_chunks_mut(32)
-            .enumerate()
-            .for_each(|(i, store)| {
-                let sym_coord = CornerPermSymCoord(i as u16);
-                let combo = CornerPermComboCoord {
-                    sym_coord,
-                    domino_conjugation: DominoSymmetry::IDENTITY,
-                };
-                let raw = sym_lookup_table.get_raw_from_combo(combo);
-                let corner_perm = CornerPerm::from_coord(raw);
+        buffer.par_iter_mut().enumerate().for_each(|(i, row)| {
+            let sym_coord = CornerPermSymCoord(i as u16);
+            let combo = CornerPermComboCoord {
+                sym_coord,
+                domino_conjugation: DominoSymmetry::IDENTITY,
+            };
+            let raw = sym_lookup_table.get_raw_from_combo(combo);
+            let corner_perm = CornerPerm::from_coord(raw);
 
-                CubeMove::all_iter().zip(store).for_each(|(mv, slot)| {
-                    let new_raw = corner_perm.apply_cube_move(mv).into_coord();
-                    let new_combo = sym_lookup_table.get_combo_from_raw(new_raw);
-                    *slot = new_combo.sym_coord.0 | ((new_combo.domino_conjugation.0 as u16) << 12);
-                });
-            })
+            for (i, mv) in CubeMove::all_iter().enumerate() {
+                let new_raw = corner_perm.apply_cube_move(mv).into_coord();
+                let new_combo = sym_lookup_table.get_combo_from_raw(new_raw);
+                row.coords[i] = new_combo.sym_coord.0;
+                row.conjugations[i] = new_combo.domino_conjugation.0;
+            }
+        })
     }
 
     pub fn load<P: AsRef<Path>>(

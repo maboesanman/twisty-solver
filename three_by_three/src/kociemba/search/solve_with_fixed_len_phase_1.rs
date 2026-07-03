@@ -6,8 +6,7 @@ use crate::{
     Tables,
     cube_ops::{cube_move::CubeMove, repr_cube::ReprCube},
     kociemba::search::{
-        move_resolver::move_resolver_multi_dimension_domino, phase_1_node::TableOffsets,
-        solve_domino::solve_domino_pair,
+        move_resolver::move_resolver_multi_dimension_domino, solve_domino::solve_domino_pair,
     },
 };
 
@@ -16,10 +15,9 @@ pub fn produce_solutions<'t, const N: usize, const CAP: usize>(
     cube: ReprCube,
     current_best: u8,
     tables: &'t Tables,
-    table_offsets: &'t TableOffsets,
 ) -> impl 't + Iterator<Item = Vec<CubeMove>> {
     let domino_reductions =
-        super::domino_reduction_iter::all_domino_reductions::<N, CAP>(cube, tables, table_offsets);
+        super::domino_reduction_iter::all_domino_reductions::<N, CAP>(cube, tables);
 
     domino_reductions
         .scan(
@@ -59,15 +57,10 @@ pub fn produce_solutions_par<'a, const N: usize, const CAP: usize>(
     cube: ReprCube,
     best: &'a AtomicU8,
     tables: &'a Tables,
-    table_offsets: &'a TableOffsets,
     cancel: &'a AtomicBool,
 ) -> impl 'a + ParallelIterator<Item = Vec<CubeMove>> {
-    let domino_reductions = super::domino_reduction_iter::all_domino_reductions_par::<N, CAP>(
-        cube,
-        tables,
-        table_offsets,
-        cancel,
-    );
+    let domino_reductions =
+        super::domino_reduction_iter::all_domino_reductions_par::<N, CAP>(cube, tables, cancel);
 
     domino_reductions
         .filter_map(|(phase_1, phase_2_start_a, phase_2_start_b)| {
@@ -113,13 +106,11 @@ mod test {
     #[test]
     fn solve_combined_test_superflip_magic_s() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-        let table_offsets = TableOffsets::new(&tables);
 
         let solutions = produce_solutions::<10, { 10 * 15 + 4 }>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             u8::MAX,
             &tables,
-            &table_offsets,
         );
 
         for solution in solutions {
@@ -136,7 +127,6 @@ mod test {
     #[test]
     fn solve_combined_test_superflip_magic_par() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-        let table_offsets = TableOffsets::new(&tables);
 
         let best = AtomicU8::new(u8::MAX);
         let cancel = AtomicBool::new(false);
@@ -145,7 +135,6 @@ mod test {
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &best,
             &tables,
-            &table_offsets,
             &cancel,
         );
 

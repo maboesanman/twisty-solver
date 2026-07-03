@@ -158,6 +158,42 @@ impl CubeMove {
         slice.iter().copied()
     }
 
+    pub fn new_axis_move_array(prev_axis: CubePreviousAxis) -> (&'static [CubeMove; 15], usize) {
+        use CubeMove::*;
+
+        match prev_axis {
+            CubePreviousAxis::U => (
+                &[D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3],
+                15,
+            ),
+            CubePreviousAxis::D | CubePreviousAxis::UD => (
+                &[F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1, U1, U1],
+                12,
+            ),
+            CubePreviousAxis::F => (
+                &[U1, U2, U3, D1, D2, D3, B1, B2, B3, R1, R2, R3, L1, L2, L3],
+                15,
+            ),
+            CubePreviousAxis::B | CubePreviousAxis::FB => (
+                &[U1, U2, U3, D1, D2, D3, R1, R2, R3, L1, L2, L3, U1, U1, U1],
+                12,
+            ),
+            CubePreviousAxis::R => (
+                &[U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, L1, L2, L3],
+                15,
+            ),
+            CubePreviousAxis::L | CubePreviousAxis::RL => (
+                &[U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, U1, U1, U1],
+                12,
+            ),
+            // if it's None, you have to run U as well. this is an augmented value.
+            CubePreviousAxis::None => (
+                &[U1, U2, U3, U1, U1, U1, U1, U1, U1, U1, U1, U1, U1, U1, U1],
+                3,
+            ),
+        }
+    }
+
     pub const fn into_u8(self) -> u8 {
         unsafe { core::mem::transmute(self) }
     }

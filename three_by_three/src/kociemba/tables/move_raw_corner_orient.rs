@@ -14,7 +14,8 @@ use crate::{
 
 use super::table_loader::load_table;
 
-pub(crate) const TABLE_SIZE_BYTES: usize = 2187 * const { core::mem::size_of::<Row>() };
+pub(crate) const TABLE_SIZE_BYTES: usize =
+    2187 * const { core::mem::size_of::<MoveRawCornerOrientRow>() };
 const FILE_CHECKSUM: u32 = 3314415234;
 
 pub struct MoveRawCornerOrientTable {
@@ -23,9 +24,9 @@ pub struct MoveRawCornerOrientTable {
 
 #[repr(C)]
 #[repr(align(64))]
-struct Row {
-    moves: [u16; 18],
-    conjugations: [u64; 3],
+pub struct MoveRawCornerOrientRow {
+    pub moves: [u16; 18],
+    pub conjugations: [u64; 3],
 }
 
 impl MoveRawCornerOrientTable {
@@ -33,22 +34,30 @@ impl MoveRawCornerOrientTable {
         self.buffer.as_ptr() as *const u16
     }
 
-    fn chunks(&self) -> &[Row] {
+    fn rows(&self) -> &[MoveRawCornerOrientRow] {
         unsafe {
-            let slice: &[[u8; core::mem::size_of::<Row>()]] = self.buffer.as_chunks_unchecked();
-            core::slice::from_raw_parts(slice.as_ptr() as *const Row, slice.len())
+            let slice: &[[u8; core::mem::size_of::<MoveRawCornerOrientRow>()]] =
+                self.buffer.as_chunks_unchecked();
+            core::slice::from_raw_parts(
+                slice.as_ptr() as *const MoveRawCornerOrientRow,
+                slice.len(),
+            )
         }
     }
 
-    fn chunks_mut(buffer: &mut [u8]) -> &mut [Row] {
+    fn rows_mut(buffer: &mut [u8]) -> &mut [MoveRawCornerOrientRow] {
         unsafe {
-            let slice: &mut [[u8; core::mem::size_of::<Row>()]] = buffer.as_chunks_unchecked_mut();
-            core::slice::from_raw_parts_mut(slice.as_ptr() as *mut Row, slice.len())
+            let slice: &mut [[u8; core::mem::size_of::<MoveRawCornerOrientRow>()]] =
+                buffer.as_chunks_unchecked_mut();
+            core::slice::from_raw_parts_mut(
+                slice.as_ptr() as *mut MoveRawCornerOrientRow,
+                slice.len(),
+            )
         }
     }
 
-    fn chunk(&self, coord: CornerOrientRawCoord) -> &Row {
-        &self.chunks()[coord.0 as usize]
+    pub fn row(&self, coord: CornerOrientRawCoord) -> &MoveRawCornerOrientRow {
+        &self.rows()[coord.0 as usize]
     }
 
     #[inline]
@@ -57,7 +66,7 @@ impl MoveRawCornerOrientTable {
         coord: CornerOrientRawCoord,
         mv: CubeMove,
     ) -> CornerOrientRawCoord {
-        CornerOrientRawCoord(self.chunk(coord).moves[mv.into_index()])
+        CornerOrientRawCoord(self.row(coord).moves[mv.into_index()])
     }
 
     #[inline]
@@ -69,7 +78,7 @@ impl MoveRawCornerOrientTable {
         if transform.0 == 0 {
             return coord;
         }
-        let row = self.chunk(coord).conjugations;
+        let row = self.row(coord).conjugations;
         let (a, b) = (transform.0 - 1).div_rem(&5);
         CornerOrientRawCoord(((row[a as usize] >> (b * 12)) & 0b0000_1111_1111_1111) as u16)
     }
@@ -85,7 +94,7 @@ impl MoveRawCornerOrientTable {
 
 impl MoveRawCornerOrientTable {
     fn generate(buffer: &mut [u8]) {
-        Self::chunks_mut(buffer)
+        Self::rows_mut(buffer)
             .into_par_iter()
             .enumerate()
             .for_each(|(i, row)| {
