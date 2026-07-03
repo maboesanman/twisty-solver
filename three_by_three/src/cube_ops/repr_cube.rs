@@ -233,7 +233,7 @@ impl Distribution<ReprCube> for StandardUniform {
             Permutation::<8>::const_lehmer_decode((corner_perm_high_bits | parity) as u16);
         cube.edge_orient = EdgeOrient::from_coord(EdgeOrientRawCoord(rng.random_range(0..2048)));
         cube.corner_orient =
-            CornerOrient::from_coord(CornerOrientRawCoord::new(rng.random_range(0..2048)));
+            CornerOrient::from_coord(CornerOrientRawCoord(rng.random_range(0..2048)));
 
         cube
     }

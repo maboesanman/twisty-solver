@@ -12,14 +12,14 @@ use crate::{
 };
 
 /// produce all solutions with phase 1 solutions of length N
-pub fn produce_solutions<'t, const N: usize, const Cap: usize>(
+pub fn produce_solutions<'t, const N: usize, const CAP: usize>(
     cube: ReprCube,
     current_best: u8,
     tables: &'t Tables,
     table_offsets: &'t TableOffsets,
 ) -> impl 't + Iterator<Item = Vec<CubeMove>> {
     let domino_reductions =
-        super::domino_reduction_iter::all_domino_reductions::<N, Cap>(cube, tables, table_offsets);
+        super::domino_reduction_iter::all_domino_reductions::<N, CAP>(cube, tables, table_offsets);
 
     domino_reductions
         .scan(
@@ -55,14 +55,14 @@ thread_local! {
 }
 
 /// produce all solutions with phase 1 solutions of length N in parallel
-pub fn produce_solutions_par<'a, const N: usize, const Cap: usize>(
+pub fn produce_solutions_par<'a, const N: usize, const CAP: usize>(
     cube: ReprCube,
     best: &'a AtomicU8,
     tables: &'a Tables,
     table_offsets: &'a TableOffsets,
     cancel: &'a AtomicBool,
 ) -> impl 'a + ParallelIterator<Item = Vec<CubeMove>> {
-    let domino_reductions = super::domino_reduction_iter::all_domino_reductions_par::<N, Cap>(
+    let domino_reductions = super::domino_reduction_iter::all_domino_reductions_par::<N, CAP>(
         cube,
         tables,
         table_offsets,
@@ -115,7 +115,7 @@ mod test {
         let tables = Tables::new("tables")?;
         let table_offsets = TableOffsets::new(&tables);
 
-        let solutions = produce_solutions::<10, {10 * 15 + 4}>(
+        let solutions = produce_solutions::<10, { 10 * 15 + 4 }>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             u8::MAX,
             &tables,
@@ -141,7 +141,7 @@ mod test {
         let best = AtomicU8::new(u8::MAX);
         let cancel = AtomicBool::new(false);
 
-        let solutions = produce_solutions_par::<10, {10 * 15 + 4}>(
+        let solutions = produce_solutions_par::<10, { 10 * 15 + 4 }>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &best,
             &tables,
