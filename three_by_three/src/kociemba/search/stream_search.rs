@@ -46,10 +46,12 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<1, {1 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<1, { 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets).for_each(
+        |solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 2 + 1 {
         return;
@@ -57,10 +59,12 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<2, {2 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<2, { 2 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets).for_each(
+        |solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 3 + 1 {
         return;
@@ -68,10 +72,12 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<3, {3 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<3, { 3 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets).for_each(
+        |solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 4 + 1 {
         return;
@@ -79,10 +85,12 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<4, {4 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<4, { 4 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets).for_each(
+        |solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 5 + 1 {
         return;
@@ -90,10 +98,12 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<5, {5 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<5, { 5 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets).for_each(
+        |solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 6 + 1 {
         return;
@@ -101,10 +111,12 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<6, {6 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<6, { 6 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets).for_each(
+        |solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 7 + 1 {
         return;
@@ -112,10 +124,12 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<7, {7 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<7, { 7 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets).for_each(
+        |solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 8 + 1 {
         return;
@@ -123,10 +137,12 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<8, {8 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<8, { 8 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets).for_each(
+        |solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 9 + 1 {
         return;
@@ -134,10 +150,12 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<9, {9 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<9, { 9 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets).for_each(
+        |solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 10 + 1 {
         return;
@@ -145,10 +163,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<10, {10 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<10, { 10 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 11 + 1 {
         return;
@@ -156,10 +175,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<11, {11 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<11, { 11 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 12 + 1 {
         return;
@@ -167,10 +187,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<12, {12 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<12, { 12 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 13 + 1 {
         return;
@@ -178,10 +199,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<13, {13 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<13, { 13 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 14 + 1 {
         return;
@@ -189,10 +211,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<14, {14 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<14, { 14 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 15 + 1 {
         return;
@@ -200,10 +223,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<15, {15 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<15, { 15 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 16 + 1 {
         return;
@@ -211,10 +235,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<16, {16 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<16, { 16 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 17 + 1 {
         return;
@@ -222,10 +247,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<17, {17 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<17, { 17 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 18 + 1 {
         return;
@@ -233,10 +259,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<18, {18 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<18, { 18 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 19 + 1 {
         return;
@@ -244,10 +271,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<19, {19 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<19, { 19 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 20 + 1 {
         return;
@@ -255,10 +283,11 @@ fn solver_thread_single(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions::<20, {20 * 15 + 4}>(cube, *best.get_mut(), tables, &table_offsets).for_each(|solution| {
-        *best.get_mut() = (solution.len() - 1) as u8;
-        let _ = send.send(solution);
-    });
+    produce_solutions::<20, { 20 * 15 + 4 }>(cube, *best.get_mut(), tables, &table_offsets)
+        .for_each(|solution| {
+            *best.get_mut() = (solution.len() - 1) as u8;
+            let _ = send.send(solution);
+        });
 }
 
 fn solver_thread_parallel(
@@ -283,9 +312,11 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<1, {1 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<1, { 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel).for_each(
+        |solution| {
+            let _ = send.send(solution);
+        },
+    );
 
     if *(best.get_mut()) <= 2 + 1 {
         return;
@@ -293,9 +324,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<2, {2 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<2, { 2 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 3 + 1 {
         return;
@@ -303,9 +335,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<3, {3 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<3, { 3 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 4 + 1 {
         return;
@@ -313,9 +346,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<4, {4 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<4, { 4 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 5 + 1 {
         return;
@@ -323,9 +357,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<5, {5 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<5, { 5 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 6 + 1 {
         return;
@@ -333,9 +368,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<6, {6 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<6, { 6 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 7 + 1 {
         return;
@@ -343,9 +379,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<7, {7 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<7, { 7 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 8 + 1 {
         return;
@@ -353,9 +390,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<8, {8 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<8, { 8 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 9 + 1 {
         return;
@@ -363,9 +401,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<9, {9 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(|solution| {
-        let _ = send.send(solution);
-    });
+    produce_solutions_par::<9, { 9 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
+            let _ = send.send(solution);
+        });
 
     if *(best.get_mut()) <= 10 + 1 {
         return;
@@ -373,11 +412,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<10, {10 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<10, { 10 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 
     if *(best.get_mut()) <= 11 + 1 {
         return;
@@ -385,11 +423,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<11, {11 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<11, { 11 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 
     if *(best.get_mut()) <= 12 + 1 {
         return;
@@ -397,11 +434,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<12, {12 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<12, { 12 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 
     if *(best.get_mut()) <= 13 + 1 {
         return;
@@ -409,11 +445,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<13, {13 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<13, { 13 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 
     if *(best.get_mut()) <= 14 + 1 {
         return;
@@ -421,11 +456,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<14, {14 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<14, { 14 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 
     if *(best.get_mut()) <= 15 + 1 {
         return;
@@ -433,11 +467,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<15, {15 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<15, { 15 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 
     if *(best.get_mut()) <= 16 + 1 {
         return;
@@ -445,11 +478,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<16, {16 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<16, { 16 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 
     if *(best.get_mut()) <= 17 + 1 {
         return;
@@ -457,11 +489,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<17, {17 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<17, { 17 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 
     if *(best.get_mut()) <= 18 + 1 {
         return;
@@ -469,11 +500,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<18, {18 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<18, { 18 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 
     if *(best.get_mut()) <= 19 + 1 {
         return;
@@ -481,11 +511,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<19, {19 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<19, { 19 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 
     if *(best.get_mut()) <= 20 + 1 {
         return;
@@ -493,11 +522,10 @@ fn solver_thread_parallel(
     if cancel.load(std::sync::atomic::Ordering::Acquire) {
         return;
     }
-    produce_solutions_par::<20, {20 * 15 + 4}>(cube, &best, tables, &table_offsets, &cancel).for_each(
-        |solution| {
+    produce_solutions_par::<20, { 20 * 15 + 4 }>(cube, &best, tables, &table_offsets, &cancel)
+        .for_each(|solution| {
             let _ = send.send(solution);
-        },
-    );
+        });
 }
 
 pub fn get_incremental_solutions_stream(
@@ -586,7 +614,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
     let domino_dist = phase_1.distance_heuristic(tables);
 
     match domino_dist {
-        0 => super::solve_with_fixed_len_phase_1::produce_solutions::<0, {0 * 15 + 4}>(
+        0 => super::solve_with_fixed_len_phase_1::produce_solutions::<0, 4>(
             cube,
             255,
             tables,
@@ -594,7 +622,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        1 => super::solve_with_fixed_len_phase_1::produce_solutions::<1, {1 * 15 + 4}>(
+        1 => super::solve_with_fixed_len_phase_1::produce_solutions::<1, { 15 + 4 }>(
             cube,
             255,
             tables,
@@ -602,7 +630,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        2 => super::solve_with_fixed_len_phase_1::produce_solutions::<2, {2 * 15 + 4}>(
+        2 => super::solve_with_fixed_len_phase_1::produce_solutions::<2, { 2 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -610,7 +638,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        3 => super::solve_with_fixed_len_phase_1::produce_solutions::<3, {3 * 15 + 4}>(
+        3 => super::solve_with_fixed_len_phase_1::produce_solutions::<3, { 3 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -618,7 +646,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        4 => super::solve_with_fixed_len_phase_1::produce_solutions::<4, {4 * 15 + 4}>(
+        4 => super::solve_with_fixed_len_phase_1::produce_solutions::<4, { 4 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -626,7 +654,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        5 => super::solve_with_fixed_len_phase_1::produce_solutions::<5, {5 * 15 + 4}>(
+        5 => super::solve_with_fixed_len_phase_1::produce_solutions::<5, { 5 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -634,7 +662,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        6 => super::solve_with_fixed_len_phase_1::produce_solutions::<6, {6 * 15 + 4}>(
+        6 => super::solve_with_fixed_len_phase_1::produce_solutions::<6, { 6 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -642,7 +670,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        7 => super::solve_with_fixed_len_phase_1::produce_solutions::<7, {7 * 15 + 4}>(
+        7 => super::solve_with_fixed_len_phase_1::produce_solutions::<7, { 7 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -650,7 +678,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        8 => super::solve_with_fixed_len_phase_1::produce_solutions::<8, {8 * 15 + 4}>(
+        8 => super::solve_with_fixed_len_phase_1::produce_solutions::<8, { 8 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -658,7 +686,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        9 => super::solve_with_fixed_len_phase_1::produce_solutions::<9, {9 * 15 + 4}>(
+        9 => super::solve_with_fixed_len_phase_1::produce_solutions::<9, { 9 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -666,7 +694,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        10 => super::solve_with_fixed_len_phase_1::produce_solutions::<10, {10 * 15 + 4}>(
+        10 => super::solve_with_fixed_len_phase_1::produce_solutions::<10, { 10 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -674,7 +702,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        11 => super::solve_with_fixed_len_phase_1::produce_solutions::<11, {11 * 15 + 4}>(
+        11 => super::solve_with_fixed_len_phase_1::produce_solutions::<11, { 11 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -682,7 +710,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         )
         .next()
         .unwrap(),
-        12 => super::solve_with_fixed_len_phase_1::produce_solutions::<12, {12 * 15 + 4}>(
+        12 => super::solve_with_fixed_len_phase_1::produce_solutions::<12, { 12 * 15 + 4 }>(
             cube,
             255,
             tables,
@@ -839,11 +867,17 @@ mod test {
         }
 
         let hist = &crate::kociemba::tables::prune_phase_1::GET_VALUE_HIST;
-        let total: u64 = hist.iter().map(|a| a.load(std::sync::atomic::Ordering::Relaxed)).sum();
+        let total: u64 = hist
+            .iter()
+            .map(|a| a.load(std::sync::atomic::Ordering::Relaxed))
+            .sum();
         println!("total: {total}");
         for (v, a) in hist.iter().enumerate() {
             let count = a.load(std::sync::atomic::Ordering::Relaxed);
-            println!("{v:2}: {count}  ({:.2}%)", 100.0 * count as f64 / total as f64);
+            println!(
+                "{v:2}: {count}  ({:.2}%)",
+                100.0 * count as f64 / total as f64
+            );
         }
 
         Ok(())

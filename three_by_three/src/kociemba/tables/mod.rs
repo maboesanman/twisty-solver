@@ -73,13 +73,12 @@ pub struct Tables {
 
 #[rustfmt::skip]
 mod unformatted {
-    use crate::kociemba::{coords::CoordIdentityPerm, tables::prune_phase_1::DenseSample};
+    use super::*;
 
-use super::*;
     impl AsRef<LookupSymCornerPermTable> for MovesPreTables { fn as_ref(&self) -> &LookupSymCornerPermTable { unsafe { LookupSymCornerPermTable::from_buffer(&self.lookup_sym_corner_perm) } } }
     impl AsRef<LookupSymEdgeGroupOrientTable> for MovesPreTables { fn as_ref(&self) -> &LookupSymEdgeGroupOrientTable { unsafe { LookupSymEdgeGroupOrientTable::from_buffer( &self.lookup_sym_edge_group_orient) } } }
-    impl AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>> for MovesPreTables { fn as_ref(&self) -> &MoveRawCornerOrientTable<CoordIdentityPerm> { unsafe { MoveRawCornerOrientTable::from_buffer( &self.move_raw_corner_orient) } } }
-    impl AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>> for MovesPreTables { fn as_ref(&self) -> &MoveSymEdgeGroupOrientTable<CoordIdentityPerm> { unsafe { MoveSymEdgeGroupOrientTable::from_buffer( &self.move_sym_edge_group_orient) } } }
+    impl AsRef<MoveRawCornerOrientTable> for MovesPreTables { fn as_ref(&self) -> &MoveRawCornerOrientTable { unsafe { MoveRawCornerOrientTable::from_buffer( &self.move_raw_corner_orient) } } }
+    impl AsRef<MoveSymEdgeGroupOrientTable> for MovesPreTables { fn as_ref(&self) -> &MoveSymEdgeGroupOrientTable { unsafe { MoveSymEdgeGroupOrientTable::from_buffer( &self.move_sym_edge_group_orient) } } }
     impl AsRef<MoveSymCornerPermTable> for MovesPreTables { fn as_ref(&self) -> &MoveSymCornerPermTable { unsafe { MoveSymCornerPermTable::from_buffer( &self.move_sym_corner_perm) } } }
     impl AsRef<MoveEdgePositionsTable> for MovesPreTables { fn as_ref(&self) -> &MoveEdgePositionsTable { unsafe { MoveEdgePositionsTable::from_buffer( &self.move_edge_position) } } }
     impl AsRef<MoveRawEEdgePermTable> for MovesPreTables { fn as_ref(&self) -> &MoveRawEEdgePermTable { unsafe { MoveRawEEdgePermTable::from_buffer( &self.move_raw_e_edge_perm) } } }
@@ -87,25 +86,25 @@ use super::*;
 
     impl AsRef<LookupSymEdgeGroupOrientTable> for PrunePreTables { fn as_ref(&self) -> &LookupSymEdgeGroupOrientTable { self.moves_pre_table.as_ref() } }
     impl AsRef<LookupSymCornerPermTable> for PrunePreTables { fn as_ref(&self) -> &LookupSymCornerPermTable { self.moves_pre_table.as_ref() } }
-    impl AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>> for PrunePreTables { fn as_ref(&self) -> &MoveRawCornerOrientTable<CoordIdentityPerm> { self.moves_pre_table.as_ref() } }
-    impl AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>> for PrunePreTables { fn as_ref(&self) -> &MoveSymEdgeGroupOrientTable<CoordIdentityPerm> { self.moves_pre_table.as_ref() } }
+    impl AsRef<MoveRawCornerOrientTable> for PrunePreTables { fn as_ref(&self) -> &MoveRawCornerOrientTable { self.moves_pre_table.as_ref() } }
+    impl AsRef<MoveSymEdgeGroupOrientTable> for PrunePreTables { fn as_ref(&self) -> &MoveSymEdgeGroupOrientTable { self.moves_pre_table.as_ref() } }
     impl AsRef<MoveSymCornerPermTable> for PrunePreTables { fn as_ref(&self) -> &MoveSymCornerPermTable { self.moves_pre_table.as_ref() } }
     impl AsRef<MoveEdgePositionsTable> for PrunePreTables { fn as_ref(&self) -> &MoveEdgePositionsTable { self.moves_pre_table.as_ref() } }
     impl AsRef<MoveRawEEdgePermTable> for PrunePreTables { fn as_ref(&self) -> &MoveRawEEdgePermTable { self.moves_pre_table.as_ref() } }
     impl AsRef<MoveRawUDEdgePermTable> for PrunePreTables { fn as_ref(&self) -> &MoveRawUDEdgePermTable { self.moves_pre_table.as_ref() } }
-    impl AsRef<PrunePhase1Table<CoordIdentityPerm, CoordIdentityPerm, DenseSample>> for PrunePreTables { fn as_ref(&self) -> &PrunePhase1Table<CoordIdentityPerm, CoordIdentityPerm, DenseSample> { unsafe { PrunePhase1Table::from_buffer( &self.prune_phase_1) } } }
+    impl AsRef<PrunePhase1Table> for PrunePreTables { fn as_ref(&self) -> &PrunePhase1Table { unsafe { PrunePhase1Table::from_buffer( &self.prune_phase_1) } } }
     impl AsRef<PrunePhase2Table> for PrunePreTables { fn as_ref(&self) -> &PrunePhase2Table { unsafe { PrunePhase2Table::from_buffer( &self.prune_phase_2) } } }
     impl AsRef<PrunePhase2CornerSymTable> for PrunePreTables { fn as_ref(&self) -> &PrunePhase2CornerSymTable { unsafe { PrunePhase2CornerSymTable::from_buffer( &self.prune_phase_2_corner_sym) } } }
 
     impl AsRef<LookupSymEdgeGroupOrientTable> for Tables { fn as_ref(&self) -> &LookupSymEdgeGroupOrientTable { self.prune_pre_tables.as_ref() } }
     impl AsRef<LookupSymCornerPermTable> for Tables { fn as_ref(&self) -> &LookupSymCornerPermTable { self.prune_pre_tables.as_ref() } }
-    impl AsRef<MoveRawCornerOrientTable<CoordIdentityPerm>> for Tables { fn as_ref(&self) -> &MoveRawCornerOrientTable<CoordIdentityPerm> { self.prune_pre_tables.as_ref() } }
-    impl AsRef<MoveSymEdgeGroupOrientTable<CoordIdentityPerm>> for Tables { fn as_ref(&self) -> &MoveSymEdgeGroupOrientTable<CoordIdentityPerm> { self.prune_pre_tables.as_ref() } }
+    impl AsRef<MoveRawCornerOrientTable> for Tables { fn as_ref(&self) -> &MoveRawCornerOrientTable { self.prune_pre_tables.as_ref() } }
+    impl AsRef<MoveSymEdgeGroupOrientTable> for Tables { fn as_ref(&self) -> &MoveSymEdgeGroupOrientTable { self.prune_pre_tables.as_ref() } }
     impl AsRef<MoveSymCornerPermTable> for Tables { fn as_ref(&self) -> &MoveSymCornerPermTable { self.prune_pre_tables.as_ref() } }
     impl AsRef<MoveEdgePositionsTable> for Tables { fn as_ref(&self) -> &MoveEdgePositionsTable { self.prune_pre_tables.as_ref() } }
     impl AsRef<MoveRawEEdgePermTable> for Tables { fn as_ref(&self) -> &MoveRawEEdgePermTable { self.prune_pre_tables.as_ref() } }
     impl AsRef<MoveRawUDEdgePermTable> for Tables { fn as_ref(&self) -> &MoveRawUDEdgePermTable { self.prune_pre_tables.as_ref() } }
-    impl AsRef<PrunePhase1Table<CoordIdentityPerm, CoordIdentityPerm, DenseSample>> for Tables { fn as_ref(&self) -> &PrunePhase1Table<CoordIdentityPerm, CoordIdentityPerm, DenseSample> { self.prune_pre_tables.as_ref() } }
+    impl AsRef<PrunePhase1Table> for Tables { fn as_ref(&self) -> &PrunePhase1Table { self.prune_pre_tables.as_ref() } }
     impl AsRef<PrunePhase2Table> for Tables { fn as_ref(&self) -> &PrunePhase2Table { self.prune_pre_tables.as_ref() } }
     impl AsRef<PrunePhase2CornerSymTable> for Tables { fn as_ref(&self) -> &PrunePhase2CornerSymTable { self.prune_pre_tables.as_ref() } }
 }

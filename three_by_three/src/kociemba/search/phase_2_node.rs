@@ -28,7 +28,7 @@ pub struct Phase2Node {
 }
 
 impl Phase2Node {
-    pub fn from_phase_1_node<EgoP, CoP>(node: Phase1Node<EgoP, CoP>) -> Self {
+    pub fn from_phase_1_node(node: Phase1Node) -> Self {
         let Phase1Node {
             corner_perm_combo,
             u_edge_positions,
