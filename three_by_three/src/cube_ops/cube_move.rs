@@ -128,6 +128,7 @@ impl CubeMove {
                 CubePreviousAxis::B | CubePreviousAxis::FB => &[R1, R3, L1, L3],
                 CubePreviousAxis::R => &[F1, F3, B1, B3, L1, L3],
                 CubePreviousAxis::L | CubePreviousAxis::RL => &[F1, F3, B1, B3],
+                CubePreviousAxis::NoneAlt => &[]
             }
         } else {
             match prev_axis {
@@ -152,6 +153,7 @@ impl CubeMove {
                 CubePreviousAxis::None => &[
                     U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3,
                 ],
+                CubePreviousAxis::NoneAlt => &[]
             }
         };
 
@@ -186,10 +188,13 @@ impl CubeMove {
                 &[U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, U1, U1, U1],
                 12,
             ),
-            // if it's None, you have to run U as well. this is an augmented value.
             CubePreviousAxis::None => (
-                &[U1, U2, U3, U1, U1, U1, U1, U1, U1, U1, U1, U1, U1, U1, U1],
-                3,
+                &[U1, U2, U3, D1, D2, D3, F1, F2, F3, U1, U1, U1, U1, U1, U1],
+                9,
+            ),
+            CubePreviousAxis::NoneAlt => (
+                &[B1, B2, B3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1, U1, U1],
+                9,
             ),
         }
     }
@@ -381,6 +386,7 @@ impl DominoMove {
             CubePreviousAxis::R => &[U1, U2, U3, D1, D2, D3, F2, B2, L2],
             CubePreviousAxis::L | CubePreviousAxis::RL => &[U1, U2, U3, D1, D2, D3, F2, B2],
             CubePreviousAxis::None => &[U1, U2, U3, D1, D2, D3, F2, B2, R2, L2],
+            CubePreviousAxis::NoneAlt => &[],
         };
 
         slice.iter().copied()

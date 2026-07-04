@@ -16,6 +16,7 @@ pub enum CubePreviousAxis {
     L,
     RL,
     None,
+    NoneAlt,
 }
 
 impl CubePreviousAxis {
@@ -88,7 +89,7 @@ impl CubePreviousAxis {
                     CubePreviousAxis::R => (CubeMove::R1, false),
                     CubePreviousAxis::L => (CubeMove::L1, false),
                     CubePreviousAxis::RL => (CubeMove::R1, true),
-                    CubePreviousAxis::None => unreachable!(),
+                    CubePreviousAxis::None | CubePreviousAxis::NoneAlt => unreachable!(),
                 };
 
                 let mv = mv.domino_conjugate(sym);
