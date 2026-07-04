@@ -199,15 +199,18 @@ impl Phase1Node {
     pub fn produce_next_nodes(
         slice: &mut [Self; 16],
         moves_remaining: NonZeroU8,
-        tables: &(
-             impl AsRef<MoveEdgePositionsTable>
-             + AsRef<MoveRawCornerOrientTable>
-             + AsRef<MoveSymCornerPermTable>
-             + AsRef<MoveSymEdgeGroupOrientTable>
-             + AsRef<PrunePhase1Table>
-         ),
+        // tables: &(
+        //      impl AsRef<MoveEdgePositionsTable>
+        //      + AsRef<MoveRawCornerOrientTable>
+        //      + AsRef<MoveSymCornerPermTable>
+        //      + AsRef<MoveSymEdgeGroupOrientTable>
+        //      + AsRef<PrunePhase1Table>
+        //  ),
+        tables: &Tables
     ) -> usize {
         let start_node = slice[0];
+        #[cfg(debug_assertions)]
+        let repr_cube = start_node.into_cube(tables);
 
         let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
         let cp_mv_tbl: &MoveSymCornerPermTable = tables.as_ref();
@@ -241,7 +244,7 @@ impl Phase1Node {
         let cp_move_offsets = unaltered_move_offsets
             .map(|mv| LOOKUP[(((mv as u8) << 4) | (start_node.corner_perm_correct.0)) as usize]);
 
-        for i in 0..15 {
+        for i in 0..num_moves {
             let ego_i = ego_move_offsets[i] as u8 as usize;
             let new_ego_coord = EdgeGroupOrientSymCoord(ego_row.coords[ego_i]);
             let new_ego_correction = DominoSymmetry(ego_row.conjugations[ego_i]);
@@ -249,6 +252,7 @@ impl Phase1Node {
             let cp_i = cp_move_offsets[i] as u8 as usize;
             let new_cp_coord = CornerPermSymCoord(cp_row.coords[cp_i]);
             let new_cp_correction = DominoSymmetry(cp_row.conjugations[cp_i]);
+            // println!("CORRECTIONS: ego-{:x}, cp-{:x}", new_ego_correction.0, new_cp_correction.0);
 
             let un_i = unaltered_move_offsets[i] as u8 as usize;
             let new_co_coord = CornerOrientRawCoord(co_row.moves[un_i]);
@@ -260,11 +264,13 @@ impl Phase1Node {
                 .previous_axis
                 .update_with_new_move(unaltered_move_offsets[i], moves_remaining.get() - 1);
 
+            let mv: CubeMove = unsafe { core::mem::transmute(unaltered_move_offsets[i] as u8) };
+            
             slice[i + 1] = Phase1Node {
                 edge_group_orient_sym: new_ego_coord,
                 edge_group_orient_correct: start_node
-                    .edge_group_orient_correct
-                    .then(new_ego_correction),
+                .edge_group_orient_correct
+                .then(new_ego_correction),
                 corner_perm_correct: start_node.corner_perm_correct.then(new_cp_correction),
                 corner_perm_raw: new_cp_coord,
                 corner_orient_raw: new_co_coord,
@@ -273,6 +279,15 @@ impl Phase1Node {
                 e_edge_positions: new_e_coord,
                 previous_axis: new_previous_axis,
             };
+            
+            #[cfg(debug_assertions)]
+            {
+                let x = repr_cube.apply_cube_move(mv);
+                let y =  slice[i + 1].into_cube(tables);
+                assert_eq!(x, y);
+            }
+
+            println!("    mv {}: {}", un_i, slice[i + 1].distance_heuristic(tables));
         }
 
         num_moves

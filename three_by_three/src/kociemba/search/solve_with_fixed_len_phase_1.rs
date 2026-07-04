@@ -15,19 +15,19 @@ pub fn produce_solutions<'t, const N: usize, const CAP: usize>(
     cube: ReprCube,
     current_best: u8,
     tables: &'t Tables,
+    axes: &[u8]
 ) -> impl 't + Iterator<Item = Vec<CubeMove>> {
     let domino_reductions =
-        super::domino_reduction_iter::all_domino_reductions::<N, CAP>(cube, tables);
+        super::domino_reduction_iter::all_domino_reductions::<N, CAP>(cube, tables, axes);
 
     domino_reductions
         .scan(
             current_best,
-            |current_best, (phase_1, phase_2_start_a, phase_2_start_b)| {
+            |current_best, (phase_1, phase_2_start)| {
                 let phase_2_max = *current_best - N as u8;
 
                 let Some(phase_2) = solve_domino_pair(
-                    phase_2_start_a,
-                    phase_2_start_b,
+                    phase_2_start,
                     tables,
                     phase_2_max,
                     || Some(*current_best - N as u8),
@@ -58,18 +58,18 @@ pub fn produce_solutions_par<'a, const N: usize, const CAP: usize>(
     best: &'a AtomicU8,
     tables: &'a Tables,
     cancel: &'a AtomicBool,
+    axes: &[u8]
 ) -> impl 'a + ParallelIterator<Item = Vec<CubeMove>> {
     let domino_reductions =
-        super::domino_reduction_iter::all_domino_reductions_par::<N, CAP>(cube, tables, cancel);
+        super::domino_reduction_iter::all_domino_reductions_par::<N, CAP>(cube, tables, cancel, axes);
 
     domino_reductions
-        .filter_map(|(phase_1, phase_2_start_a, phase_2_start_b)| {
+        .filter_map(|(phase_1, phase_2_start)| {
             let local_best = THREAD_LOCAL_BEST.with(|tl| tl.get());
             let local_phase_2_max = local_best.checked_sub(N as u8)?;
 
             let phase_2 = solve_domino_pair(
-                phase_2_start_a,
-                phase_2_start_b,
+                phase_2_start,
                 tables,
                 local_phase_2_max,
                 || {
@@ -111,6 +111,7 @@ mod test {
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             u8::MAX,
             &tables,
+            &[0]
         );
 
         for solution in solutions {
@@ -136,6 +137,7 @@ mod test {
             &best,
             &tables,
             &cancel,
+            &[0]
         );
 
         let block = Mutex::new(());

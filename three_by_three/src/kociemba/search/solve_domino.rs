@@ -30,25 +30,24 @@ pub fn solve_domino(
 /// move of a domino reduction is always F/F'/B/B'/R/R'/L/L', and each solution cancels with
 /// F2/B2/R2/L2 respectively.
 pub fn solve_domino_pair(
-    phase_2_start_a: Phase2Node,
-    phase_2_start_b: Phase2Node,
+    phase_2_start: Phase2Node,
     tables: &Tables,
     weak_max_moves: u8,
     strong_max_moves: impl FnOnce() -> Option<u8>,
 ) -> Option<ArrayVec<Phase2Node, 20>> {
-    let phase_2_a_weak_dist = phase_2_start_a.weak_distance_heuristic(tables);
+    let phase_2_weak_dist = phase_2_start.weak_distance_heuristic(tables);
 
-    if phase_2_a_weak_dist + 1 > weak_max_moves {
+    if phase_2_weak_dist + 1 > weak_max_moves {
         return None;
     }
     let max_moves = strong_max_moves()?;
 
-    if phase_2_a_weak_dist + 1 > max_moves {
+    if phase_2_weak_dist + 1 > max_moves {
         return None;
     }
 
-    let solution_a = idastar_limited(
-        phase_2_start_a,
+    let solution = idastar_limited(
+        phase_2_start,
         |&cube| cube.produce_next_nodes(tables).map(|c| (c, 1)),
         |&cube| cube.distance_heuristic(tables),
         |&cube| cube.is_solved(),
@@ -56,25 +55,5 @@ pub fn solve_domino_pair(
     )
     .map(|(solution, _len)| solution);
 
-    let solution_b = idastar_limited(
-        phase_2_start_b,
-        |&cube| cube.produce_next_nodes(tables).map(|c| (c, 1)),
-        |&cube| cube.distance_heuristic(tables),
-        |&cube| cube.is_solved(),
-        max_moves,
-    )
-    .map(|(solution, _len)| solution);
-
-    match (solution_a, solution_b) {
-        (None, None) => None,
-        (None, Some(sol)) => Some(sol),
-        (Some(sol), None) => Some(sol),
-        (Some(sol_a), Some(sol_b)) => {
-            if sol_a.len() < sol_b.len() {
-                Some(sol_a)
-            } else {
-                Some(sol_b)
-            }
-        }
-    }
+    solution
 }
