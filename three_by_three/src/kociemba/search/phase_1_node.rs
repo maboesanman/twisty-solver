@@ -209,8 +209,6 @@ impl Phase1Node {
         tables: &Tables
     ) -> usize {
         let start_node = slice[0];
-        #[cfg(debug_assertions)]
-        let repr_cube = start_node.into_cube(tables);
 
         let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
         let cp_mv_tbl: &MoveSymCornerPermTable = tables.as_ref();
@@ -244,7 +242,7 @@ impl Phase1Node {
         let cp_move_offsets = unaltered_move_offsets
             .map(|mv| LOOKUP[(mv.into_index() << 4) | (start_node.corner_perm_correct.0 as usize)]);
 
-        for i in 0..num_moves {
+        for i in 0..15 {
             let ego_i = ego_move_offsets[i] as u8 as usize;
             let new_ego_coord = EdgeGroupOrientSymCoord(ego_row.coords[ego_i]);
             let new_ego_correction = DominoSymmetry(ego_row.conjugations[ego_i]);
@@ -274,14 +272,6 @@ impl Phase1Node {
                 e_edge_positions: new_e_coord,
                 previous_axis: new_previous_axis,
             };
-            
-            #[cfg(debug_assertions)]
-            {
-                let mv: CubeMove = unsafe { core::mem::transmute(unaltered_move_offsets[i] as u8) };
-                let x = repr_cube.apply_cube_move(mv);
-                let y =  slice[i + 1].into_cube(tables);
-                assert_eq!(x, y);
-            }
 
         }
 

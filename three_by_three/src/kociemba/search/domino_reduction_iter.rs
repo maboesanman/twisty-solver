@@ -427,7 +427,7 @@ mod test {
     fn domino_reduce_empty() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
         let cube = cube![R U Rp Up];
-        let stack = all_domino_reductions::<0, { 0 * 15 + 4 }>(cube, &tables, &[0]).collect_vec();
+        let stack = all_domino_reductions::<0, { 0 * 15 + 4 }>(cube, &tables, &[0, 1, 2]).collect_vec();
 
         println!("{stack:#?}");
 
@@ -448,19 +448,19 @@ mod test {
 
             move_resolver_multi_dimension_domino(cube, cubes)
         };
-        let stack = all_domino_reductions::<2, { 2 * 15 + 4 }>(cube, &tables, &[0]);
+        let stack = all_domino_reductions::<2, { 2 * 15 + 4 }>(cube, &tables, &[0, 1, 2]);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions::<3, { 3 * 15 + 4 }>(cube, &tables, &[0]);
+        let stack = all_domino_reductions::<3, { 3 * 15 + 4 }>(cube, &tables, &[0, 1, 2]);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions::<4, { 4 * 15 + 4 }>(cube, &tables, &[0]);
+        let stack = all_domino_reductions::<4, { 4 * 15 + 4 }>(cube, &tables, &[0, 1, 2]);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions::<5, { 5 * 15 + 4 }>(cube, &tables, &[0]);
+        let stack = all_domino_reductions::<5, { 5 * 15 + 4 }>(cube, &tables, &[0, 1, 2]);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
@@ -475,7 +475,7 @@ mod test {
         let stack = all_domino_reductions::<11, { 11 * 15 + 4 }>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
-            &[0]
+            &[0, 1, 2]
         );
 
         println!("{:?}", stack.count());
@@ -493,7 +493,7 @@ mod test {
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
             &cancel,
-            &[0]
+            &[0, 1, 2]
         );
 
         println!("{:?}", stack.count());
@@ -512,55 +512,55 @@ mod test {
 
         println!(
             "0: {}",
-            all_domino_reductions_par::<0, { 0 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<0, { 0 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "1: {}",
-            all_domino_reductions_par::<1, { 1 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<1, { 1 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "2: {}",
-            all_domino_reductions_par::<2, { 2 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<2, { 2 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "3: {}",
-            all_domino_reductions_par::<3, { 3 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<3, { 3 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "4: {}",
-            all_domino_reductions_par::<4, { 4 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<4, { 4 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "5: {}",
-            all_domino_reductions_par::<5, { 5 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<5, { 5 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "6: {}",
-            all_domino_reductions_par::<6, { 6 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<6, { 6 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "7: {}",
-            all_domino_reductions_par::<7, { 7 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<7, { 7 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "8: {}",
-            all_domino_reductions_par::<8, { 8 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<8, { 8 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "9: {}",
-            all_domino_reductions_par::<9, { 9 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<9, { 9 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "10: {}",
-            all_domino_reductions_par::<10, { 10 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<10, { 10 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "11: {}",
-            all_domino_reductions_par::<11, { 11 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<11, { 11 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
         println!(
             "12: {}",
-            all_domino_reductions_par::<12, { 12 * 15 + 4 }>(cube, &tables, &cancel, &[0]).count()
+            all_domino_reductions_par::<12, { 12 * 15 + 4 }>(cube, &tables, &cancel, &[0, 1, 2]).count()
         );
 
         Ok(())

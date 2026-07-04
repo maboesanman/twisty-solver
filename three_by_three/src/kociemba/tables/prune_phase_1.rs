@@ -290,10 +290,6 @@ pub struct PrunePhase1Table {
     buffer: [u8],
 }
 
-#[cfg(test)]
-pub static GET_VALUE_HIST: [std::sync::atomic::AtomicU64; 14] =
-    [const { std::sync::atomic::AtomicU64::new(0) }; 14];
-
 impl PrunePhase1Table {
     #[inline(always)]
     pub fn get_value(
@@ -307,10 +303,6 @@ impl PrunePhase1Table {
         let byte = self.buffer[i >> 1];
         let shift = (i & 1) << 2;
         let val = (byte >> shift) & 0b1111;
-
-        #[cfg(test)]
-        GET_VALUE_HIST[val as usize].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
         val
     }
 }

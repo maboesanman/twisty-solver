@@ -107,7 +107,7 @@ mod test {
     fn solve_combined_test_superflip_magic_s() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
 
-        let solutions = produce_solutions::<10, { 10 * 15 + 4 }>(
+        let solutions = produce_solutions::<11, { 11 * 15 + 4 }>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             u8::MAX,
             &tables,
