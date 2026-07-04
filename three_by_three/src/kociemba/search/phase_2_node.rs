@@ -37,21 +37,13 @@ impl Phase2Node {
             corner_perm_correct,
             corner_perm_raw,
 
-            // phase 1 stuff we know is solved
-            edge_group_orient_sym,
-            edge_group_orient_correct,
-            corner_orient_raw,
+            ..
         } = node;
-
-        println!("ego: {}, co: {}", edge_group_orient_sym.0, corner_orient_raw.0);
-        println!("u: {} d: {} e: {}", u_edge_positions.0.0, d_edge_positions.0.0, e_edge_positions.0.0);
 
         let corner_perm_combo = CornerPermComboCoord {
             sym_coord: corner_perm_raw,
             domino_conjugation: corner_perm_correct,
         };
-
-        println!("cp: {}, cp_sym: {}", corner_perm_combo.sym_coord.0, corner_perm_combo.domino_conjugation.0);
 
         Self {
             corner_perm_combo,
