@@ -418,7 +418,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         0 => super::solve_with_fixed_len_phase_1::produce_solutions::<0>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -427,7 +427,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         1 => super::solve_with_fixed_len_phase_1::produce_solutions::<1>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -436,7 +436,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         2 => super::solve_with_fixed_len_phase_1::produce_solutions::<2>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -445,7 +445,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         3 => super::solve_with_fixed_len_phase_1::produce_solutions::<3>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -454,7 +454,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         4 => super::solve_with_fixed_len_phase_1::produce_solutions::<4>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -463,7 +463,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         5 => super::solve_with_fixed_len_phase_1::produce_solutions::<5>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -472,7 +472,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         6 => super::solve_with_fixed_len_phase_1::produce_solutions::<6>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -481,7 +481,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         7 => super::solve_with_fixed_len_phase_1::produce_solutions::<7>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -490,7 +490,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         8 => super::solve_with_fixed_len_phase_1::produce_solutions::<8>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -499,7 +499,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         9 => super::solve_with_fixed_len_phase_1::produce_solutions::<9>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -508,7 +508,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         10 => super::solve_with_fixed_len_phase_1::produce_solutions::<10>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -517,7 +517,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         11 => super::solve_with_fixed_len_phase_1::produce_solutions::<11>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
@@ -526,7 +526,7 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
         12 => super::solve_with_fixed_len_phase_1::produce_solutions::<12>(
             cube,
             &mut 255,
-            255,
+            0,
             tables,
             &[0],
         )
