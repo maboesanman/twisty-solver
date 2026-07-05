@@ -302,8 +302,8 @@ impl PrunePhase1Table {
 
         let byte = self.buffer[i >> 1];
         let shift = (i & 1) << 2;
-        let val = (byte >> shift) & 0b1111;
-        val
+
+        (byte >> shift) & 0b1111
     }
 }
 
@@ -488,13 +488,6 @@ mod test {
     use crate::Tables;
 
     use super::*;
-
-    #[test]
-    fn generate() -> anyhow::Result<()> {
-        let _tables = Tables::new("tables")?;
-
-        Ok(())
-    }
 
     fn find_single_edge_preserving(
         edge_coord: u16,

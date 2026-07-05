@@ -31,7 +31,7 @@ impl MoveSymCornerPermTable {
         self.0.as_ptr() as *const u16
     }
 
-    fn rows(&self) -> &[MoveSymCornerPermRow] {
+    pub(crate) fn rows(&self) -> &[MoveSymCornerPermRow] {
         unsafe {
             let slice: &[[u8; core::mem::size_of::<MoveSymCornerPermRow>()]] =
                 self.0.as_chunks_unchecked();

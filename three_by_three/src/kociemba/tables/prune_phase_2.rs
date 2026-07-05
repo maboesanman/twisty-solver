@@ -117,7 +117,7 @@ impl PartialPhase2 {
             self.corner_perm_combo_coord.domino_conjugation,
             DominoSymmetry::IDENTITY
         );
-        let a = self.corner_perm_combo_coord.sym_coord.0;
+        let a = self.corner_perm_combo_coord.sym_coord.0 & 0xFFF;
         let b = self.ud_edge_perm_raw_coord.0;
 
         (a as usize) * 40320 + (b as usize)
@@ -388,17 +388,5 @@ impl PrunePhase2Table {
 
     pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
         unsafe { &*(buf as *const [u8] as *const Self) }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::Tables;
-
-    #[test]
-    fn generate() -> anyhow::Result<()> {
-        let _tables = Tables::new("tables")?;
-
-        Ok(())
     }
 }

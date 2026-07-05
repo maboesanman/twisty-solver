@@ -21,7 +21,7 @@ use crate::{
             lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable,
             move_edge_positions::MoveEdgePositionsTable,
             move_raw_corner_orient::MoveRawCornerOrientTable,
-            move_sym_corner_perm::MoveSymCornerPermTable,
+            move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable,
             move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable,
             prune_phase_1::PrunePhase1Table,
         },
@@ -206,12 +206,12 @@ impl Phase1Node {
         //      + AsRef<MoveSymEdgeGroupOrientTable>
         //      + AsRef<PrunePhase1Table>
         //  ),
-        tables: &Tables
+        tables: &Tables,
     ) -> usize {
         let start_node = slice[0];
 
         let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
-        let cp_mv_tbl: &MoveSymCornerPermTable = tables.as_ref();
+        let cp_mv_tbl: &MoveSymCornerPermAugmentedTable = tables.as_ref();
         let co_mv_tbl: &MoveRawCornerOrientTable = tables.as_ref();
         let ep_mv_tbl: &MoveEdgePositionsTable = tables.as_ref();
 
@@ -263,7 +263,9 @@ impl Phase1Node {
 
             slice[i + 1] = Phase1Node {
                 edge_group_orient_sym: new_ego_coord,
-                edge_group_orient_correct: start_node.edge_group_orient_correct.then(new_ego_correction),
+                edge_group_orient_correct: start_node
+                    .edge_group_orient_correct
+                    .then(new_ego_correction),
                 corner_perm_correct: start_node.corner_perm_correct.then(new_cp_correction),
                 corner_perm_raw: new_cp_coord,
                 corner_orient_raw: new_co_coord,
@@ -272,7 +274,6 @@ impl Phase1Node {
                 e_edge_positions: new_e_coord,
                 previous_axis: new_previous_axis,
             };
-
         }
 
         num_moves

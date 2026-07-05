@@ -1,7 +1,4 @@
-use std::{
-    num::NonZeroU8,
-    sync::atomic::AtomicBool,
-};
+use std::{num::NonZeroU8, sync::atomic::AtomicBool};
 
 use itertools::Itertools;
 use rayon::iter::{
@@ -24,7 +21,7 @@ pub fn all_domino_reductions<'t, const N: usize>(
     cube: ReprCube,
     tables: &'t Tables,
     axes: &'_ [u8],
-) -> impl 't + Iterator<Item = ([Phase1Node; N], Phase2Node)> {
+) -> impl 't + Iterator<Item = ([Phase1Node; N], Phase2Node, u8)> {
     Stack::<_, _>::new(cube, tables, (), axes)
         .into_iter()
         .flatten()
@@ -49,105 +46,26 @@ pub fn any_domino_reductions(
 ) -> u8 {
     match n {
         0 => any_domino_reductions_const::<0>(edge_group_orient_sym, corner_orient_raw, tables),
-        1 => any_domino_reductions_const::<1>(edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        2 => any_domino_reductions_const::<2>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        3 => any_domino_reductions_const::<3>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        4 => any_domino_reductions_const::<4>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        5 => any_domino_reductions_const::<5>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        6 => any_domino_reductions_const::<6>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        7 => any_domino_reductions_const::<7>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        8 => any_domino_reductions_const::<8>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        9 => any_domino_reductions_const::<9>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        10 => any_domino_reductions_const::<10>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        11 => any_domino_reductions_const::<11>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        12 => any_domino_reductions_const::<12>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        13 => any_domino_reductions_const::<13>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        14 => any_domino_reductions_const::<14>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        15 => any_domino_reductions_const::<15>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        16 => any_domino_reductions_const::<16>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        17 => any_domino_reductions_const::<17>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        18 => any_domino_reductions_const::<18>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        19 => any_domino_reductions_const::<19>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
-        20 => any_domino_reductions_const::<20>(
-            edge_group_orient_sym,
-            corner_orient_raw,
-            tables,
-        ),
+        1 => any_domino_reductions_const::<1>(edge_group_orient_sym, corner_orient_raw, tables),
+        2 => any_domino_reductions_const::<2>(edge_group_orient_sym, corner_orient_raw, tables),
+        3 => any_domino_reductions_const::<3>(edge_group_orient_sym, corner_orient_raw, tables),
+        4 => any_domino_reductions_const::<4>(edge_group_orient_sym, corner_orient_raw, tables),
+        5 => any_domino_reductions_const::<5>(edge_group_orient_sym, corner_orient_raw, tables),
+        6 => any_domino_reductions_const::<6>(edge_group_orient_sym, corner_orient_raw, tables),
+        7 => any_domino_reductions_const::<7>(edge_group_orient_sym, corner_orient_raw, tables),
+        8 => any_domino_reductions_const::<8>(edge_group_orient_sym, corner_orient_raw, tables),
+        9 => any_domino_reductions_const::<9>(edge_group_orient_sym, corner_orient_raw, tables),
+        10 => any_domino_reductions_const::<10>(edge_group_orient_sym, corner_orient_raw, tables),
+        11 => any_domino_reductions_const::<11>(edge_group_orient_sym, corner_orient_raw, tables),
+        12 => any_domino_reductions_const::<12>(edge_group_orient_sym, corner_orient_raw, tables),
+        13 => any_domino_reductions_const::<13>(edge_group_orient_sym, corner_orient_raw, tables),
+        14 => any_domino_reductions_const::<14>(edge_group_orient_sym, corner_orient_raw, tables),
+        15 => any_domino_reductions_const::<15>(edge_group_orient_sym, corner_orient_raw, tables),
+        16 => any_domino_reductions_const::<16>(edge_group_orient_sym, corner_orient_raw, tables),
+        17 => any_domino_reductions_const::<17>(edge_group_orient_sym, corner_orient_raw, tables),
+        18 => any_domino_reductions_const::<18>(edge_group_orient_sym, corner_orient_raw, tables),
+        19 => any_domino_reductions_const::<19>(edge_group_orient_sym, corner_orient_raw, tables),
+        20 => any_domino_reductions_const::<20>(edge_group_orient_sym, corner_orient_raw, tables),
         _ => unreachable!(),
     }
 }
@@ -157,8 +75,9 @@ pub fn any_domino_reductions(
 pub fn all_domino_reductions_par<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
-    cancel: &'a AtomicBool, axes: &[u8]
-) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node)> {
+    cancel: &'a AtomicBool,
+    axes: &[u8],
+) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node, u8)> {
     Stack::<'a, N, &'a AtomicBool>::new(cube, tables, cancel, axes)
         .into_par_iter()
         .flatten()
@@ -188,24 +107,36 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     pub fn new(cube: ReprCube, tables: &'t Tables, cancel: C, axes: &[u8]) -> Vec<Self> {
         assert!(axes.iter().all_unique() & axes.iter().all(|a| *a < 3));
 
-        let nodes = axes.into_iter().map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
+        let nodes = axes
+            .iter()
+            .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
 
         if N == 0 {
-            nodes.filter(|n| n.is_domino_reduced()).map(|start| {
-                Self::new_inner([start], tables, cancel.clone())
-            }).collect_vec()
+            nodes
+                .filter(|n| n.is_domino_reduced())
+                .map(|start| Self::new_inner([start], tables, cancel.clone()))
+                .collect_vec()
         } else {
-            nodes.flat_map(|n| {
-                let mut o = n;
-                o.previous_axis = CubePreviousAxis::NoneAlt;
-                [Self::new_inner([n], tables, cancel.clone()), Self::new_inner([o], tables, cancel.clone())]
-            }).collect_vec()
+            nodes
+                .flat_map(|n| {
+                    let mut o = n;
+                    o.previous_axis = CubePreviousAxis::NoneAlt;
+                    [
+                        Self::new_inner([n], tables, cancel.clone()),
+                        Self::new_inner([o], tables, cancel.clone()),
+                    ]
+                })
+                .collect_vec()
         }
     }
 
-    fn new_inner(start: impl IntoIterator<Item = Phase1Node>, tables: &'t Tables, cancel: C) -> Self {
+    fn new_inner(
+        start: impl IntoIterator<Item = Phase1Node>,
+        tables: &'t Tables,
+        cancel: C,
+    ) -> Self {
         let mut frame_data = Vec::with_capacity(15 * N + 1);
-        frame_data.extend(start.into_iter());
+        frame_data.extend(start);
 
         let mut stack = Self {
             tables,
@@ -248,12 +179,14 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
                 let top = *self.frame_data.as_ptr().add((len - 1) as usize);
 
                 let reduced = top.is_domino_reduced();
-                let viable = (moves_remaining == 0 && reduced) || (!reduced) || (reduced && moves_remaining > 6);
+                let viable = (moves_remaining == 0 && reduced)
+                    || (!reduced)
+                    || (reduced && moves_remaining > 6);
 
                 if viable {
                     let distance = (*self.frame_data.as_ptr().add((len - 1) as usize))
                         .distance_heuristic(self.tables);
-    
+
                     if distance <= moves_remaining {
                         break;
                     }
@@ -297,11 +230,12 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
 }
 
 impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
-    type Item = ([Phase1Node; N], Phase2Node);
+    type Item = ([Phase1Node; N], Phase2Node, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
         let phase_1_tail = self.frame_data.pop()?;
-        let phase_2_head = Phase2Node::from_phase_1_node(phase_1_tail);
+
+        let (phase_2_head, corner_dist) = Phase2Node::from_phase_1_node(phase_1_tail);
         let head = self
             .frame_metadata
             .map(|m| self.frame_data[m.start as usize - 1]);
@@ -311,7 +245,7 @@ impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
             self.fill_recurse(i);
         };
 
-        Some((head, phase_2_head))
+        Some((head, phase_2_head, corner_dist))
     }
 }
 
@@ -351,8 +285,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
             let frame_split = (frame_start + frame_end) / 2;
 
             let mut new_frame_data = Vec::with_capacity(15 * N + 1);
-            new_frame_data
-                .extend_from_slice(&self.frame_data[0..frame_split]);
+            new_frame_data.extend_from_slice(&self.frame_data[0..frame_split]);
 
             self.frame_data.drain(frame_start..frame_split);
 
@@ -393,7 +326,7 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
 }
 
 impl<'t, const N: usize> ParallelIterator for Stack<'t, N, &'t AtomicBool> {
-    type Item = ([Phase1Node; N], Phase2Node);
+    type Item = ([Phase1Node; N], Phase2Node, u8);
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
     where
@@ -438,19 +371,19 @@ mod test {
             move_resolver_multi_dimension_domino(cube, cubes)
         };
         let stack = all_domino_reductions::<2>(cube, &tables, &[0, 1, 2]);
-        stack.for_each(|(path, last)| {
+        stack.for_each(|(path, last, _)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<3>(cube, &tables, &[0, 1, 2]);
-        stack.for_each(|(path, last)| {
+        stack.for_each(|(path, last, _)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<4>(cube, &tables, &[0, 1, 2]);
-        stack.for_each(|(path, last)| {
+        stack.for_each(|(path, last, _)| {
             println!("{:?}", res(&path, &last));
         });
         let stack = all_domino_reductions::<5>(cube, &tables, &[0, 1, 2]);
-        stack.for_each(|(path, last)| {
+        stack.for_each(|(path, last, _)| {
             println!("{:?}", res(&path, &last));
         });
 
@@ -464,7 +397,7 @@ mod test {
         let stack = all_domino_reductions::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
-            &[0]
+            &[0],
         );
 
         println!("{:?}", stack.count());
@@ -482,7 +415,7 @@ mod test {
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
             &cancel,
-            &[0]
+            &[0],
         );
 
         println!("{:?}", stack.count());

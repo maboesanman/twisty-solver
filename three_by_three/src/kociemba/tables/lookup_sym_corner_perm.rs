@@ -31,7 +31,7 @@ impl LookupSymCornerPermTable {
             odd
         };
 
-        CornerPermRawCoord(buffer[sym_coord.0 as usize / 2])
+        CornerPermRawCoord(buffer[(sym_coord.0 & 0xFFF) as usize / 2])
     }
 
     pub fn get_raw_from_combo(&self, combo_coord: CornerPermComboCoord) -> CornerPermRawCoord {

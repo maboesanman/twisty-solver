@@ -11,11 +11,6 @@ pub fn solve_domino(
     tables: &Tables,
     max_moves: u8,
 ) -> Option<ArrayVec<Phase2Node, 20>> {
-    // including this fast path showed a 10% performance improvement for the `prove_15_move_cube` benchmark
-    if phase_2_start.weak_distance_heuristic(tables) > max_moves {
-        return None;
-    }
-
     idastar_limited(
         phase_2_start,
         |&cube| cube.produce_next_nodes(tables).map(|c| (c, 1)),
@@ -24,30 +19,4 @@ pub fn solve_domino(
         max_moves,
     )
     .map(|(solution, _len)| solution)
-}
-
-/// solve a pair of phase 2 starts. these always come in pairs since the last
-/// move of a domino reduction is always F/F'/B/B'/R/R'/L/L', and each solution cancels with
-/// F2/B2/R2/L2 respectively.
-pub fn solve_domino_pair(
-    phase_2_start: Phase2Node,
-    tables: &Tables,
-    max_moves: u8,
-) -> Option<ArrayVec<Phase2Node, 20>> {
-    let phase_2_weak_dist = phase_2_start.weak_distance_heuristic(tables);
-
-    if phase_2_weak_dist + 1 > max_moves {
-        return None;
-    }
-
-    let solution = idastar_limited(
-        phase_2_start,
-        |&cube| cube.produce_next_nodes(tables).map(|c| (c, 1)),
-        |&cube| cube.distance_heuristic(tables),
-        |&cube| cube.is_solved(),
-        max_moves,
-    )
-    .map(|(solution, _len)| solution);
-
-    solution
 }

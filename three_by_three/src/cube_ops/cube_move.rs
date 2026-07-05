@@ -128,7 +128,7 @@ impl CubeMove {
                 CubePreviousAxis::B | CubePreviousAxis::FB => &[R1, R3, L1, L3],
                 CubePreviousAxis::R => &[F1, F3, B1, B3, L1, L3],
                 CubePreviousAxis::L | CubePreviousAxis::RL => &[F1, F3, B1, B3],
-                CubePreviousAxis::NoneAlt => &[]
+                CubePreviousAxis::NoneAlt => &[],
             }
         } else {
             match prev_axis {
@@ -153,7 +153,7 @@ impl CubeMove {
                 CubePreviousAxis::None => &[
                     U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3,
                 ],
-                CubePreviousAxis::NoneAlt => &[]
+                CubePreviousAxis::NoneAlt => &[],
             }
         };
 

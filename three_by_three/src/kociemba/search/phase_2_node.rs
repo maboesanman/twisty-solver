@@ -3,7 +3,8 @@ use crate::{
     cube_ops::{cube_move::DominoMove, cube_prev_axis::CubePreviousAxis},
     kociemba::{
         coords::{
-            EEdgePermRawCoord, UDEdgePermRawCoord, corner_perm_combo_coord::CornerPermComboCoord,
+            CornerPermSymCoord, EEdgePermRawCoord, UDEdgePermRawCoord,
+            corner_perm_combo_coord::CornerPermComboCoord,
         },
         partial_reprs::{
             edge_positions::{EEdgePositions, combine_edge_positions},
@@ -14,7 +15,6 @@ use crate::{
             move_raw_e_edge_perm::MoveRawEEdgePermTable,
             move_raw_ud_edge_perm::MoveRawUDEdgePermTable,
             move_sym_corner_perm::MoveSymCornerPermTable, prune_phase_2::PrunePhase2Table,
-            prune_phase_2_corner_sym::PrunePhase2CornerSymTable,
         },
     },
 };
@@ -28,7 +28,7 @@ pub struct Phase2Node {
 }
 
 impl Phase2Node {
-    pub fn from_phase_1_node(node: Phase1Node) -> Self {
+    pub fn from_phase_1_node(node: Phase1Node) -> (Self, u8) {
         let Phase1Node {
             u_edge_positions,
             d_edge_positions,
@@ -36,23 +36,26 @@ impl Phase2Node {
             previous_axis,
             corner_perm_correct,
             corner_perm_raw,
-
             ..
         } = node;
 
         let corner_perm_combo = CornerPermComboCoord {
-            sym_coord: corner_perm_raw,
+            sym_coord: CornerPermSymCoord(corner_perm_raw.0 & 0xFFF),
             domino_conjugation: corner_perm_correct,
         };
 
-        Self {
+        let corner_dist = (corner_perm_raw.0 >> 12) as u8;
+
+        let node = Self {
             corner_perm_combo,
             ud_edge_perm_raw: UDEdgePerm(u_edge_positions, d_edge_positions).into_coord(),
             e_edge_perm_raw: EEdgePermRawCoord(e_edge_positions.0.0 as u8),
             previous_axis: unsafe {
                 core::mem::transmute::<u8, CubePreviousAxis>(previous_axis as u8)
             },
-        }
+        };
+
+        (node, corner_dist)
     }
 
     pub fn into_cube(self, tables: &Tables) -> ReprCube {
@@ -71,10 +74,6 @@ impl Phase2Node {
             edge_perm,
             edge_orient: EdgeOrient::SOLVED,
         }
-    }
-
-    pub fn weak_distance_heuristic(self, table: impl AsRef<PrunePhase2CornerSymTable>) -> u8 {
-        table.as_ref().get_value(self.corner_perm_combo.sym_coord)
     }
 
     pub fn distance_heuristic(

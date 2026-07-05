@@ -73,6 +73,10 @@ pub struct EdgeGroupOrientSymCoord(pub u16);
 #[repr(transparent)]
 pub struct CornerPermSymCoord(pub u16);
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[repr(transparent)]
+pub struct CornerPermSymAugmentedCoord(pub u16);
+
 impl EdgeGroupOrientRawCoord {
     pub fn split(self) -> (EdgeGroupRawCoord, EdgeOrientRawCoord) {
         (
