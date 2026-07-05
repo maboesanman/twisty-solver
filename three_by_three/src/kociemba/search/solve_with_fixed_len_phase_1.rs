@@ -13,28 +13,25 @@ use crate::{
 /// produce all solutions with phase 1 solutions of length N
 pub fn produce_solutions<'t, const N: usize>(
     cube: ReprCube,
-    current_best: u8,
+    current_best: &'t mut u8,
     tables: &'t Tables,
     axes: &[u8],
 ) -> impl 't + Iterator<Item = Vec<CubeMove>> {
     let domino_reductions =
-        super::domino_reduction_iter::all_domino_reductions::<N>(cube, tables, axes);
+        super::domino_reduction_iter::all_domino_reductions::<N>(cube, tables, axes, current_best as *const _);
 
+    let mut_ptr_best = current_best as *mut u8;
     domino_reductions
         .scan(
-            current_best,
-            |current_best, (phase_1, phase_2_start, corner_dist)| {
-                let phase_2_max = *current_best - N as u8;
-
-                if corner_dist > phase_2_max {
-                    return Some(None);
-                }
+            (),
+            move |_, (phase_1, phase_2_start)| {
+                let phase_2_max = unsafe { *mut_ptr_best } - N as u8;
 
                 let Some(phase_2) = solve_domino(phase_2_start, tables, phase_2_max) else {
                     return Some(None);
                 };
 
-                *current_best = (N + phase_2.len() - 1) as u8;
+                unsafe { *mut_ptr_best = (N + phase_2.len() - 1) as u8  };
                 Some(Some((phase_1, phase_2)))
             },
         )
@@ -56,23 +53,18 @@ pub fn produce_solutions_par<'a, const N: usize>(
     cube: ReprCube,
     best: &'a AtomicU8,
     tables: &'a Tables,
-    cancel: &'a AtomicBool,
     axes: &[u8],
 ) -> impl 'a + ParallelIterator<Item = Vec<CubeMove>> {
     let domino_reductions =
-        super::domino_reduction_iter::all_domino_reductions_par::<N>(cube, tables, cancel, axes);
+        super::domino_reduction_iter::all_domino_reductions_par::<N>(cube, tables, axes, best);
 
     domino_reductions
-        .filter_map(|(phase_1, phase_2_start, corner_dist)| {
+        .filter_map(|(phase_1, phase_2_start)| {
             let phase_2_max = {
                 let current_best = best.load(std::sync::atomic::Ordering::Relaxed);
                 // THREAD_LOCAL_BEST.replace(current_best);
                 current_best.checked_sub(N as u8)
             }?;
-
-            if corner_dist > phase_2_max {
-                return None;
-            }
 
             let phase_2 = solve_domino(phase_2_start, tables, phase_2_max)?;
             let new_path_len = (N + phase_2.len() - 1) as u8;
@@ -103,10 +95,10 @@ mod test {
     #[test]
     fn solve_combined_test_superflip_magic_s() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-
+        let mut best = u8::MAX;
         let solutions = produce_solutions::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
-            u8::MAX,
+            &mut best,
             &tables,
             &[0],
         );
@@ -127,13 +119,11 @@ mod test {
         let tables = Tables::new("tables")?;
 
         let best = AtomicU8::new(u8::MAX);
-        let cancel = AtomicBool::new(false);
 
-        let solutions = produce_solutions_par::<10>(
+        let solutions = produce_solutions_par::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &best,
             &tables,
-            &cancel,
             &[0],
         );
 
