@@ -101,6 +101,7 @@ pub struct FrameMetadata {
     // the offset into the frame_data buffer that this begins.
     // note that this can never be empty
     start: u16,
+    taken: u8,
 }
 
 impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
@@ -142,7 +143,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
             tables,
             cancel,
             frame_data,
-            frame_metadata: [FrameMetadata { start: 0 }; _],
+            frame_metadata: [FrameMetadata { start: 0, taken: 0 }; _],
         };
 
         stack.fill_recurse(0);
@@ -207,7 +208,11 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     fn fill_recurse(&mut self, i: usize) {
         let mut i = i;
         while i < N {
-            self.frame_metadata[i].start = self.frame_data.len() as u16;
+            self.frame_metadata[i] = FrameMetadata {
+                start: self.frame_data.len() as u16,
+                taken: 0,
+            };
+
             let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
 
             let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
@@ -229,7 +234,7 @@ impl<'t, const N: usize, C: Clone> Stack<'t, N, C> {
     }
 }
 
-impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
+impl<'t, const N: usize, C: Clone + std::fmt::Debug> Iterator for Stack<'t, N, C> {
     type Item = ([Phase1Node; N], Phase2Node, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -239,6 +244,32 @@ impl<'t, const N: usize, C: Clone> Iterator for Stack<'t, N, C> {
         let head = self
             .frame_metadata
             .map(|m| self.frame_data[m.start as usize - 1]);
+
+        #[cfg(debug_assertions)]
+        {
+            let mut debug: String = format!("\nNODE: {self:#?}\nHEAD: {:#?}", head.iter().map(|c| c.quick_print()).collect_vec());
+            let mut node = self.frame_data[0];
+
+            let mut out = [node; 16];
+
+            for i in 0..N {
+                assert_eq!(node, head[i], "{debug}");
+                let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
+                out[0] = node;
+                let amount = Phase1Node::produce_next_nodes(&mut out, moves_remaining, self.tables);
+
+                let frame_i_remaining = self.frame_metadata.get(i + 1).map(|m| m.start as usize).unwrap_or(self.frame_data.len() + 1) - self.frame_metadata[i].start as usize;
+                // println!("{:#?}", &out[0..(amount + 1)].iter().map(|c| c.quick_print()).collect_vec());
+                debug = format!("{debug}\n{i}: {:#?}", &out[0..(amount + 1)].iter().map(|c| c.quick_print()).collect_vec());
+
+
+                // assert!(amount > frame_i_remaining + self.frame_metadata[i].taken as usize, "FAILED CHECK {amount} > {}", frame_i_remaining + self.frame_metadata[i].taken as usize);
+                let i = frame_i_remaining - self.frame_metadata[i].taken as usize;
+                node = out[i];
+            }
+
+            assert_eq!(node, phase_1_tail, "{debug}");
+        }
 
         let mut i = N;
         if self.drop_recurse(&mut i) {
@@ -301,6 +332,8 @@ impl<'t, const N: usize> UnindexedProducer for Stack<'t, N, &'t AtomicBool> {
                 frame_metadata: self.frame_metadata,
                 frame_data: new_frame_data,
             };
+
+            new_stack.frame_metadata[i].taken += (frame_end - frame_split) as u8;
 
             new_stack.fill_recurse(i);
 
@@ -384,6 +417,37 @@ mod test {
         });
         let stack = all_domino_reductions::<5>(cube, &tables, &[0, 1, 2]);
         stack.for_each(|(path, last, _)| {
+            println!("{:?}", res(&path, &last));
+        });
+
+        Ok(())
+    }
+
+
+
+    #[test]
+    fn domino_reduce_test_iter_2_par() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+
+        let cancel = AtomicBool::new(false);
+        let table_ref = &tables;
+        let cube = cube![R U Rp Up];
+        // let cube = cube![D R2 L];
+        let res = move |path: &[Phase1Node], last: &Phase2Node| {
+            let cubes = path
+                .into_iter()
+                .map(|x| x.into_cube(table_ref))
+                .chain(Some(last.into_cube(table_ref)));
+
+            move_resolver_multi_dimension_domino(cube, cubes)
+        };
+        let stack = Stack::<5, _>::new(cube, &tables, &cancel, &[0, 1, 2]).into_iter().filter_map(|x| {
+            let (a, b) = x.split();
+            let b = b?;
+            Some([a, b])
+        }).flatten();
+
+        stack.into_iter().flatten().for_each(|(path, last, _)| {
             println!("{:?}", res(&path, &last));
         });
 

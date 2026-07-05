@@ -73,6 +73,15 @@ impl Default for Phase1Node {
 }
 
 impl Phase1Node {
+
+    pub fn quick_print(&self) -> String {
+        format!("[{}, {}, {}]",
+            self.corner_orient_raw.0,
+            self.edge_group_orient_sym.0,
+            self.edge_group_orient_correct.0,
+        )
+    }
+
     pub(crate) fn from_phase_1_coords(
         edge_group_orient_sym: EdgeGroupOrientSymCoord,
         corner_orient_raw: CornerOrientRawCoord,
