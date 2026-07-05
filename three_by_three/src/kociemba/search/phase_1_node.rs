@@ -73,9 +73,9 @@ impl Default for Phase1Node {
 }
 
 impl Phase1Node {
-
     pub fn quick_print(&self) -> String {
-        format!("[{}, {}, {}]",
+        format!(
+            "[{}, {}, {}]",
             self.corner_orient_raw.0,
             self.edge_group_orient_sym.0,
             self.edge_group_orient_correct.0,

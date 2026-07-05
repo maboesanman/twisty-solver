@@ -1,7 +1,4 @@
-use std::{
-    num::NonZeroU8,
-    sync::atomic::{AtomicBool, AtomicU8},
-};
+use std::{num::NonZeroU8, sync::atomic::AtomicU8};
 
 use itertools::Itertools;
 use rayon::iter::{
@@ -12,7 +9,6 @@ use rayon::iter::{
 use crate::{
     cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
     kociemba::{
-        coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord},
         search::{phase_1_node::Phase1Node, phase_2_node::Phase2Node},
         tables::Tables,
     },
@@ -25,8 +21,9 @@ pub fn all_domino_reductions<'a, const N: usize>(
     tables: &'a Tables,
     axes: &'_ [u8],
     best: *const u8,
+    target: u8,
 ) -> impl 'a + Iterator<Item = ([Phase1Node; N], Phase2Node)> {
-    Stack::<_, _>::new(cube, tables, best, axes)
+    Stack::<_, _>::new(cube, tables, best, target, axes)
         .into_iter()
         .flatten()
 }
@@ -38,8 +35,9 @@ pub fn all_domino_reductions_par<'a, const N: usize>(
     tables: &'a Tables,
     axes: &'_ [u8],
     best: &'a AtomicU8,
+    target: u8,
 ) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node)> {
-    Stack::<'a, N, _>::new(cube, tables, best, axes)
+    Stack::<'a, N, _>::new(cube, tables, best, target, axes)
         .into_par_iter()
         .flatten()
 }
@@ -51,6 +49,7 @@ struct Stack<'t, const N: usize, Best> {
     tables: &'t Tables,
 
     best: Best,
+    target: u8,
 
     frame_metadata: [FrameMetadata; N],
 
@@ -69,13 +68,13 @@ pub trait BestTrait: Copy {
     fn get_best(self) -> u8;
 }
 
-impl<'a> BestTrait for &'a AtomicU8 {
+impl BestTrait for &AtomicU8 {
     fn get_best(self) -> u8 {
         self.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
-impl<'a> BestTrait for &'a u8 {
+impl BestTrait for &u8 {
     fn get_best(self) -> u8 {
         *self
     }
@@ -88,7 +87,13 @@ impl<'a> BestTrait for *const u8 {
 }
 
 impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
-    pub fn new(cube: ReprCube, tables: &'t Tables, best: Best, axes: &[u8]) -> Vec<Self> {
+    pub fn new(
+        cube: ReprCube,
+        tables: &'t Tables,
+        best: Best,
+        target: u8,
+        axes: &[u8],
+    ) -> Vec<Self> {
         assert!(axes.iter().all_unique() & axes.iter().all(|a| *a < 3));
 
         let nodes = axes
@@ -98,7 +103,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
         if N == 0 {
             nodes
                 .filter(|n| n.is_domino_reduced())
-                .map(|start| Self::new_inner([start], tables, best.clone()))
+                .map(|start| Self::new_inner([start], tables, best.clone(), target))
                 .collect_vec()
         } else {
             nodes
@@ -106,8 +111,8 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                     let mut o = n;
                     o.previous_axis = CubePreviousAxis::NoneAlt;
                     [
-                        Self::new_inner([n], tables, best.clone()),
-                        Self::new_inner([o], tables, best.clone()),
+                        Self::new_inner([n], tables, best.clone(), target),
+                        Self::new_inner([o], tables, best.clone(), target),
                     ]
                 })
                 .collect_vec()
@@ -118,6 +123,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
         start: impl IntoIterator<Item = Phase1Node>,
         tables: &'t Tables,
         best: Best,
+        target: u8,
     ) -> Self {
         let mut frame_data = Vec::with_capacity(15 * N + 1);
         frame_data.extend(start);
@@ -125,6 +131,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
         let mut stack = Self {
             tables,
             best,
+            target,
             frame_data,
             frame_metadata: [FrameMetadata {
                 start: 0,
@@ -228,7 +235,11 @@ impl<'t, const N: usize, Best: Clone + BestTrait> Iterator for Stack<'t, N, Best
 
             let (phase_2_head, corner_dist) = Phase2Node::from_phase_1_node(phase_1_tail);
 
-            if self.best.get_best() < N as u8 + corner_dist {
+            let best = self.best.get_best();
+            if best <= self.target {
+                return None
+            }
+            if best < N as u8 + corner_dist {
                 let mut i = N;
                 if self.drop_recurse(&mut i) {
                     self.fill_recurse(i);
@@ -318,9 +329,10 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
 
             let mut new_stack = Stack {
                 tables: self.tables,
-                best: self.best.clone(),
+                best: self.best,
                 frame_metadata: self.frame_metadata,
                 frame_data: new_frame_data,
+                target: self.target,
             };
 
             self.frame_metadata[i - 1].correct += (frame_split - frame_start) as u8;
@@ -337,11 +349,11 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
     where
         F: rayon::iter::plumbing::Folder<Self::Item>,
     {
-        let best = self.best.clone();
+        let best = self.best;
+        let target = self.target;
         for item in self {
             folder = folder.consume(item);
-            // if folder.full() || best.load(std::sync::atomic::Ordering::Relaxed) <= N as u8 {
-            if folder.full() || best.clone().get_best() <= N as u8 {
+            if folder.full() || best.get_best() <= target {
                 break;
             }
         }
@@ -374,7 +386,7 @@ mod test {
         let tables = Tables::new("tables")?;
         let cube = cube![R U Rp Up];
         let best = &20;
-        let stack = all_domino_reductions::<0>(cube, &tables, &[0, 1, 2], best).collect_vec();
+        let stack = all_domino_reductions::<0>(cube, &tables, &[0, 1, 2], best, 0).collect_vec();
 
         println!("{stack:#?}");
 
@@ -396,19 +408,19 @@ mod test {
             move_resolver_multi_dimension_domino(cube, cubes)
         };
         let best = (&20u8) as *const _;
-        let stack = all_domino_reductions::<2>(cube, &tables, &[0, 1, 2], best);
+        let stack = all_domino_reductions::<2>(cube, &tables, &[0, 1, 2], best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions::<3>(cube, &tables, &[0, 1, 2], best);
+        let stack = all_domino_reductions::<3>(cube, &tables, &[0, 1, 2], best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions::<4>(cube, &tables, &[0, 1, 2], best);
+        let stack = all_domino_reductions::<4>(cube, &tables, &[0, 1, 2], best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions::<5>(cube, &tables, &[0, 1, 2], best);
+        let stack = all_domino_reductions::<5>(cube, &tables, &[0, 1, 2], best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
@@ -432,19 +444,19 @@ mod test {
             move_resolver_multi_dimension_domino(cube, cubes)
         };
         let best = &AtomicU8::new(20);
-        let stack = all_domino_reductions_par::<2>(cube, &tables, &[0, 1, 2], best);
+        let stack = all_domino_reductions_par::<2>(cube, &tables, &[0, 1, 2], best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions_par::<3>(cube, &tables, &[0, 1, 2], best);
+        let stack = all_domino_reductions_par::<3>(cube, &tables, &[0, 1, 2], best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions_par::<4>(cube, &tables, &[0, 1, 2], best);
+        let stack = all_domino_reductions_par::<4>(cube, &tables, &[0, 1, 2], best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions_par::<5>(cube, &tables, &[0, 1, 2], best);
+        let stack = all_domino_reductions_par::<5>(cube, &tables, &[0, 1, 2], best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
@@ -468,7 +480,7 @@ mod test {
 
             move_resolver_multi_dimension_domino(cube, cubes)
         };
-        let stack = Stack::<5, _>::new(cube, &tables, &cancel, &[0, 1, 2])
+        let stack = Stack::<5, _>::new(cube, &tables, &cancel, 0, &[0, 1, 2])
             .into_iter()
             .filter_map(|x| {
                 let old = x.clone();
@@ -500,6 +512,7 @@ mod test {
             &tables,
             &[0],
             best,
+            0,
         );
 
         println!("{:?}", stack.count());
@@ -518,6 +531,7 @@ mod test {
             &tables,
             &[0],
             &cancel,
+            0,
         );
 
         println!("{:?}", stack.count());
@@ -536,55 +550,55 @@ mod test {
 
         println!(
             "0: {}",
-            all_domino_reductions_par::<0>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<0>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "1: {}",
-            all_domino_reductions_par::<1>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<1>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "2: {}",
-            all_domino_reductions_par::<2>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<2>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "3: {}",
-            all_domino_reductions_par::<3>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<3>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "4: {}",
-            all_domino_reductions_par::<4>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<4>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "5: {}",
-            all_domino_reductions_par::<5>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<5>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "6: {}",
-            all_domino_reductions_par::<6>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<6>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "7: {}",
-            all_domino_reductions_par::<7>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<7>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "8: {}",
-            all_domino_reductions_par::<8>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<8>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "9: {}",
-            all_domino_reductions_par::<9>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<9>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "10: {}",
-            all_domino_reductions_par::<10>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<10>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "11: {}",
-            all_domino_reductions_par::<11>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<11>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
         println!(
             "12: {}",
-            all_domino_reductions_par::<12>(cube, &tables, &[0, 1, 2], &cancel).count()
+            all_domino_reductions_par::<12>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
         );
 
         Ok(())
