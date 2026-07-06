@@ -20,6 +20,7 @@ pub enum CubePreviousAxis {
 }
 
 impl CubePreviousAxis {
+    #[inline(always)]
     pub const fn update_with_new_move(self, mv: CubeMove, remaining_moves: u8) -> Self {
         if remaining_moves == 1 {
             match mv {

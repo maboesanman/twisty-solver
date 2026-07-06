@@ -84,7 +84,7 @@ impl BestTrait for &u8 {
     }
 }
 
-impl<'a> BestTrait for *const u8 {
+impl BestTrait for *const u8 {
     fn get_best(self) -> u8 {
         unsafe { *self }
     }

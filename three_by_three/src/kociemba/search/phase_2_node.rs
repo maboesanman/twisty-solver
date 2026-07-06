@@ -44,16 +44,12 @@ impl Phase2Node {
             domino_conjugation: corner_perm_correct,
         };
 
-        let node = Self {
+        Self {
             corner_perm_combo,
             ud_edge_perm_raw: UDEdgePerm(u_edge_positions, d_edge_positions).into_coord(),
             e_edge_perm_raw: EEdgePermRawCoord(e_edge_positions.0.0 as u8),
-            previous_axis: unsafe {
-                core::mem::transmute::<u8, CubePreviousAxis>(previous_axis as u8)
-            },
-        };
-
-        node
+            previous_axis,
+        }
     }
 
     pub fn into_cube(self, tables: &Tables) -> ReprCube {

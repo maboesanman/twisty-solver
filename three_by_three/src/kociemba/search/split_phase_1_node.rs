@@ -4,15 +4,9 @@ use crate::{
     CubeMove, EdgePerm, Tables,
     cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
     kociemba::{
-        coords::{
-            CornerOrientRawCoord, CornerPermSymCoord,
-            EdgeGroupOrientSymCoord,
-        },
-        partial_reprs::{
-            edge_positions::{
-                DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions,
-                split_edge_positions,
-            },
+        coords::{CornerOrientRawCoord, CornerPermSymCoord, EdgeGroupOrientSymCoord},
+        partial_reprs::edge_positions::{
+            DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions, split_edge_positions,
         },
         search::phase_1_node::Phase1Node,
         tables::{
@@ -266,8 +260,7 @@ impl SplitPhase1NodeB {
         let d_row = ep_mv_tbl.row(self.d_edge_positions.0);
         let e_row = ep_mv_tbl.row(self.e_edge_positions.0);
 
-        let (unaltered_move_offsets, _) =
-            CubeMove::new_axis_move_array(self.previous_axis);
+        let (unaltered_move_offsets, _) = CubeMove::new_axis_move_array(self.previous_axis);
 
         let un_i = unaltered_move_offsets[i] as u8 as usize;
         let new_u_coord = UEdgePositions(EdgePositions(u_row.0[un_i]));
