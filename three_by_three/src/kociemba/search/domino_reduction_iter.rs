@@ -9,7 +9,11 @@ use rayon::iter::{
 use crate::{
     cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
     kociemba::{
-        search::{phase_1_node::Phase1Node, phase_2_node::Phase2Node},
+        search::{
+            phase_1_node::Phase1Node,
+            phase_2_node::Phase2Node,
+            split_phase_1_node::{SplitPhase1NodeA, merge, split},
+        },
         tables::Tables,
     },
 };
@@ -52,8 +56,8 @@ struct Stack<'t, const N: usize, Best> {
     target: u8,
 
     frame_metadata: [FrameMetadata; N],
-
-    frame_data: Vec<Phase1Node>,
+    start: Phase1Node,
+    frame_data: Vec<SplitPhase1NodeA>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -103,7 +107,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
         if N == 0 {
             nodes
                 .filter(|n| n.is_domino_reduced())
-                .map(|start| Self::new_inner([start], tables, best.clone(), target))
+                .map(|start| Self::new_inner(start, tables, best.clone(), target))
                 .collect_vec()
         } else {
             nodes
@@ -111,22 +115,18 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                     let mut o = n;
                     o.previous_axis = CubePreviousAxis::NoneAlt;
                     [
-                        Self::new_inner([n], tables, best.clone(), target),
-                        Self::new_inner([o], tables, best.clone(), target),
+                        Self::new_inner(n, tables, best.clone(), target),
+                        Self::new_inner(o, tables, best.clone(), target),
                     ]
                 })
                 .collect_vec()
         }
     }
 
-    fn new_inner(
-        start: impl IntoIterator<Item = Phase1Node>,
-        tables: &'t Tables,
-        best: Best,
-        target: u8,
-    ) -> Self {
+    fn new_inner(start: Phase1Node, tables: &'t Tables, best: Best, target: u8) -> Self {
         let mut frame_data = Vec::with_capacity(15 * N + 1);
-        frame_data.extend(start);
+        let (split_start, _) = split(start);
+        frame_data.push(split_start);
 
         let mut stack = Self {
             tables,
@@ -137,6 +137,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                 start: 0,
                 correct: 0,
             }; _],
+            start,
         };
 
         stack.fill_recurse(0);
@@ -207,11 +208,11 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
 
             let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
 
-            let slice = unsafe { &mut *(last_data as *mut Phase1Node).cast_array::<16>() };
+            let slice = unsafe { &mut *(last_data as *mut SplitPhase1NodeA).cast_array::<16>() };
 
             let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
 
-            let added = Phase1Node::produce_next_nodes(slice, moves_remaining, self.tables);
+            let added = SplitPhase1NodeA::produce_next_nodes_a(slice, moves_remaining, self.tables);
 
             unsafe {
                 self.frame_data.set_len(self.frame_data.len() + added);
@@ -232,12 +233,11 @@ impl<'t, const N: usize, Best: Clone + BestTrait> Iterator for Stack<'t, N, Best
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let phase_1_tail = self.frame_data.pop()?;
-
-            let (phase_2_head, corner_dist) = Phase2Node::from_phase_1_node(phase_1_tail);
+            let corner_dist = (phase_1_tail.corner_perm_raw.0 >> 12) as u8;
 
             let best = self.best.get_best();
             if best <= self.target {
-                return None
+                return None;
             }
             if best < N as u8 + corner_dist {
                 let mut i = N;
@@ -247,29 +247,36 @@ impl<'t, const N: usize, Best: Clone + BestTrait> Iterator for Stack<'t, N, Best
                 continue;
             }
 
-            let head = self
-                .frame_metadata
-                .map(|m| self.frame_data[m.start as usize - 1]);
-
-            #[cfg(debug_assertions)]
-            {
-                let mut out = [self.frame_data[0]; 16];
+            let (head, tail) = {
+                let mut head_out = [self.start; N];
+                let mut out = split(self.start).1;
+                let mut tail_out = self.start;
 
                 for i in 0..N {
                     let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
-                    let _ = Phase1Node::produce_next_nodes(&mut out, moves_remaining, self.tables);
                     let frame_i_remaining = self
                         .frame_metadata
                         .get(i + 1)
                         .map(|m| m.start as usize)
                         .unwrap_or(self.frame_data.len() + 1)
                         - self.frame_metadata[i].start as usize;
-                    let i = frame_i_remaining + self.frame_metadata[i].correct as usize;
-                    out[0] = out[i];
+
+                    let j = (frame_i_remaining + self.frame_metadata[i].correct as usize) - 1;
+                    out = out.produce_next_node_b(moves_remaining, self.tables, j);
+                    if i + 1 < N {
+                        head_out[i + 1] = merge(
+                            self.frame_data[self.frame_metadata[i + 1].start as usize - 1],
+                            out,
+                        );
+                    } else {
+                        tail_out = merge(phase_1_tail, out);
+                    }
                 }
 
-                assert_eq!(out[0], phase_1_tail);
-            }
+                (head_out, tail_out)
+            };
+
+            let phase_2_head = Phase2Node::from_phase_1_node(tail);
 
             let mut i = N;
             if self.drop_recurse(&mut i) {
@@ -333,6 +340,7 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
                 frame_metadata: self.frame_metadata,
                 frame_data: new_frame_data,
                 target: self.target,
+                start: self.start,
             };
 
             self.frame_metadata[i - 1].correct += (frame_split - frame_start) as u8;

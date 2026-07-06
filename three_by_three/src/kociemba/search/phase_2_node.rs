@@ -28,7 +28,7 @@ pub struct Phase2Node {
 }
 
 impl Phase2Node {
-    pub fn from_phase_1_node(node: Phase1Node) -> (Self, u8) {
+    pub fn from_phase_1_node(node: Phase1Node) -> Self {
         let Phase1Node {
             u_edge_positions,
             d_edge_positions,
@@ -44,8 +44,6 @@ impl Phase2Node {
             domino_conjugation: corner_perm_correct,
         };
 
-        let corner_dist = (corner_perm_raw.0 >> 12) as u8;
-
         let node = Self {
             corner_perm_combo,
             ud_edge_perm_raw: UDEdgePerm(u_edge_positions, d_edge_positions).into_coord(),
@@ -55,7 +53,7 @@ impl Phase2Node {
             },
         };
 
-        (node, corner_dist)
+        node
     }
 
     pub fn into_cube(self, tables: &Tables) -> ReprCube {
