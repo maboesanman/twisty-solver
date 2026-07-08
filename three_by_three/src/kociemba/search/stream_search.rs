@@ -749,6 +749,27 @@ mod test {
     }
 
     #[bench]
+    fn solve_a_cube_in_21_moves_single(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(1);
+        let cubes: Vec<ReprCube> = (0..10000)
+            .into_iter()
+            .map(|_| rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng))
+            .collect_vec();
+
+        let mut i = 0;
+
+        bench.iter(|| {
+            let cube = cubes.get(i % 10000).unwrap();
+            i += 1;
+            let mut stream = get_incremental_solutions_stream(*cube, tables, Some(21), 21, false);
+            let future = stream.next();
+            let solution = futures::executor::block_on(future).unwrap();
+            test::black_box(solution);
+        });
+    }
+
+    #[bench]
     fn solve_a_cube_in_22_moves(bench: &mut test::Bencher) {
         let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
         let mut rng = ChaCha8Rng::seed_from_u64(1);
@@ -763,6 +784,27 @@ mod test {
             let cube = cubes.get(i % 10000).unwrap();
             i += 1;
             let mut stream = get_incremental_solutions_stream(*cube, tables, Some(22), 22, true);
+            let future = stream.next();
+            let solution = futures::executor::block_on(future).unwrap();
+            test::black_box(solution);
+        });
+    }
+
+    #[bench]
+    fn solve_a_cube_in_22_moves_single(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(1);
+        let cubes: Vec<ReprCube> = (0..10000)
+            .into_iter()
+            .map(|_| rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng))
+            .collect_vec();
+
+        let mut i = 0;
+
+        bench.iter(|| {
+            let cube = cubes.get(i % 10000).unwrap();
+            i += 1;
+            let mut stream = get_incremental_solutions_stream(*cube, tables, Some(22), 22, false);
             let future = stream.next();
             let solution = futures::executor::block_on(future).unwrap();
             test::black_box(solution);

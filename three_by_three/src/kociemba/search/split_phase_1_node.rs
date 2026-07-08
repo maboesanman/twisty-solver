@@ -221,6 +221,8 @@ impl SplitPhase1NodeA {
                 .previous_axis
                 .update_with_new_move(unaltered_move_offsets[i], moves_remaining.get() - 1);
 
+
+
             slice[i + 1] = SplitPhase1NodeA {
                 edge_group_orient_sym: new_ego_coord,
                 edge_group_orient_correct: start_node
@@ -277,5 +279,77 @@ impl SplitPhase1NodeB {
             e_edge_positions: new_e_coord,
             previous_axis: new_previous_axis,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::ReprCube;
+
+use super::*;
+        use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
+
+    use std::num::NonZeroU8;
+    extern crate test;
+
+    #[bench]
+    fn phase_1_next(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(3);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let mut phase_1 = Phase1Node::from_cube(cube, &tables);
+        phase_1.previous_axis = CubePreviousAxis::B;
+    
+        let mut buf = [phase_1; 16];
+    
+        bench.iter(|| {
+            let _ = Phase1Node::produce_next_nodes(
+                &mut buf,
+                unsafe { NonZeroU8::new_unchecked(30) },
+                tables
+            );
+        });
+    }
+
+    #[bench]
+    fn phase_1_next_a(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(3);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let mut phase_1 = split(Phase1Node::from_cube(cube, &tables)).0;
+        phase_1.previous_axis = CubePreviousAxis::B;
+    
+        let mut buf = [phase_1; 16];
+    
+        bench.iter(|| {
+            let _ = SplitPhase1NodeA::produce_next_nodes_a(
+                &mut buf,
+                unsafe { NonZeroU8::new_unchecked(30) },
+                tables
+            );
+        });
+    }
+
+    #[bench]
+    fn phase_1_next_b(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(3);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let mut phase_1 = split(Phase1Node::from_cube(cube, &tables)).1;
+        phase_1.previous_axis = CubePreviousAxis::B;
+    
+        // let mut buf = [phase_1; 16];
+    
+        bench.iter(|| {
+            let _ = phase_1.produce_next_node_b(
+                unsafe { NonZeroU8::new_unchecked(30) },
+                tables,
+                0
+            );
+        });
     }
 }

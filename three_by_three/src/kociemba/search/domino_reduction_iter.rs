@@ -353,15 +353,13 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
         }
     }
 
-    fn fold_with<F>(self, mut folder: F) -> F
+    fn fold_with<F>(mut self, mut folder: F) -> F
     where
         F: rayon::iter::plumbing::Folder<Self::Item>,
     {
-        let best = self.best;
-        let target = self.target;
-        for item in self {
+        while let Some(item) = self.next() {
             folder = folder.consume(item);
-            if folder.full() || best.get_best() <= target {
+            if folder.full() || self.best.get_best() <= self.target {
                 break;
             }
         }
