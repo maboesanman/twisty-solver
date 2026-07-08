@@ -22,17 +22,13 @@ use crate::{
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SplitPhase1NodeA {
-    // corners
     pub edge_group_orient_sym: EdgeGroupOrientSymCoord,
-
-    pub edge_group_orient_correct: DominoSymmetry,
-    pub corner_perm_correct: DominoSymmetry,
     pub corner_perm_raw: CornerPermSymCoord,
-
-    // edges
     pub corner_orient_raw: CornerOrientRawCoord,
-    // bookkeeping
+
     pub previous_axis: CubePreviousAxis,
+
+    pub combined_sym_correct: u8,
 }
 
 #[repr(C)]
@@ -55,11 +51,10 @@ impl Default for SplitPhase1NodeA {
         const {
             Self {
                 edge_group_orient_sym: EdgeGroupOrientSymCoord(0),
-                edge_group_orient_correct: DominoSymmetry::IDENTITY,
                 corner_perm_raw: CornerPermSymCoord(0),
                 corner_orient_raw: CornerOrientRawCoord(0),
                 previous_axis: CubePreviousAxis::None,
-                corner_perm_correct: DominoSymmetry::IDENTITY,
+                combined_sym_correct: 0,
             }
         }
     }
@@ -96,11 +91,10 @@ pub fn split(node: Phase1Node) -> (SplitPhase1NodeA, SplitPhase1NodeB) {
     (
         SplitPhase1NodeA {
             edge_group_orient_sym,
-            edge_group_orient_correct,
-            corner_perm_correct,
             corner_perm_raw,
             corner_orient_raw,
             previous_axis,
+            combined_sym_correct: (edge_group_orient_correct.0 << 4) | corner_perm_correct.0,
         },
         SplitPhase1NodeB {
             u_edge_positions,
@@ -115,11 +109,10 @@ pub fn split(node: Phase1Node) -> (SplitPhase1NodeA, SplitPhase1NodeB) {
 pub fn merge(a: SplitPhase1NodeA, b: SplitPhase1NodeB) -> Phase1Node {
     let SplitPhase1NodeA {
         edge_group_orient_sym,
-        edge_group_orient_correct,
-        corner_perm_correct,
         corner_perm_raw,
         corner_orient_raw,
         previous_axis: _,
+        combined_sym_correct,
     } = a;
     let SplitPhase1NodeB {
         u_edge_positions,
@@ -129,8 +122,8 @@ pub fn merge(a: SplitPhase1NodeA, b: SplitPhase1NodeB) -> Phase1Node {
     } = b;
     Phase1Node {
         edge_group_orient_sym,
-        edge_group_orient_correct,
-        corner_perm_correct,
+        edge_group_orient_correct: DominoSymmetry(combined_sym_correct >> 4),
+        corner_perm_correct: DominoSymmetry(combined_sym_correct & 0xF),
         corner_perm_raw,
         corner_orient_raw,
         u_edge_positions,
@@ -155,7 +148,7 @@ impl SplitPhase1NodeA {
         let prune_table: &PrunePhase1Table = tables.as_ref();
 
         let corner_orient_adjusted =
-            move_table.domino_conjugate(self.corner_orient_raw, self.edge_group_orient_correct);
+            move_table.domino_conjugate(self.corner_orient_raw, DominoSymmetry(self.combined_sym_correct >> 4));
 
         prune_table.get_value(self.edge_group_orient_sym, corner_orient_adjusted)
     }
@@ -200,10 +193,10 @@ impl SplitPhase1NodeA {
         let (unaltered_move_offsets, num_moves) =
             CubeMove::new_axis_move_array(start_node.previous_axis);
         let ego_move_offsets = unaltered_move_offsets.map(|mv| {
-            LOOKUP[(mv.into_index() << 4) | (start_node.edge_group_orient_correct.0 as usize)]
+            LOOKUP[(mv.into_index() << 4) | ((start_node.combined_sym_correct >> 4) as usize)]
         });
         let cp_move_offsets = unaltered_move_offsets
-            .map(|mv| LOOKUP[(mv.into_index() << 4) | (start_node.corner_perm_correct.0 as usize)]);
+            .map(|mv| LOOKUP[(mv.into_index() << 4) | ((start_node.combined_sym_correct & 0xF) as usize)]);
 
         for i in 0..15 {
             let ego_i = ego_move_offsets[i] as u8 as usize;
@@ -221,17 +214,17 @@ impl SplitPhase1NodeA {
                 .previous_axis
                 .update_with_new_move(unaltered_move_offsets[i], moves_remaining.get() - 1);
 
+            let ego = DominoSymmetry(start_node.combined_sym_correct >> 4)
+                    .then(new_ego_correction).0;
 
+            let cp = DominoSymmetry(start_node.combined_sym_correct & 0xF).then(new_cp_correction).0;
 
             slice[i + 1] = SplitPhase1NodeA {
                 edge_group_orient_sym: new_ego_coord,
-                edge_group_orient_correct: start_node
-                    .edge_group_orient_correct
-                    .then(new_ego_correction),
-                corner_perm_correct: start_node.corner_perm_correct.then(new_cp_correction),
                 corner_perm_raw: new_cp_coord,
                 corner_orient_raw: new_co_coord,
                 previous_axis: new_previous_axis,
+                combined_sym_correct: (ego << 4) | cp,
             };
         }
 
