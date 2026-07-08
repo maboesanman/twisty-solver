@@ -26,6 +26,16 @@ pub struct MoveSymCornerPermAugmentedRow {
     pub conjugations: [u8; 18],
 }
 
+impl MoveSymCornerPermAugmentedRow {
+    pub fn as_u16_array(&self) -> &[u16; 32] {
+        unsafe { core::mem::transmute(self) }
+    }
+
+    pub fn as_u8_arrays(&self) -> &[[u8; 32]; 2] {
+        unsafe { core::mem::transmute::<_, &[[u8; 32]; 2]>(self) }
+    }
+}
+
 pub struct MoveSymCornerPermAugmentedTable([u8]);
 
 impl MoveSymCornerPermAugmentedTable {
@@ -45,7 +55,7 @@ impl MoveSymCornerPermAugmentedTable {
     }
 
     pub fn row(&self, coord: CornerPermSymCoord) -> &MoveSymCornerPermAugmentedRow {
-        &self.rows()[(coord.0 & 0x0FFF) as usize]
+        unsafe { self.rows().get_unchecked((coord.0 & 0x0FFF) as usize) }
     }
 
     pub fn apply_cube_move(&self, coord: CornerPermSymCoord, mv: CubeMove) -> CornerPermComboCoord {

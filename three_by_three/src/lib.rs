@@ -4,6 +4,7 @@
 #![feature(ptr_cast_array)]
 #![allow(long_running_const_eval)]
 #![allow(dead_code)]
+#![feature(likely_unlikely)]
 
 mod cube_entry;
 mod cube_ops;

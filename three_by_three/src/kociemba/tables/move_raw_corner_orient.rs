@@ -29,6 +29,12 @@ pub struct MoveRawCornerOrientRow {
     pub conjugations: [u64; 3],
 }
 
+impl MoveRawCornerOrientRow {
+    pub fn as_u16_array(&self) -> &[u16; 32] {
+        unsafe { core::mem::transmute(self) }
+    }
+}
+
 impl MoveRawCornerOrientTable {
     pub unsafe fn as_ptr(&self) -> *const u16 {
         self.buffer.as_ptr() as *const u16
@@ -57,7 +63,7 @@ impl MoveRawCornerOrientTable {
     }
 
     pub fn row(&self, coord: CornerOrientRawCoord) -> &MoveRawCornerOrientRow {
-        &self.rows()[coord.0 as usize]
+        unsafe { self.rows().get_unchecked(coord.0 as usize) }
     }
 
     #[inline]

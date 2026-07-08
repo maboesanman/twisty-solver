@@ -199,6 +199,81 @@ impl CubeMove {
         }
     }
 
+    #[inline(always)]
+    pub fn new_axis_move_array_raw(prev_axis: CubePreviousAxis) -> (&'static [u8; 16], usize) {
+        use CubeMove::*;
+
+        let (a, b) = match prev_axis {
+            CubePreviousAxis::U => (
+                &const {
+                    [
+                        U1, D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3,
+                    ]
+                },
+                15,
+            ),
+            CubePreviousAxis::D | CubePreviousAxis::UD => (
+                &const {
+                    [
+                        U1, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1, U1, U1,
+                    ]
+                },
+                12,
+            ),
+            CubePreviousAxis::F => (
+                &const {
+                    [
+                        U1, U1, U2, U3, D1, D2, D3, B1, B2, B3, R1, R2, R3, L1, L2, L3,
+                    ]
+                },
+                15,
+            ),
+            CubePreviousAxis::B | CubePreviousAxis::FB => (
+                &const {
+                    [
+                        U1, U1, U2, U3, D1, D2, D3, R1, R2, R3, L1, L2, L3, U1, U1, U1,
+                    ]
+                },
+                12,
+            ),
+            CubePreviousAxis::R => (
+                &const {
+                    [
+                        U1, U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, L1, L2, L3,
+                    ]
+                },
+                15,
+            ),
+            CubePreviousAxis::L | CubePreviousAxis::RL => (
+                &const {
+                    [
+                        U1, U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, U1, U1, U1,
+                    ]
+                },
+                12,
+            ),
+            CubePreviousAxis::None => (
+                &const {
+                    [
+                        U1, U1, U2, U3, D1, D2, D3, F1, F2, F3, U1, U1, U1, U1, U1, U1,
+                    ]
+                },
+                9,
+            ),
+            CubePreviousAxis::NoneAlt => (
+                &const {
+                    [
+                        U1, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1, U1, U1,
+                    ]
+                },
+                9,
+            ),
+        };
+
+        let a = unsafe { core::mem::transmute::<&[CubeMove; 16], &[u8; 16]>(a) };
+        (a, b)
+    }
+
     pub const fn into_u8(self) -> u8 {
         unsafe { core::mem::transmute(self) }
     }

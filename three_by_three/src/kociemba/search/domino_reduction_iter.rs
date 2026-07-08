@@ -72,6 +72,12 @@ pub trait BestTrait: Copy {
     fn get_best(self) -> u8;
 }
 
+impl BestTrait for *const u8 {
+    fn get_best(self) -> u8 {
+        unsafe { *self }
+    }
+}
+
 impl BestTrait for &AtomicU8 {
     fn get_best(self) -> u8 {
         self.load(std::sync::atomic::Ordering::Relaxed)
@@ -81,12 +87,6 @@ impl BestTrait for &AtomicU8 {
 impl BestTrait for &u8 {
     fn get_best(self) -> u8 {
         *self
-    }
-}
-
-impl BestTrait for *const u8 {
-    fn get_best(self) -> u8 {
-        unsafe { *self }
     }
 }
 
@@ -225,21 +225,64 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
             }
         }
     }
+
+    #[inline(never)]
+    fn next_unpruned(&mut self, phase_1_tail: SplitPhase1NodeA) -> ([Phase1Node; N], Phase2Node) {
+        let (head, tail) = {
+            let mut head_out = [self.start; N];
+            let mut out = split(self.start).1;
+            let mut tail_out = self.start;
+
+            for i in 0..N {
+                let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
+                let frame_i_remaining = self
+                    .frame_metadata
+                    .get(i + 1)
+                    .map(|m| m.start as usize)
+                    .unwrap_or(self.frame_data.len() + 1)
+                    - self.frame_metadata[i].start as usize;
+
+                let j = (frame_i_remaining + self.frame_metadata[i].correct as usize) - 1;
+                out = out.produce_next_node_b(moves_remaining, self.tables, j);
+                if i + 1 < N {
+                    head_out[i + 1] = merge(
+                        self.frame_data[self.frame_metadata[i + 1].start as usize - 1],
+                        out,
+                    );
+                } else {
+                    tail_out = merge(phase_1_tail, out);
+                }
+            }
+
+            (head_out, tail_out)
+        };
+
+        let phase_2_head = Phase2Node::from_phase_1_node(tail);
+
+        let mut i = N;
+        if self.drop_recurse(&mut i) {
+            self.fill_recurse(i);
+        };
+
+        (head, phase_2_head)
+    }
 }
 
 impl<'t, const N: usize, Best: Clone + BestTrait> Iterator for Stack<'t, N, Best> {
     type Item = ([Phase1Node; N], Phase2Node);
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let phase_1_tail = self.frame_data.pop()?;
             let corner_dist = (phase_1_tail.corner_perm_raw.0 >> 12) as u8;
 
             let best = self.best.get_best();
-            if best <= self.target {
+
+            if core::hint::unlikely(best <= self.target) {
                 return None;
             }
-            if best < N as u8 + corner_dist {
+            if core::hint::likely(best < N as u8 + corner_dist) {
                 let mut i = N;
                 if self.drop_recurse(&mut i) {
                     self.fill_recurse(i);
@@ -247,43 +290,7 @@ impl<'t, const N: usize, Best: Clone + BestTrait> Iterator for Stack<'t, N, Best
                 continue;
             }
 
-            let (head, tail) = {
-                let mut head_out = [self.start; N];
-                let mut out = split(self.start).1;
-                let mut tail_out = self.start;
-
-                for i in 0..N {
-                    let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
-                    let frame_i_remaining = self
-                        .frame_metadata
-                        .get(i + 1)
-                        .map(|m| m.start as usize)
-                        .unwrap_or(self.frame_data.len() + 1)
-                        - self.frame_metadata[i].start as usize;
-
-                    let j = (frame_i_remaining + self.frame_metadata[i].correct as usize) - 1;
-                    out = out.produce_next_node_b(moves_remaining, self.tables, j);
-                    if i + 1 < N {
-                        head_out[i + 1] = merge(
-                            self.frame_data[self.frame_metadata[i + 1].start as usize - 1],
-                            out,
-                        );
-                    } else {
-                        tail_out = merge(phase_1_tail, out);
-                    }
-                }
-
-                (head_out, tail_out)
-            };
-
-            let phase_2_head = Phase2Node::from_phase_1_node(tail);
-
-            let mut i = N;
-            if self.drop_recurse(&mut i) {
-                self.fill_recurse(i);
-            };
-
-            break Some((head, phase_2_head));
+            break Some(self.next_unpruned(phase_1_tail));
         }
     }
 }

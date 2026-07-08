@@ -197,6 +197,56 @@ impl DominoSymmetry {
         TRANSFORM_COMPOSE_LOOKUP[((self.0 << 4) + other.0) as usize]
     }
 
+    #[inline(always)]
+    pub const fn then_no_lookup(self, other: Self) -> Self {
+        let a = self.0;
+        let b = other.0;
+        let as1 = a << 1;
+        let corr_mask = 0x4;
+        let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
+        Self(a ^ b ^ corr)
+    }
+
+    #[inline(always)]
+    pub const fn then_no_lookup_2(a: u8, b: u8) -> u8 {
+        let as1 = a << 1;
+        let corr_mask = 0x44;
+        let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
+        a ^ b ^ corr
+    }
+
+    #[inline(always)]
+    pub const fn then_no_lookup_4(a: u16, b: u16) -> u16 {
+        let as1 = a << 1;
+        let corr_mask = 0x4444;
+        let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
+        a ^ b ^ corr
+    }
+
+    #[inline(always)]
+    pub const fn then_no_lookup_8(a: u32, b: u32) -> u32 {
+        let as1 = a << 1;
+        let corr_mask = 0x44444444;
+        let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
+        a ^ b ^ corr
+    }
+
+    #[inline(always)]
+    pub const fn then_no_lookup_16(a: u64, b: u64) -> u64 {
+        let as1 = a << 1;
+        let corr_mask = 0x4444444444444444;
+        let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
+        a ^ b ^ corr
+    }
+
+    #[inline(always)]
+    pub const fn then_no_lookup_32(a: u128, b: u128) -> u128 {
+        let as1 = a << 1;
+        let corr_mask = 0x44444444444444444444444444444444;
+        let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
+        a ^ b ^ corr
+    }
+
     pub const fn inverse(self) -> Self {
         const TRANSFORM_INVERT_LOOKUP: [DominoSymmetry; 16] = {
             let reference_cube = cube![R U D2];
@@ -410,6 +460,22 @@ fn test_long_apply() {
         c2 = c2.then(c);
     }
     assert_eq!(count, 1260);
+}
+
+#[test]
+fn then_and_then_no_lookup_agree() {
+    for a in 0u8..16 {
+        for b in 0u8..16 {
+            let sym_a = DominoSymmetry(a);
+            let sym_b = DominoSymmetry(b);
+
+            assert_eq!(
+                sym_a.then(sym_b),
+                sym_a.then_no_lookup(sym_b),
+                "mismatch at ({a}, {b})",
+            );
+        }
+    }
 }
 
 #[test]

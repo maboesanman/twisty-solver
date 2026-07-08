@@ -29,6 +29,16 @@ pub struct MoveSymEdgeGroupOrientRow {
     pub conjugations: [u8; 18],
 }
 
+impl MoveSymEdgeGroupOrientRow {
+    pub fn as_u16_array(&self) -> &[u16; 32] {
+        unsafe { core::mem::transmute(self) }
+    }
+
+    pub fn as_u8_arrays(&self) -> &[[u8; 32]; 2] {
+        unsafe { core::mem::transmute::<_, &[[u8; 32]; 2]>(self) }
+    }
+}
+
 pub struct MoveSymEdgeGroupOrientTable {
     buffer: [u8],
 }
@@ -50,7 +60,7 @@ impl MoveSymEdgeGroupOrientTable {
     }
 
     pub fn row(&self, coord: EdgeGroupOrientSymCoord) -> &MoveSymEdgeGroupOrientRow {
-        &self.rows()[coord.0 as usize]
+        unsafe { self.rows().get_unchecked(coord.0 as usize) }
     }
 
     pub fn apply_cube_move(
