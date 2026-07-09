@@ -2,7 +2,6 @@ use std::path::Path;
 
 use anyhow::Result;
 use memmap2::Mmap;
-use num_integer::Integer;
 use rayon::prelude::*;
 
 use crate::{
@@ -16,7 +15,7 @@ use super::table_loader::load_table;
 
 pub(crate) const TABLE_SIZE_BYTES: usize =
     2187 * const { core::mem::size_of::<MoveRawCornerOrientRow>() };
-const FILE_CHECKSUM: u32 = 3314415234;
+const FILE_CHECKSUM: u32 = 1953065213;
 
 pub struct MoveRawCornerOrientTable {
     buffer: [u8],
@@ -26,7 +25,8 @@ pub struct MoveRawCornerOrientTable {
 #[repr(align(64))]
 pub struct MoveRawCornerOrientRow {
     pub moves: [u16; 18],
-    pub conjugations: [u64; 3],
+    pub conj_lo: [u8; 16],
+    pub conj_hi: [u8; 8],
 }
 
 impl MoveRawCornerOrientRow {
@@ -81,12 +81,11 @@ impl MoveRawCornerOrientTable {
         coord: CornerOrientRawCoord,
         transform: DominoSymmetry,
     ) -> CornerOrientRawCoord {
-        if transform.0 == 0 {
-            return coord;
-        }
-        let row = self.row(coord).conjugations;
-        let (a, b) = (transform.0 - 1).div_rem(&5);
-        CornerOrientRawCoord(((row[a as usize] >> (b * 12)) & 0b0000_1111_1111_1111) as u16)
+        let row = self.row(coord);
+        let i = transform.0 as usize;
+        let lo = row.conj_lo[i] as u16;
+        let hi = (row.conj_hi[i >> 1] >> ((i & 1) << 2)) as u16 & 0xF;
+        CornerOrientRawCoord(lo | (hi << 8))
     }
 
     pub(crate) fn as_buffer(&self) -> &[u8] {
@@ -109,14 +108,13 @@ impl MoveRawCornerOrientTable {
                     row.moves[j] = orient.apply_cube_move(mv).into_coord().0;
                 }
 
-                for sym in DominoSymmetry::nontrivial_iter() {
+                for sym in DominoSymmetry::all_iter() {
                     let value = orient.domino_conjugate(sym).into_coord().0;
-                    let (a, b) = (sym.0 - 1).div_rem(&5);
-                    let shift = b * 12;
-                    let mask = 0x0FFFu64 << shift;
-
-                    row.conjugations[a as usize] =
-                        (row.conjugations[a as usize] & !mask) | ((value as u64) << shift);
+                    let i = sym.0 as usize;
+                    row.conj_lo[i] = value as u8;
+                    let shift = (i & 1) << 2;
+                    row.conj_hi[i >> 1] =
+                        (row.conj_hi[i >> 1] & !(0xFu8 << shift)) | (((value >> 8) as u8) << shift);
                 }
             })
     }
