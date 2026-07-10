@@ -15,7 +15,7 @@ use super::table_loader::load_table;
 
 pub(crate) const TABLE_SIZE_BYTES: usize =
     2187 * const { core::mem::size_of::<MoveRawCornerOrientRow>() };
-const FILE_CHECKSUM: u32 = 1953065213;
+const FILE_CHECKSUM: u32 = 3864812913;
 
 pub struct MoveRawCornerOrientTable {
     buffer: [u8],

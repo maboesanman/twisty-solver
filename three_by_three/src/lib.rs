@@ -1,6 +1,6 @@
 #![cfg_attr(test, feature(test))]
 #![feature(slice_swap_unchecked)]
-// #![feature(portable_simd)]
+#![feature(portable_simd)]
 #![feature(ptr_cast_array)]
 #![allow(long_running_const_eval)]
 #![allow(dead_code)]
@@ -10,6 +10,7 @@ mod cube_entry;
 mod cube_ops;
 mod kociemba;
 mod permutation_math;
+mod simd_utils;
 
 pub use cube_ops::repr_cube::ReprCube;
 

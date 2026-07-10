@@ -125,7 +125,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
 
     fn new_inner(start: Phase1Node, tables: &'t Tables, best: Best, target: u8) -> Self {
         let mut frame_data = Vec::with_capacity(15 * N + 1);
-        let (split_start, _) = split(start);
+        let (split_start, _) = split(start, tables);
         frame_data.push(split_start);
 
         let mut stack = Self {
@@ -179,7 +179,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
 
                 if viable {
                     let distance = (*self.frame_data.as_ptr().add((len - 1) as usize))
-                        .distance_heuristic(self.tables);
+                        .distance_heuristic();
 
                     if distance <= moves_remaining {
                         break;
@@ -230,7 +230,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
     fn next_unpruned(&mut self, phase_1_tail: SplitPhase1NodeA) -> ([Phase1Node; N], Phase2Node) {
         let (head, tail) = {
             let mut head_out = [self.start; N];
-            let mut out = split(self.start).1;
+            let mut out = split(self.start, self.tables).1;
             let mut tail_out = self.start;
 
             for i in 0..N {

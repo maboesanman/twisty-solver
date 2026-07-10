@@ -1,6 +1,7 @@
+use std::simd::{Simd, num::SimdUint};
+
 use crate::{
-    cube,
-    kociemba::partial_reprs::{edge_group::EdgeGroup, edge_positions::split_edge_positions},
+    cube, cube_ops::partial_reprs::corner_orient, kociemba::{coords::CornerOrientRawCoord, partial_reprs::{edge_group::EdgeGroup, edge_positions::split_edge_positions}}, simd_utils::{lut_u8x16, lut_u16x16}
 };
 
 use super::{
@@ -247,6 +248,110 @@ impl DominoSymmetry {
         a ^ b ^ corr
     }
 
+    #[inline(always)]
+    pub fn conjugate_corner_orient(
+        self,
+        dense: u16,
+    ) -> u16 {
+        let t = TBL[self.0 as usize];
+        let mut coord = dense;
+
+        // Expand a single flag bit to a u16 mask: 0x0000 or 0xFFFF
+        let mask = |bit: u8| (((t >> bit) & 1) as i16).wrapping_neg() as u16;
+
+        // 1. L: swap fields 1<->2 and 5<->6 (bit0<->bit1 of indices)
+        let s = (coord & 0xC3C3) | ((coord & 0x0C0C) << 2) | ((coord >> 2) & 0x0C0C);
+        coord ^= (coord ^ s) & mask(3);
+
+        // 2. c' bit 0: XOR index with 1
+        let s = ((coord & 0x3333) << 2) | ((coord >> 2) & 0x3333);
+        coord ^= (coord ^ s) & mask(0);
+
+        // 3. c' bit 1: XOR index with 2
+        let s = ((coord & 0x0F0F) << 4) | ((coord >> 4) & 0x0F0F);
+        coord ^= (coord ^ s) & mask(1);
+
+        // 4. c' bit 2: XOR index with 4
+        let s = (coord << 8) | (coord >> 8);
+        coord ^= (coord ^ s) & mask(2);
+
+        // 5. Conditional mirror: swaps the two bits within each 2-bit field
+        let mirror_mask = ((self.0 & 1) as i16).wrapping_neg() as u16;
+        let mirrored = ((coord & 0x5555) << 1) | ((coord >> 1) & 0x5555);
+        coord ^= (coord ^ mirrored) & mirror_mask;
+
+        let coord = coord & 0x3FFF; // omit the highest two_bits
+
+        // pairs of 2-bit digits -> one 4-bit group, value = hi*3 + lo (0..=8)
+        let coord = ((coord >> 2) & 0x3333) * 3
+            + (coord & 0x3333);
+
+        // pairs of 4-bit groups -> 8-bit group, value = hi*9 + lo (0..=80)
+        let coord = ((coord >> 4) & 0x0F0F) * 9
+            + (coord & 0x0F0F);
+
+        // two 8-bit groups -> final, hi*81 + lo (0..=6560)
+        let coord = (coord >> 8) * 81 + (coord & 0x00FF);
+
+        coord
+    }
+
+    #[inline(always)]
+    pub fn conjugate_corner_orient_16(
+        syms: [u8; 16],
+        dense_coords: [u16; 16],
+    ) -> [u16; 16] {
+        type U8  = Simd<u8, 16>;
+        type U16 = Simd<u16, 16>;
+        
+        let t = U16::from_array(lut_u16x16(&TBL, &syms));
+        let mut coord = U16::from_array(dense_coords);
+
+        // Expand bit `n` of `t` to 0x0000 or 0xFFFF per lane.
+        // Arithmetic shift right on signed i16 sign-extends the LSB.
+        let m0 = ((t >> 0) & U16::splat(1)).wrapping_neg();
+        let m1 = ((t >> 1) & U16::splat(1)).wrapping_neg();
+        let m2 = ((t >> 2) & U16::splat(1)).wrapping_neg();
+        let m3 = ((t >> 3) & U16::splat(1)).wrapping_neg();
+
+        // 1. L: swap fields 1<->2 and 5<->6 (bit0<->bit1 of indices)
+        let s = (coord & U16::splat(0xC3C3)) | ((coord & U16::splat(0x0C0C)) << 2) | ((coord >> 2) & U16::splat(0x0C0C));
+        coord ^= (coord ^ s) & m3;
+
+        // 2. c' bit 0: XOR index with 1
+        let s = ((coord & U16::splat(0x3333)) << 2) | ((coord >> 2) & U16::splat(0x3333));
+        coord ^= (coord ^ s) & m0;
+
+        // 3. c' bit 1: XOR index with 2
+        let s = ((coord & U16::splat(0x0F0F)) << 4) | ((coord >> 4) & U16::splat(0x0F0F));
+        coord ^= (coord ^ s) & m1;
+
+        // 4. c' bit 2: XOR index with 4
+        let s = (coord << 8) | (coord >> 8);
+        coord ^= (coord ^ s) & m2;
+
+        // 5. Conditional mirror: swaps the two bits within each 2-bit field
+        let wide_syms: U16 = U8::from_array(syms).cast();
+        let mirror_mask = (wide_syms & U16::splat(1)).wrapping_neg();
+        let mirrored = ((coord & U16::splat(0x5555)) << 1) | ((coord >> 1) & U16::splat(0x5555));
+        coord ^= (coord ^ mirrored) & mirror_mask;
+
+        let v = coord & Simd::splat(0x3FFF); // omit the highest two_bits
+
+        // pairs of 2-bit digits -> one 4-bit group, value = hi*3 + lo (0..=8)
+        let v = ((v >> 2) & Simd::splat(0x3333)) * Simd::splat(3)
+            + (v & Simd::splat(0x3333));
+
+        // pairs of 4-bit groups -> 8-bit group, value = hi*9 + lo (0..=80)
+        let v = ((v >> 4) & Simd::splat(0x0F0F)) * Simd::splat(9)
+            + (v & Simd::splat(0x0F0F));
+
+        // two 8-bit groups -> final, hi*81 + lo (0..=6560)
+        let v = (v >> 8) * Simd::splat(81) + (v & Simd::splat(0x00FF));
+
+        v.to_array()
+    }
+
     pub const fn inverse(self) -> Self {
         const TRANSFORM_INVERT_LOOKUP: [DominoSymmetry; 16] = {
             let reference_cube = cube![R U D2];
@@ -418,6 +523,43 @@ impl CubeMove {
         TABLE[self.into_index() * 16 + (sym.0 as usize)]
     }
 }
+/// TBL encodes (swap_flag << 3) | c' where c' = L(c) for the GATHER convention.
+const TBL: [u16; 32] = [
+    0,  1,  9,  8,  3,  2, 10, 11,
+    5,  4, 15, 14,  6,  7, 12, 13,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0
+];
+
+// /// Branchless permutation of 2-bit orientation fields according to symmetry `sym` (0..15).
+// /// Implements gather convention: new[i] = old[p[i]] (matches your apply_to/invert logic).
+// pub fn permute(sym: u8, mut coord: u16) -> u16 {
+//     debug_assert!(sym < 16);
+//     let t = TBL[sym as usize];
+
+//     // Expand a single flag bit to a u16 mask: 0x0000 or 0xFFFF
+//     let mask = |bit: u8| (((t >> bit) & 1) as i16).wrapping_neg() as u16;
+
+//     // 1. L: swap fields 1<->2 and 5<->6 (bit0<->bit1 of indices)
+//     let s = (coord & 0xC3C3) | ((coord & 0x0C0C) << 2) | ((coord >> 2) & 0x0C0C);
+//     coord ^= (coord ^ s) & mask(3);
+
+//     // 2. c' bit 0: XOR index with 1 (swap adjacent 2-bit fields)
+//     let s = ((coord & 0x3333) << 2) | ((coord >> 2) & 0x3333);
+//     coord ^= (coord ^ s) & mask(0);
+
+//     // 3. c' bit 1: XOR index with 2 (swap adjacent 4-bit fields)
+//     let s = ((coord & 0x0F0F) << 4) | ((coord >> 4) & 0x0F0F);
+//     coord ^= (coord ^ s) & mask(1);
+
+//     // 4. c' bit 2: XOR index with 4 (swap halves)
+//     let s = (coord << 8) | (coord >> 8);
+//     coord ^= (coord ^ s) & mask(2);
+
+//     coord
+// }
+
+
 
 #[test]
 fn check_no_duplicates_for_corner_perm_repr() {
@@ -479,11 +621,44 @@ fn then_and_then_no_lookup_agree() {
 }
 
 #[test]
+fn nolookup_conjugate_matches() {
+    for s in DominoSymmetry::all_iter() {
+        for c in 0..2187u16 {
+            let co = CornerOrient::from_coord(CornerOrientRawCoord(c));
+            let reference = co.domino_conjugate(s).into_coord().0;
+            let test = DominoSymmetry::conjugate_corner_orient(s, co.into_dense());
+
+            assert_eq!(reference, test);
+        }
+    }
+}
+
+#[test]
+fn nolookup_conjugate_matches_16() {
+    for s in DominoSymmetry::all_iter() {
+        for c in 0..2187u16 {
+            let co = CornerOrient::from_coord(CornerOrientRawCoord(c));
+            let reference = co.domino_conjugate(s).into_coord().0;
+            let test = DominoSymmetry::conjugate_corner_orient_16([s.0; 16], [co.into_dense(); 16]);
+
+            assert_eq!([reference; 16], test);
+        }
+    }
+}
+
+#[test]
 fn basic_sequence() {
     let cube = cube![R U D2 U L F B L];
 
     for sym in DominoSymmetry::all_iter() {
         cube.domino_conjugate(sym).pretty_print();
         println!()
+    }
+}
+
+#[test]
+fn print_corner_sym() {
+    for i in DominoSymmetry::all_iter() {
+        println!("{:?}", CORNER_PERM_LOOKUP[i.0 as usize]);
     }
 }
