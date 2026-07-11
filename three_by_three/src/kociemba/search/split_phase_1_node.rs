@@ -8,7 +8,7 @@ use crate::{
         },
         search::phase_1_node::Phase1Node,
         tables::{
-            move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table
+            lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable}, move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable, move_sym_corner_orient::MoveSymCornerOrientTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table, prune_phase_1_double_sym_mod_4::PrunePhase1DoubleSymMod4Table
         },
     }, simd_utils::{lut_u8x16, lut_u16x16}
 };
@@ -17,16 +17,18 @@ use crate::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SplitPhase1NodeA {
     pub edge_group_orient_sym: EdgeGroupOrientSymCoord,
-    pub corner_perm_raw: CornerPermSymCoord,
-    pub corner_orient_raw: CornerOrientRawCoord,
+    pub corner_perm_sym: CornerPermSymCoord,
+    pub corner_orient_sym: CornerOrientSymCoord,
+    pub corner_orient_sym_correct: DominoSymmetry,
     pub combined_phase_1_dist_previous_axis: u8,
     pub combined_sym_correct: u8,
 }
 
 const SPLIT_A_ZERO: SplitPhase1NodeA = SplitPhase1NodeA {
     edge_group_orient_sym: EdgeGroupOrientSymCoord(0),
-    corner_perm_raw: CornerPermSymCoord(0),
-    corner_orient_raw: CornerOrientRawCoord(0),
+    corner_perm_sym: CornerPermSymCoord(0),
+    corner_orient_sym: CornerOrientSymCoord(0),
+    corner_orient_sym_correct: DominoSymmetry::IDENTITY,
     combined_phase_1_dist_previous_axis: 0,
     combined_sym_correct: 0,
 };
@@ -60,6 +62,7 @@ pub fn split(node: Phase1Node ,tables: &Tables) -> (SplitPhase1NodeA, SplitPhase
     } = node;
     let move_table: &MoveRawCornerOrientTable = tables.as_ref();
     let prune_table: &PrunePhase1Table = tables.as_ref();
+    let lookup: &LookupSymCornerOrientTable = tables.as_ref();
 
     let corner_orient_adjusted = move_table.domino_conjugate(
         corner_orient_raw,
@@ -67,13 +70,15 @@ pub fn split(node: Phase1Node ,tables: &Tables) -> (SplitPhase1NodeA, SplitPhase
     );
 
     let dist = prune_table.get_value(edge_group_orient_sym, corner_orient_adjusted);
+    let combo = lookup.get_combo_from_raw(corner_orient_raw);
     (
         SplitPhase1NodeA {
             edge_group_orient_sym,
-            corner_perm_raw,
-            corner_orient_raw,
+            corner_perm_sym: corner_perm_raw,
             combined_phase_1_dist_previous_axis: (previous_axis as u8 | (dist << 4)),
             combined_sym_correct: (edge_group_orient_correct.0 << 4) | corner_perm_correct.0,
+            corner_orient_sym: combo.sym_coord,
+            corner_orient_sym_correct: combo.domino_conjugation,
         },
         SplitPhase1NodeB {
             u_edge_positions,
@@ -85,13 +90,14 @@ pub fn split(node: Phase1Node ,tables: &Tables) -> (SplitPhase1NodeA, SplitPhase
 }
 
 #[inline(always)]
-pub fn merge(a: SplitPhase1NodeA, b: SplitPhase1NodeB) -> Phase1Node {
+pub fn merge(a: SplitPhase1NodeA, b: SplitPhase1NodeB, tables: &Tables) -> Phase1Node {
     let SplitPhase1NodeA {
         edge_group_orient_sym,
-        corner_perm_raw,
-        corner_orient_raw,
+        corner_perm_sym: corner_perm_raw,
         combined_phase_1_dist_previous_axis: _,
         combined_sym_correct,
+        corner_orient_sym,
+        corner_orient_sym_correct,
     } = a;
     let SplitPhase1NodeB {
         u_edge_positions,
@@ -99,6 +105,11 @@ pub fn merge(a: SplitPhase1NodeA, b: SplitPhase1NodeB) -> Phase1Node {
         e_edge_positions,
         previous_axis,
     } = b;
+    let lookup: &LookupSymCornerOrientTable = tables.as_ref();
+    let corner_orient_raw = lookup.get_raw_from_combo(CornerOrientComboCoord {
+        sym_coord: corner_orient_sym,
+        domino_conjugation: corner_orient_sym_correct,
+    });
     Phase1Node {
         edge_group_orient_sym,
         edge_group_orient_correct: DominoSymmetry(combined_sym_correct >> 4),
@@ -161,7 +172,7 @@ fn axis_after_table(prev: CubePreviousAxis, moves_remaining: NonZeroU8) -> &'sta
 impl SplitPhase1NodeA {
     #[inline(always)]
     pub fn is_domino_reduced(self) -> bool {
-        self.corner_orient_raw.0 == 0 && self.edge_group_orient_sym.0 == 0
+        self.corner_orient_sym.0 == 0 && self.edge_group_orient_sym.0 == 0
     }
 
     #[inline(always)]
@@ -193,15 +204,47 @@ impl SplitPhase1NodeA {
 
         let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
         let cp_mv_tbl: &MoveSymCornerPermAugmentedTable = tables.as_ref();
-        let co_mv_tbl: &MoveRawCornerOrientTable = tables.as_ref();
-        let prune_tbl: &PrunePhase1Table = tables.as_ref();
+        let co_mv_tbl: &MoveSymCornerOrientTable = tables.as_ref();
+        let prune_tbl: &PrunePhase1DoubleSymMod4Table = tables.as_ref();
+
+        let phase_1_distance = start_node.combined_phase_1_dist_previous_axis >> 4;
+
+        const DISTANCE_OPTIONS_LOOKUP: [[u8; 4]; 13] = const {
+            let mut out = [[0; 4]; 13];
+
+            let mut d = 0usize;
+            while d < 13 {
+                let mut i = -1i8;
+                while i < 2 {
+
+                    let mut new_d = (d as i8) + i;
+                    if new_d < 0 {
+                        new_d = 0;
+                    }
+                    if new_d > 12 {
+                        new_d = 12;
+                    }
+
+                    let new_d = new_d as usize;
+
+                    out[d][new_d % 4] = d as u8;
+
+                    i += 1;
+                }
+
+                d += 1;
+            }
+
+            out
+        };
+
+        let distance_options = DISTANCE_OPTIONS_LOOKUP[phase_1_distance as usize];
 
         let ego_row = ego_mv_tbl.row(start_node.edge_group_orient_sym);
-        let cp_row = cp_mv_tbl.row(start_node.corner_perm_raw);
-        let co_row = co_mv_tbl.row(start_node.corner_orient_raw);
+        let cp_row = cp_mv_tbl.row(start_node.corner_perm_sym);
+        let co_row = co_mv_tbl.row(start_node.corner_orient_sym);
 
         let previous_axis = unsafe { core::mem::transmute(start_node.combined_phase_1_dist_previous_axis & 0xF) };
-        // let phase_1_distance = start_node.combined_phase_1_dist_previous_axis >> 4;
 
         let (mv, num_moves) = CubeMove::new_axis_move_array_raw(previous_axis);
 
@@ -213,34 +256,51 @@ impl SplitPhase1NodeA {
             &SYM_CONJ[(start_node.combined_sym_correct & 0xF) as usize],
             mv,
         );
+        let co_i = lut_u8x16(
+            &SYM_CONJ[start_node.corner_orient_sym_correct.0 as usize],
+            mv,
+        );
         let ego_c = lut_u16x16(ego_row.as_u16_array(), &ego_i);
         let cp_c = lut_u16x16(cp_row.as_u16_array(), &cp_i);
-        let co_c = lut_u16x16(co_row.as_u16_array(), mv);
+        let co_c = lut_u8x16(&co_row.as_u8_arrays()[0], &co_i);
 
         let offset = u128::from_ne_bytes([4u8; 16]);
         let ego_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(ego_i));
         let cp_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(cp_i));
+        let co_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(co_i));
 
         let ego_j = lut_u8x16(&ego_row.as_u8_arrays()[1], &ego_i);
         let cp_j = lut_u8x16(&cp_row.as_u8_arrays()[1], &cp_i);
+        let co_j = lut_u8x16(&co_row.as_u8_arrays()[1], &co_i);
         let mut axis_n = lut_u8x16(
             axis_after_table(previous_axis, moves_remaining),
             mv,
         );
 
         // --- portable, autovec-reliable from here ---
+        let a = u128::from_ne_bytes([start_node.corner_orient_sym_correct.0; 16]);
+        let next_syms = u128::from_ne_bytes(co_j);
+        let co_syms = DominoSymmetry::then_no_lookup_32(a, next_syms);
+
         let a = u128::from_ne_bytes([start_node.combined_sym_correct; 16]);
         let next_syms = u128::from_ne_bytes(ego_j) << 4 | u128::from_ne_bytes(cp_j);
-        let syms = u128::to_ne_bytes(DominoSymmetry::then_no_lookup_32(a, next_syms));
+        let syms = DominoSymmetry::then_no_lookup_32(a, next_syms);
+
+        let co_adj = u128::to_ne_bytes(DominoSymmetry::then_no_lookup_32(co_syms, u128::from_ne_bytes(ego_j)) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F);
+        let co_syms = u128::to_ne_bytes(co_syms);
+        let syms = u128::to_ne_bytes(syms);
 
         for i in 1..=num_moves {
             let ego = EdgeGroupOrientSymCoord(ego_c[i]);
-            let adj = co_mv_tbl.domino_conjugate(CornerOrientRawCoord(co_c[i]), DominoSymmetry(syms[i] >> 4));
-            let dist = prune_tbl.get_value(ego, adj);
+            let combo = CornerOrientComboCoord {
+                sym_coord: CornerOrientSymCoord(co_c[i]),
+                domino_conjugation: DominoSymmetry(co_adj[i]),
+            };
+            let dist = distance_options[prune_tbl.get_value(ego, combo) as usize];
             axis_n[i] = axis_n[i] | (dist << 4)
         }
 
-        let out = combine(ego_c, cp_c, co_c, axis_n, syms);
+        let out = combine(ego_c, cp_c, co_c, co_syms, axis_n, syms);
 
         for i in 1..16 {
             slice[i] = out[i];
@@ -279,9 +339,10 @@ pub fn combine(
 pub fn combine(
     a: [u16; 16],
     b: [u16; 16],
-    c: [u16; 16],
+    c: [u8; 16],
     d: [u8; 16],
     e: [u8; 16],
+    f: [u8; 16],
 ) -> [SplitPhase1NodeA; 16] {
     use core::arch::aarch64::*;
     let mut out = [SPLIT_A_ZERO; 16];
@@ -291,23 +352,28 @@ pub fn combine(
         let a1 = vld1q_u16(a.as_ptr().add(8));
         let b0 = vld1q_u16(b.as_ptr());
         let b1 = vld1q_u16(b.as_ptr().add(8));
-        let c0 = vld1q_u16(c.as_ptr());
-        let c1 = vld1q_u16(c.as_ptr().add(8));
 
+        let cv = vld1q_u8(c.as_ptr());
         let dv = vld1q_u8(d.as_ptr());
+
         let ev = vld1q_u8(e.as_ptr());
+        let fv = vld1q_u8(f.as_ptr());
 
         // Interleave d/e bytes: [d0 e0 d1 e1 ...]. Viewed as u16 lanes on a
         // little-endian target, lane i == d[i] | (e[i] << 8), i.e. byte 0 = d
         // (offset 6 in the struct), byte 1 = e (offset 7).
-        let de0 = vreinterpretq_u16_u8(vzip1q_u8(dv, ev));
-        let de1 = vreinterpretq_u16_u8(vzip2q_u8(dv, ev));
+
+        let cd0 = vreinterpretq_u16_u8(vzip1q_u8(cv, dv));
+        let cd1 = vreinterpretq_u16_u8(vzip2q_u8(cv, dv));
+
+        let ef0 = vreinterpretq_u16_u8(vzip1q_u8(ev, fv));
+        let ef1 = vreinterpretq_u16_u8(vzip2q_u8(ev, fv));
 
         // st4 writes lanes interleaved: a0 b0 c0 de0 a1 b1 c1 de1 ...
         // which is exactly the AoS layout of SplitPhase1NodeA.
         let base = out.as_mut_ptr() as *mut u16;
-        vst4q_u16(base, uint16x8x4_t(a0, b0, c0, de0));
-        vst4q_u16(base.add(32), uint16x8x4_t(a1, b1, c1, de1));
+        vst4q_u16(base, uint16x8x4_t(a0, b0, cd0, ef0));
+        vst4q_u16(base.add(32), uint16x8x4_t(a1, b1, cd1, ef1));
     }
 
     out

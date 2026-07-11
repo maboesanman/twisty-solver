@@ -66,7 +66,7 @@ pub struct EdgeGroupOrientRawCoord(pub u32);
 pub struct EdgeGroupOrientSymCoord(pub u16);
 
 /// The sym coordinate for corner permutation, reduced by domino symmetries
-/// fits in 12 bits. (2768 values)
+/// fits in 12 bits. (2768 values) 
 ///
 /// parity of coord matches parity of permutation
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
