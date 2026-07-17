@@ -1,16 +1,32 @@
-use std::{num::NonZeroU8, simd::Simd};
+use std::{
+    num::NonZeroU8,
+    simd::{Simd, num::SimdUint},
+};
 
 use crate::{
-    CornerOrient, CubeMove, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
+    CornerOrient, CubeMove, Tables,
+    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
+    kociemba::{
         coords::{CornerOrientRawCoord, CornerPermSymCoord, EdgeGroupOrientSymCoord},
         partial_reprs::edge_positions::{
             DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions,
         },
         search::phase_1_node::Phase1Node,
         tables::{
-            lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable}, move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable, move_sym_corner_orient::MoveSymCornerOrientTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table, prune_phase_1_double_sym_mod_4::PrunePhase1DoubleSymMod4Table
+            lookup_sym_corner_orient::{
+                CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable,
+            },
+            move_edge_positions::MoveEdgePositionsTable,
+            move_raw_corner_orient::MoveRawCornerOrientTable,
+            move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable,
+            move_sym_corner_orient::MoveSymCornerOrientTable,
+            move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable,
+            move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable,
+            prune_phase_1::PrunePhase1Table,
+            prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table,
         },
-    }, simd_utils::{lut_u8x16, lut_u16x16}
+    },
+    simd_utils::{lut_u8x16x2, lut_u16x16x3},
 };
 
 #[repr(C)]
@@ -48,7 +64,7 @@ pub struct Phase1FrameMetadata<I> {
 }
 
 #[inline(always)]
-pub fn split(node: Phase1Node ,tables: &Tables) -> (SplitPhase1NodeA, SplitPhase1NodeB) {
+pub fn split(node: Phase1Node, tables: &Tables) -> (SplitPhase1NodeA, SplitPhase1NodeB) {
     let Phase1Node {
         edge_group_orient_sym,
         edge_group_orient_correct,
@@ -64,10 +80,8 @@ pub fn split(node: Phase1Node ,tables: &Tables) -> (SplitPhase1NodeA, SplitPhase
     let prune_table: &PrunePhase1Table = tables.as_ref();
     let lookup: &LookupSymCornerOrientTable = tables.as_ref();
 
-    let corner_orient_adjusted = move_table.domino_conjugate(
-        corner_orient_raw,
-        edge_group_orient_correct,
-    );
+    let corner_orient_adjusted =
+        move_table.domino_conjugate(corner_orient_raw, edge_group_orient_correct);
 
     let dist = prune_table.get_value(edge_group_orient_sym, corner_orient_adjusted);
     let combo = lookup.get_combo_from_raw(corner_orient_raw);
@@ -163,6 +177,34 @@ const AXIS_AFTER: [[[u8; 32]; N_AXIS]; 2] = {
     t
 };
 
+const DISTANCE_OPTIONS_LOOKUP: [[u8; 32]; 13] = const {
+    let mut out = [[0; 32]; 13];
+
+    let mut d = 0usize;
+    while d < 13 {
+        let mut i = -1i8;
+        while i < 2 {
+            let mut new_d = (d as i8) + i;
+            if new_d < 0 {
+                new_d = 0;
+            }
+            if new_d > 12 {
+                new_d = 12;
+            }
+
+            let new_d = new_d as usize;
+
+            out[d][new_d % 3] = new_d as u8;
+
+            i += 1;
+        }
+
+        d += 1;
+    }
+
+    out
+};
+
 #[inline(always)]
 fn axis_after_table(prev: CubePreviousAxis, moves_remaining: NonZeroU8) -> &'static [u8; 32] {
     let penultimate = (moves_remaining.get() == 2) as usize;
@@ -205,88 +247,72 @@ impl SplitPhase1NodeA {
         let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
         let cp_mv_tbl: &MoveSymCornerPermAugmentedTable = tables.as_ref();
         let co_mv_tbl: &MoveSymCornerOrientTable = tables.as_ref();
-        let prune_tbl: &PrunePhase1DoubleSymMod4Table = tables.as_ref();
+        let prune_tbl: &PrunePhase1DoubleSymMod3Table = tables.as_ref();
+        let zzco_mv_tbl: &MoveRawCornerOrientTable = tables.as_ref();
+        let zzprune_tbl: &PrunePhase1Table = tables.as_ref();
+        let lookup: &LookupSymCornerOrientTable = tables.as_ref();
+
+        let co_raw = lookup.get_raw_from_combo(CornerOrientComboCoord {
+            sym_coord: start_node.corner_orient_sym,
+            domino_conjugation: start_node.corner_orient_sym_correct,
+        });
 
         let phase_1_distance = start_node.combined_phase_1_dist_previous_axis >> 4;
-
-        const DISTANCE_OPTIONS_LOOKUP: [[u8; 4]; 13] = const {
-            let mut out = [[0; 4]; 13];
-
-            let mut d = 0usize;
-            while d < 13 {
-                let mut i = -1i8;
-                while i < 2 {
-
-                    let mut new_d = (d as i8) + i;
-                    if new_d < 0 {
-                        new_d = 0;
-                    }
-                    if new_d > 12 {
-                        new_d = 12;
-                    }
-
-                    let new_d = new_d as usize;
-
-                    out[d][new_d % 4] = d as u8;
-
-                    i += 1;
-                }
-
-                d += 1;
-            }
-
-            out
-        };
 
         let distance_options = DISTANCE_OPTIONS_LOOKUP[phase_1_distance as usize];
 
         let ego_row = ego_mv_tbl.row(start_node.edge_group_orient_sym);
         let cp_row = cp_mv_tbl.row(start_node.corner_perm_sym);
         let co_row = co_mv_tbl.row(start_node.corner_orient_sym);
+        let zzco_row = zzco_mv_tbl.row(co_raw);
 
-        let previous_axis = unsafe { core::mem::transmute(start_node.combined_phase_1_dist_previous_axis & 0xF) };
+        let previous_axis =
+            unsafe { core::mem::transmute(start_node.combined_phase_1_dist_previous_axis & 0xF) };
 
         let (mv, num_moves) = CubeMove::new_axis_move_array_raw(previous_axis);
 
-        let ego_i = lut_u8x16(
+        let ego_i = lut_u8x16x2(
             &SYM_CONJ[(start_node.combined_sym_correct >> 4) as usize],
             mv,
         );
-        let cp_i = lut_u8x16(
+        let cp_i = lut_u8x16x2(
             &SYM_CONJ[(start_node.combined_sym_correct & 0xF) as usize],
             mv,
         );
-        let co_i = lut_u8x16(
+        let co_i = lut_u8x16x2(
             &SYM_CONJ[start_node.corner_orient_sym_correct.0 as usize],
             mv,
         );
-        let ego_c = lut_u16x16(ego_row.as_u16_array(), &ego_i);
-        let cp_c = lut_u16x16(cp_row.as_u16_array(), &cp_i);
-        let co_c = lut_u8x16(&co_row.as_u8_arrays()[0], &co_i);
+        let ego_c = lut_u16x16x3(ego_row.as_u16_array(), &ego_i);
+        let cp_c = lut_u16x16x3(cp_row.as_u16_array(), &cp_i);
+        let co_c = lut_u8x16x2(&co_row.as_u8_arrays()[0], &co_i);
+        let zzco_c = lut_u16x16x3(zzco_row.as_u16_array(), mv);
 
         let offset = u128::from_ne_bytes([4u8; 16]);
         let ego_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(ego_i));
         let cp_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(cp_i));
         let co_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(co_i));
 
-        let ego_j = lut_u8x16(&ego_row.as_u8_arrays()[1], &ego_i);
-        let cp_j = lut_u8x16(&cp_row.as_u8_arrays()[1], &cp_i);
-        let co_j = lut_u8x16(&co_row.as_u8_arrays()[1], &co_i);
-        let mut axis_n = lut_u8x16(
-            axis_after_table(previous_axis, moves_remaining),
-            mv,
-        );
+        let ego_j = lut_u8x16x2(&ego_row.as_u8_arrays()[1], &ego_i);
+        let cp_j = lut_u8x16x2(&cp_row.as_u8_arrays()[1], &cp_i);
+        let co_j = lut_u8x16x2(&co_row.as_u8_arrays()[1], &co_i);
+        let mut axis_n = lut_u8x16x2(axis_after_table(previous_axis, moves_remaining), mv);
 
         // --- portable, autovec-reliable from here ---
         let a = u128::from_ne_bytes([start_node.corner_orient_sym_correct.0; 16]);
         let next_syms = u128::from_ne_bytes(co_j);
-        let co_syms = DominoSymmetry::then_no_lookup_32(a, next_syms);
+        let co_syms = DominoSymmetry::bitwise_then_32(a, next_syms);
 
         let a = u128::from_ne_bytes([start_node.combined_sym_correct; 16]);
         let next_syms = u128::from_ne_bytes(ego_j) << 4 | u128::from_ne_bytes(cp_j);
-        let syms = DominoSymmetry::then_no_lookup_32(a, next_syms);
+        let syms = DominoSymmetry::bitwise_then_32(a, next_syms);
 
-        let co_adj = u128::to_ne_bytes(DominoSymmetry::then_no_lookup_32(co_syms, u128::from_ne_bytes(ego_j)) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F);
+        let co_adj = u128::to_ne_bytes(
+            DominoSymmetry::bitwise_then_inv_32(
+                (syms >> 4) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F,
+                co_syms,
+            ) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F,
+        );
         let co_syms = u128::to_ne_bytes(co_syms);
         let syms = u128::to_ne_bytes(syms);
 
@@ -296,20 +322,119 @@ impl SplitPhase1NodeA {
                 sym_coord: CornerOrientSymCoord(co_c[i]),
                 domino_conjugation: DominoSymmetry(co_adj[i]),
             };
-            let dist = distance_options[prune_tbl.get_value(ego, combo) as usize];
+            let test_raw = lookup.get_raw_from_combo(combo);
+            assert_eq!(test_raw.0, zzco_c[i]);
+            let zzadj = zzco_mv_tbl.domino_conjugate(
+                CornerOrientRawCoord(zzco_c[i]),
+                DominoSymmetry(syms[i] >> 4),
+            );
+            let zzdist = zzprune_tbl.get_value(ego, zzadj);
+            let d_m3 = prune_tbl.get_value(ego, combo) as usize;
+            let dist = distance_options[d_m3];
+            assert_eq!(dist, zzdist, "{phase_1_distance} {d_m3} {dist} {zzdist}");
             axis_n[i] = axis_n[i] | (dist << 4)
         }
 
         let out = combine(ego_c, cp_c, co_c, co_syms, axis_n, syms);
 
         for i in 1..16 {
-            slice[i] = out[i];
+            slice[i] = unsafe { core::mem::transmute(out[i]) };
         }
+
         num_moves
     }
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SplitPhase1NodeAExp {
+    pub edge_group_orient_sym: u16,
+    pub corner_perm_sym: u16,
+    pub corner_orient_sym: u8,
+    // cp hi, co lo
+    pub combined_sym_correct: u8,
+    pub phase_1_dist: u8,
+    pub previous_axis: u8,
+}
 
+impl SplitPhase1NodeAExp {
+    /// Places the children from the first item in the array into the remainder of the array in place.
+    /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
+    #[inline(never)]
+    pub fn produce_next_nodes_a(
+        slice: &mut [Self; 16],
+        moves_remaining: NonZeroU8,
+        tables: &Tables,
+    ) -> usize {
+        let start_node = slice[0];
+
+        let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
+        let co_mv_tbl: &MoveSymCornerOrientTable = tables.as_ref();
+        let cp_mv_tbl: &MoveSymCornerPermAugmentedTable = tables.as_ref();
+        let prune_tbl: &PrunePhase1DoubleSymMod3Table = tables.as_ref();
+
+        let ego_row = ego_mv_tbl.row(EdgeGroupOrientSymCoord(start_node.edge_group_orient_sym));
+        let co_row = co_mv_tbl.row(CornerOrientSymCoord(start_node.corner_orient_sym));
+        let cp_row = cp_mv_tbl.row(CornerPermSymCoord(start_node.corner_perm_sym));
+
+        let previous_axis = unsafe { core::mem::transmute(start_node.previous_axis) };
+        let (mv, num_moves) = CubeMove::new_axis_move_array_raw(previous_axis);
+
+        let cmb_s = start_node.combined_sym_correct;
+        let offset = u128::from_ne_bytes([4u8; 16]);
+
+        // indices adjusted by current coordinate symmetry
+        let ego_i = *mv;
+        let co_i = lut_u8x16x2(&SYM_CONJ[(cmb_s & 0xF) as usize], mv);
+        let cp_i = lut_u8x16x2(&SYM_CONJ[(cmb_s >> 4) as usize], mv);
+
+        // indices adjusted for delayed position of offset
+        let ego_s_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(ego_i));
+        let co_s_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(co_i));
+        let cp_s_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(cp_i));
+
+        // pre-adjusted symmetries
+        let tbl_ego_s_arr = u128::from_ne_bytes(lut_u8x16x2(&ego_row.as_u8_arrays()[1], &ego_s_i));
+        let tbl_co_s_arr = u128::from_ne_bytes(lut_u8x16x2(&co_row.as_u8_arrays()[1], &co_s_i));
+        let tbl_cp_s_arr = u128::from_ne_bytes(lut_u8x16x2(&cp_row.as_u8_arrays()[1], &cp_s_i));
+        
+        // packed syms in preparation for combining
+        let tbl_ego_ego_s_arr = (tbl_ego_s_arr << 4) | tbl_ego_s_arr;
+        let tbl_cp_co_s_arr = (tbl_cp_s_arr << 4) | tbl_co_s_arr;
+        let inv_ego_ego_s_arr = DominoSymmetry::bitwise_invert_32(tbl_ego_ego_s_arr);
+
+        // final coordinates
+        let new_ego_c_arr = lut_u16x16x3(ego_row.as_u16_array(), &ego_i);
+        let new_co_c_arr = lut_u8x16x2(&co_row.as_u8_arrays()[0], &co_i);
+        let new_cp_c_arr = lut_u16x16x3(cp_row.as_u16_array(), &cp_i);
+
+        // final packed syms
+        let new_cp_co_s_arr = DominoSymmetry::bitwise_then_32(inv_ego_ego_s_arr, tbl_cp_co_s_arr);
+        
+        let new_co_s_lo_arr =
+        u128::to_ne_bytes((tbl_ego_s_arr ^ tbl_co_s_arr) & 0x0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C);
+        let dist_byte_addr_arr = ((Simd::from_array(new_ego_c_arr).cast::<u32>() << 2)
+        | (Simd::from_array(new_co_s_lo_arr).cast::<u32>())
+        | (Simd::from_array(new_co_c_arr).cast::<u32>() << 18)).cast::<usize>().to_array();
+        
+        let dist_bytes = dist_byte_addr_arr.map(|i| *unsafe { prune_tbl.as_buffer().get_unchecked(i) });
+        let new_co_s_hi_arr = Simd::from_array(u128::to_ne_bytes((new_cp_co_s_arr >> 2) & 0x0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C));
+        let dist_i = (Simd::from_array(dist_bytes) >> (new_co_s_hi_arr << 1)).to_array();
+        let distance_options = DISTANCE_OPTIONS_LOOKUP[start_node.phase_1_dist as usize];
+    
+        // final dists
+        let new_dist = lut_u8x16x2(&distance_options, &dist_i);
+        
+
+        let axis_n = lut_u8x16x2(axis_after_table(previous_axis, moves_remaining), mv);
+        let out = combine(new_ego_c_arr, new_cp_c_arr, new_co_c_arr, u128::to_ne_bytes(new_cp_co_s_arr), new_dist, axis_n);
+
+        for i in 1..16 {
+            slice[i] = unsafe { core::mem::transmute(out.get_unchecked(i)) };
+        }
+        num_moves
+    }
+}
 
 #[cfg(not(all(target_arch = "aarch64", target_feature = "neon")))]
 #[inline(always)]
@@ -343,9 +468,9 @@ pub fn combine(
     d: [u8; 16],
     e: [u8; 16],
     f: [u8; 16],
-) -> [SplitPhase1NodeA; 16] {
+) -> [[u8; 8]; 16] {
     use core::arch::aarch64::*;
-    let mut out = [SPLIT_A_ZERO; 16];
+    let mut out = [[0; 8]; 16];
 
     unsafe {
         let a0 = vld1q_u16(a.as_ptr());
@@ -452,26 +577,60 @@ mod test {
             );
         });
     }
-
+    
     // #[bench]
-    // fn phase_1_next_a(bench: &mut test::Bencher) {
+    // fn phase_1_next_exp(bench: &mut test::Bencher) {
     //     let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
     //     let mut rng = ChaCha8Rng::seed_from_u64(3);
     //     let cube: ReprCube =
     //         rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
-    //     let mut phase_1 = split(Phase1Node::from_cube(cube, &tables)).0;
+    //     let mut phase_1 = Phase1Node::from_cube(cube, &tables);
     //     phase_1.previous_axis = CubePreviousAxis::B;
 
     //     let mut buf = [phase_1; 16];
 
     //     bench.iter(|| {
-    //         let _ = SplitPhase1NodeA::produce_next_nodes_a(
+    //         let _ = Phase1Node::produce_next_nodes(
     //             &mut buf,
     //             unsafe { NonZeroU8::new_unchecked(30) },
     //             tables,
     //         );
     //     });
     // }
+
+    // #[test]
+    // fn print_table() {
+    //     println!("{:?}", DISTANCE_OPTIONS_LOOKUP);
+    // }
+
+    #[bench]
+    fn phase_1_next_a_exp(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(3);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let mut phase_1 = Phase1Node::from_cube(cube, &tables);
+        phase_1.previous_axis = CubePreviousAxis::B;
+
+        let phase_1_a_exp = SplitPhase1NodeAExp {
+            edge_group_orient_sym: phase_1.edge_group_orient_sym.0,
+            corner_perm_sym: phase_1.corner_perm_raw.0,
+            corner_orient_sym: 75,
+            combined_sym_correct: 37,
+            phase_1_dist: 9,
+            previous_axis: CubePreviousAxis::B as u8,
+        };
+
+        let mut buf = [phase_1_a_exp; 16];
+
+        bench.iter(|| {
+            let _ = SplitPhase1NodeAExp::produce_next_nodes_a(
+                &mut buf,
+                unsafe { NonZeroU8::new_unchecked(30) },
+                tables,
+            );
+        });
+    }
 
     // #[bench]
     // fn phase_1_next_b(bench: &mut test::Bencher) {

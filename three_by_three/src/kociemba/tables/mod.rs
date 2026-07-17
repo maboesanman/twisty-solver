@@ -7,7 +7,7 @@ use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
 use crate::kociemba::tables::{
-    lookup_sym_corner_orient::LookupSymCornerOrientTable, move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable, move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_orient::MoveSymCornerOrientTable, move_sym_corner_perm::MoveSymCornerPermTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, prune_phase_1::PrunePhase1Table, prune_phase_1_double_sym_mod_4::PrunePhase1DoubleSymMod4Table, prune_phase_2::PrunePhase2Table
+    lookup_sym_corner_orient::LookupSymCornerOrientTable, move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable, move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_orient::MoveSymCornerOrientTable, move_sym_corner_perm::MoveSymCornerPermTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, prune_phase_1::PrunePhase1Table, prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table, prune_phase_2::PrunePhase2Table
 };
 
 pub mod lookup_sym_corner_perm;
@@ -26,7 +26,7 @@ pub mod move_raw_corner_orient_trits;
 
 pub mod prune_phase_1;
 pub mod prune_phase_2;
-pub mod prune_phase_1_double_sym_mod_4;
+pub mod prune_phase_1_double_sym_mod_3;
 
 // pub mod permuted_coordinates;
 
@@ -40,7 +40,7 @@ const LOOKUP_SYM_EDGE_GROUP_ORIENT_TABLE_NAME: &str = "lookup_sym_edge_group_ori
 const LOOKUP_SYM_CORNER_PERM_TABLE_NAME: &str = "lookup_sym_corner_perm_table.dat";
 const LOOKUP_SYM_CORNER_ORIENT_TABLE_NAME: &str = "lookup_sym_corner_orient_table.dat";
 const PRUNE_PHASE_1_TABLE_NAME: &str = "prune_phase_1_table.dat";
-const PRUNE_PHASE_1_DOUBLE_SYM_MOD_4_TABLE_NAME: &str = "prune_phase_1_double_sym_mod_4_table.dat";
+const PRUNE_PHASE_1_DOUBLE_SYM_MOD_3_TABLE_NAME: &str = "prune_phase_1_double_sym_mod_3_table.dat";
 const MOVE_E_EDGE_PERM_TABLE_NAME: &str = "move_raw_e_edge_perm.dat";
 const MOVE_UD_EDGE_PERM_TABLE_NAME: &str = "move_raw_ud_edge_perm.dat";
 const MOVE_SYM_CORNER_PERM_TABLE_NAME: &str = "move_sym_corner_perm_table.dat";
@@ -78,12 +78,12 @@ struct PrunePreTables {
 pub struct Tables {
     prune_pre_tables: PrunePreTables,
     corner_sym_augmented: Mmap,
-    prune_phase_1_double_sym_mod_4: Mmap,
+    prune_phase_1_double_sym_mod_3: Mmap,
 }
 
 #[rustfmt::skip]
 mod unformatted {
-    use crate::kociemba::tables::{lookup_sym_corner_orient::LookupSymCornerOrientTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, prune_phase_1_double_sym_mod_4::PrunePhase1DoubleSymMod4Table};
+    use crate::kociemba::tables::{lookup_sym_corner_orient::LookupSymCornerOrientTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table};
 
 use super::*;
 
@@ -125,7 +125,7 @@ use super::*;
     impl AsRef<MoveRawEEdgePermTable> for Tables { fn as_ref(&self) -> &MoveRawEEdgePermTable { self.prune_pre_tables.as_ref() } }
     impl AsRef<MoveRawUDEdgePermTable> for Tables { fn as_ref(&self) -> &MoveRawUDEdgePermTable { self.prune_pre_tables.as_ref() } }
     impl AsRef<PrunePhase1Table> for Tables { fn as_ref(&self) -> &PrunePhase1Table { self.prune_pre_tables.as_ref() } }
-    impl AsRef<PrunePhase1DoubleSymMod4Table> for Tables { fn as_ref(&self) -> &PrunePhase1DoubleSymMod4Table { unsafe { PrunePhase1DoubleSymMod4Table::from_buffer( &self.prune_phase_1_double_sym_mod_4) } } }
+    impl AsRef<PrunePhase1DoubleSymMod3Table> for Tables { fn as_ref(&self) -> &PrunePhase1DoubleSymMod3Table { unsafe { PrunePhase1DoubleSymMod3Table::from_buffer( &self.prune_phase_1_double_sym_mod_3) } } }
     impl AsRef<PrunePhase2Table> for Tables { fn as_ref(&self) -> &PrunePhase2Table { self.prune_pre_tables.as_ref() } }
     impl AsRef<MoveSymCornerPermAugmentedTable> for Tables { fn as_ref(&self) -> &MoveSymCornerPermAugmentedTable { unsafe { MoveSymCornerPermAugmentedTable::from_buffer(&self.corner_sym_augmented) } } }
 }
@@ -228,12 +228,12 @@ impl Tables {
             prune_pre_tables.as_ref(),
         )?;
 
-        let prune_phase_1_double_sym_mod_4 = PrunePhase1DoubleSymMod4Table::load(folder.join(PRUNE_PHASE_1_DOUBLE_SYM_MOD_4_TABLE_NAME), &prune_pre_tables)?;
+        let prune_phase_1_double_sym_mod_3 = PrunePhase1DoubleSymMod3Table::load(folder.join(PRUNE_PHASE_1_DOUBLE_SYM_MOD_3_TABLE_NAME), &prune_pre_tables)?;
 
         Ok(Self {
             prune_pre_tables,
             corner_sym_augmented,
-            prune_phase_1_double_sym_mod_4,
+            prune_phase_1_double_sym_mod_3,
         })
     }
 }

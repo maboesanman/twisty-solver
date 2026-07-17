@@ -1,7 +1,7 @@
 use std::simd::{Simd, num::SimdUint};
 
 use crate::{
-    cube, cube_ops::partial_reprs::corner_orient, kociemba::{coords::CornerOrientRawCoord, partial_reprs::{edge_group::EdgeGroup, edge_positions::split_edge_positions}}, simd_utils::{lut_u8x16, lut_u16x16}
+    cube, cube_ops::partial_reprs::corner_orient, kociemba::{coords::CornerOrientRawCoord, partial_reprs::{edge_group::EdgeGroup, edge_positions::split_edge_positions}}, simd_utils::{lut_u8x16x2, lut_u16x16x3}
 };
 
 use super::{
@@ -123,10 +123,12 @@ pub struct DominoSymmetry(pub u8);
 impl DominoSymmetry {
     pub const IDENTITY: Self = DominoSymmetry(0);
 
+    #[must_use]
     pub const fn to_cube_symmetry(self) -> CubeSymmetry {
         CubeSymmetry(self.0)
     }
 
+    #[must_use]
     pub fn into_index(self) -> usize {
         self.0 as usize
     }
@@ -151,16 +153,19 @@ impl TryFrom<CubeSymmetry> for DominoSymmetry {
 }
 
 impl CubeSymmetry {
+    #[must_use]
     pub fn all_iter() -> impl Iterator<Item = Self> {
         (0..48).map(Self)
     }
 
+    #[must_use]
     pub fn nontrivial_iter() -> impl Iterator<Item = Self> {
         (1..48).map(Self)
     }
 }
 
 impl DominoSymmetry {
+    #[must_use]
     pub const fn then(self, other: Self) -> Self {
         const TRANSFORM_COMPOSE_LOOKUP: [DominoSymmetry; 256] = {
             let reference_cube = cube![R U D2];
@@ -198,8 +203,9 @@ impl DominoSymmetry {
         TRANSFORM_COMPOSE_LOOKUP[((self.0 << 4) + other.0) as usize]
     }
 
+    #[must_use]
     #[inline(always)]
-    pub const fn then_no_lookup(self, other: Self) -> Self {
+    pub const fn bitwise_then(self, other: Self) -> Self {
         let a = self.0;
         let b = other.0;
         let as1 = a << 1;
@@ -208,46 +214,91 @@ impl DominoSymmetry {
         Self(a ^ b ^ corr)
     }
 
+    #[must_use]
     #[inline(always)]
-    pub const fn then_no_lookup_2(a: u8, b: u8) -> u8 {
+    pub const fn bitwise_then_2(a: u8, b: u8) -> u8 {
         let as1 = a << 1;
         let corr_mask = 0x44;
         let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
         a ^ b ^ corr
     }
 
+    #[must_use]
     #[inline(always)]
-    pub const fn then_no_lookup_4(a: u16, b: u16) -> u16 {
+    pub const fn bitwise_then_4(a: u16, b: u16) -> u16 {
         let as1 = a << 1;
         let corr_mask = 0x4444;
         let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
         a ^ b ^ corr
     }
 
+    #[must_use]
     #[inline(always)]
-    pub const fn then_no_lookup_8(a: u32, b: u32) -> u32 {
+    pub const fn bitwise_then_8(a: u32, b: u32) -> u32 {
         let as1 = a << 1;
         let corr_mask = 0x44444444;
         let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
         a ^ b ^ corr
     }
 
+    #[must_use]
     #[inline(always)]
-    pub const fn then_no_lookup_16(a: u64, b: u64) -> u64 {
+    pub const fn bitwise_then_16(a: u64, b: u64) -> u64 {
         let as1 = a << 1;
         let corr_mask = 0x4444444444444444;
         let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
         a ^ b ^ corr
     }
 
+    #[must_use]
     #[inline(always)]
-    pub const fn then_no_lookup_32(a: u128, b: u128) -> u128 {
+    pub const fn bitwise_then_32(a: u128, b: u128) -> u128 {
         let as1 = a << 1;
         let corr_mask = 0x44444444444444444444444444444444;
         let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
         a ^ b ^ corr
     }
 
+    #[must_use]
+    #[inline(always)]
+    pub const fn bitwise_invert(self) -> Self {
+        let a = self.0;
+        let corr_mask = 0x4;
+        let corr = ((a << 1) & !((a << 2) ^ (a >> 1))) & corr_mask;
+        Self(a ^ corr)
+    }
+
+    #[must_use]
+    #[inline(always)]
+    pub const fn bitwise_invert_32(a: u128) -> u128 {
+        let corr_mask = 0x44444444444444444444444444444444;
+        let corr = ((a << 1) & !((a << 2) ^ (a >> 1))) & corr_mask;
+        a ^ corr
+    }
+    
+    #[must_use]
+    #[inline(always)]
+    pub const fn bitwise_then_inv(self, other: Self) -> Self {
+        let a = self.0;
+        let b = other.0;
+        let corr_mask = 0x4;
+        let as1 = a << 1;             // a1 at bit 2
+        let corr = (((b << 1) & !(as1 ^ (a << 2) ^ (b << 2) ^ (b >> 1)))
+                ^ (as1 & (b >> 1))) & corr_mask;
+        Self(a ^ b ^ corr)
+    }
+
+    #[must_use]
+    #[inline(always)]
+    pub const fn bitwise_then_inv_32(a: u128, b: u128) -> u128 {
+        let corr_mask = 0x44444444444444444444444444444444;
+        let as1 = a << 1;             // a1 at bit 2
+        let corr = (((b << 1) & !(as1 ^ (a << 2) ^ (b << 2) ^ (b >> 1)))
+                ^ (as1 & (b >> 1))) & corr_mask;
+        a ^ b ^ corr
+    }
+
+    #[must_use]
     #[inline(always)]
     pub fn conjugate_corner_orient(
         self,
@@ -296,6 +347,7 @@ impl DominoSymmetry {
         coord
     }
 
+    #[must_use]
     #[inline(always)]
     pub fn conjugate_corner_orient_16(
         syms: [u8; 16],
@@ -304,7 +356,7 @@ impl DominoSymmetry {
         type U8  = Simd<u8, 16>;
         type U16 = Simd<u16, 16>;
         
-        let t = U16::from_array(lut_u16x16(&TBL, &syms));
+        let t = U16::from_array(lut_u16x16x3(&TBL, &syms));
         let mut coord = U16::from_array(dense_coords);
 
         // Expand bit `n` of `t` to 0x0000 or 0xFFFF per lane.
@@ -352,6 +404,7 @@ impl DominoSymmetry {
         v.to_array()
     }
 
+    #[must_use]
     pub const fn inverse(self) -> Self {
         const TRANSFORM_INVERT_LOOKUP: [DominoSymmetry; 16] = {
             let reference_cube = cube![R U D2];
@@ -380,50 +433,59 @@ impl DominoSymmetry {
         TRANSFORM_INVERT_LOOKUP[self.0 as usize]
     }
 
+    #[must_use]
     pub fn all_iter() -> impl Iterator<Item = Self> {
         (0..16).map(Self)
     }
 
+    #[must_use]
     pub fn nontrivial_iter() -> impl Iterator<Item = Self> {
         (1..16).map(Self)
     }
 }
 
 impl CornerPerm {
+    #[must_use]
     pub const fn conjugate_perms(self, sym: CubeSymmetry) -> (Self, Self) {
         let perm = CORNER_PERM_LOOKUP[sym.0 as usize];
         let inv_perm = perm.inverse();
         (perm, inv_perm)
     }
 
+    #[must_use]
     pub const fn conjugate(self, sym: CubeSymmetry) -> Self {
         let (perm, inv_perm) = self.conjugate_perms(sym);
         inv_perm.then(self).then(perm)
     }
 
+    #[must_use]
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
         self.conjugate(sym.to_cube_symmetry())
     }
 }
 
 impl EdgePerm {
+    #[must_use]
     pub const fn conjugate_perms(self, sym: CubeSymmetry) -> (Self, Self) {
         let perm = EDGE_PERM_LOOKUP[sym.0 as usize];
         let inv_perm = perm.inverse();
         (perm, inv_perm)
     }
 
+    #[must_use]
     pub const fn conjugate(self, sym: CubeSymmetry) -> Self {
         let (perm, inv_perm) = self.conjugate_perms(sym);
         inv_perm.then(self).then(perm)
     }
 
+    #[must_use]
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
         self.conjugate(sym.to_cube_symmetry())
     }
 }
 
 impl CornerOrient {
+    #[must_use]
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
         let perm = CORNER_PERM_LOOKUP[sym.0 as usize];
         let permuted = self.permute(perm);
@@ -436,6 +498,7 @@ impl CornerOrient {
 }
 
 impl ReprCube {
+    #[must_use]
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
         Self {
             corner_perm: self.corner_perm.domino_conjugate(sym),
@@ -450,6 +513,7 @@ impl ReprCube {
         }
     }
 
+    #[must_use]
     pub const fn conjugate(self, sym: CubeSymmetry) -> Self {
         let domino_component = DominoSymmetry(sym.0 & 0xF);
         let domino_conjugated = self.domino_conjugate(domino_component);
@@ -524,11 +588,10 @@ impl CubeMove {
     }
 }
 /// TBL encodes (swap_flag << 3) | c' where c' = L(c) for the GATHER convention.
-const TBL: [u16; 32] = [
+const TBL: [u16; 24] = [
     0,  1,  9,  8,  3,  2, 10, 11,
     5,  4, 15, 14,  6,  7, 12, 13,
     0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0
 ];
 
 // /// Branchless permutation of 2-bit orientation fields according to symmetry `sym` (0..15).
@@ -613,7 +676,7 @@ fn then_and_then_no_lookup_agree() {
 
             assert_eq!(
                 sym_a.then(sym_b),
-                sym_a.then_no_lookup(sym_b),
+                sym_a.bitwise_then(sym_b),
                 "mismatch at ({a}, {b})",
             );
         }

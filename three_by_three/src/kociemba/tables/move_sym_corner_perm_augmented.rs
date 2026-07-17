@@ -27,7 +27,7 @@ pub struct MoveSymCornerPermAugmentedRow {
 }
 
 impl MoveSymCornerPermAugmentedRow {
-    pub fn as_u16_array(&self) -> &[u16; 32] {
+    pub fn as_u16_array(&self) -> &[u16; 24] {
         unsafe { core::mem::transmute(self) }
     }
 

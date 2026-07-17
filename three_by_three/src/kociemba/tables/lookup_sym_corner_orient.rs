@@ -18,6 +18,7 @@ const FILE_CHECKSUM: u32 = 638929069;
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct CornerOrientSymCoord(pub u8);
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CornerOrientComboCoord {
     pub sym_coord: CornerOrientSymCoord,
     pub domino_conjugation: DominoSymmetry

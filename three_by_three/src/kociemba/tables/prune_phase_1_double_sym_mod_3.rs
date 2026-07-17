@@ -22,13 +22,13 @@ use super::table_loader::{as_atomic_u8_slice, load_table};
 
 const TABLE_ENTRY_COUNT: usize = 65536 * 168 * 16;
 pub(crate) const TABLE_SIZE_BYTES: usize = TABLE_ENTRY_COUNT / 4;
-const FILE_CHECKSUM: u32 = 753757724;
+const FILE_CHECKSUM: u32 = 270889050;
 
-pub struct PrunePhase1DoubleSymMod4Table {
+pub struct PrunePhase1DoubleSymMod3Table {
     buffer: [u8],
 }
 
-impl PrunePhase1DoubleSymMod4Table {
+impl PrunePhase1DoubleSymMod3Table {
     #[inline(always)]
     pub fn get_value(
         &self,
@@ -48,7 +48,7 @@ impl PrunePhase1DoubleSymMod4Table {
     }
 }
 
-impl PrunePhase1DoubleSymMod4Table {
+impl PrunePhase1DoubleSymMod3Table {
     fn generate(
         buffer: &mut [u8],
         tables: &(
@@ -78,7 +78,7 @@ impl PrunePhase1DoubleSymMod4Table {
                 };
                 let co_raw = co_lookup.get_raw_from_combo(co_combo);
                 let dist = prune.get_value(EdgeGroupOrientSymCoord(ego_coord), co_raw);
-                let contrib = (dist & 0b11) << (co_sym_hi << 1);
+                let contrib = (dist % 3) << (co_sym_hi << 1);
                 byte |= contrib;
             }
 
@@ -113,7 +113,7 @@ impl PrunePhase1DoubleSymMod4Table {
 fn coherence() -> anyhow::Result<()> {
     let tables = Tables::new("tables")?;
     let original: &PrunePhase1Table = tables.as_ref();
-    let transformed: &PrunePhase1DoubleSymMod4Table = tables.as_ref();
+    let transformed: &PrunePhase1DoubleSymMod3Table = tables.as_ref();
     let lookup: &LookupSymCornerOrientTable = tables.as_ref();
 
     (0..64430u16).into_par_iter().for_each(|ego| {
@@ -124,7 +124,18 @@ fn coherence() -> anyhow::Result<()> {
             let co_combo = lookup.get_combo_from_raw(co_raw);
             let original_dist = original.get_value(ego, co_raw);
             let transformed_dist = transformed.get_value(ego, co_combo);
-            assert_eq!(original_dist & 0b11, transformed_dist)
+            assert_eq!(original_dist % 3, transformed_dist)
+        }
+
+        for i in 0..168 {
+            let i = CornerOrientSymCoord(i);
+            for j in DominoSymmetry::all_iter() {
+                let co_combo = CornerOrientComboCoord { sym_coord: i, domino_conjugation: j };
+                let co_raw = lookup.get_raw_from_combo(co_combo);
+                let original_dist = original.get_value(ego, co_raw);
+                let transformed_dist = transformed.get_value(ego, co_combo);
+                assert_eq!(original_dist % 3, transformed_dist)
+            }
         }
     });
 
