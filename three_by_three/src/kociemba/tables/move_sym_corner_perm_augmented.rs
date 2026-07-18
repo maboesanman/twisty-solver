@@ -17,13 +17,15 @@ use super::table_loader::load_table;
 
 pub(crate) const TABLE_SIZE_BYTES: usize =
     2768 * core::mem::size_of::<MoveSymCornerPermAugmentedRow>();
-const FILE_CHECKSUM: u32 = 3522146883;
+const FILE_CHECKSUM: u32 = 580084048;
 
 #[repr(C)]
 #[repr(align(64))]
 pub struct MoveSymCornerPermAugmentedRow {
     pub coords: [u16; 18],
     pub conjugations: [u8; 18],
+    pub distance: u8,
+    _padding: [u8; 9],
 }
 
 impl MoveSymCornerPermAugmentedRow {
@@ -81,7 +83,7 @@ impl MoveSymCornerPermAugmentedTable {
             )
         };
 
-        let coords: Vec<_> = (0..2768)
+        let dists: Vec<_> = (0..2768)
             .into_iter()
             .map(|i| {
                 let x = (0u16..40320)
@@ -96,14 +98,15 @@ impl MoveSymCornerPermAugmentedTable {
         buffer
             .iter_mut()
             .zip(move_sym_table.rows())
-            .for_each(|(aug, row)| {
-                *aug = MoveSymCornerPermAugmentedRow {
-                    coords: row.coords,
-                    conjugations: row.conjugations,
-                };
+            .enumerate()
+            .for_each(|(i, (aug, row))| {
+                aug.coords = row.coords;
+                aug.conjugations = row.conjugations;
+                aug.distance = dists[i] as u8;
+                aug._padding = [0; 9];
 
                 for coord in aug.coords.iter_mut() {
-                    *coord = (coords[*coord as usize] << 12) | *coord;
+                    *coord = (dists[*coord as usize] << 12) | *coord;
                 }
             })
     }
@@ -114,6 +117,7 @@ impl MoveSymCornerPermAugmentedTable {
         prune_phase_2: &PrunePhase2Table,
     ) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
+            
             Self::generate(buf, move_sym_table, prune_phase_2)
         })
     }

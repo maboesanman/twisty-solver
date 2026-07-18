@@ -4,12 +4,22 @@ use std::{
 };
 
 use crate::{
-    CornerOrient, CubeMove, ReprCube, Tables, cube_ops::{cube_prev_axis::{CubePreviousAxis, CubePreviousFace}, cube_sym::DominoSymmetry}, kociemba::{
+    CornerOrient, CubeMove, ReprCube, Tables,
+    cube_ops::{
+        cube_prev_axis::{CubePreviousAxis, CubePreviousFace},
+        cube_sym::DominoSymmetry,
+    },
+    kociemba::{
         coords::{
-            CornerOrientRawCoord, CornerPermSymCoord, EdgeGroupOrientRawCoord, EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord, edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
-        }, partial_reprs::edge_positions::{
+            CornerOrientRawCoord, CornerPermSymCoord, EdgeGroupOrientRawCoord,
+            EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord,
+            edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
+        },
+        partial_reprs::edge_positions::{
             DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions, split_edge_positions,
-        }, search::phase_1_node::Phase1Node, tables::{
+        },
+        search::phase_1_node::Phase1Node,
+        tables::{
             lookup_sym_corner_orient::{
                 CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable,
             },
@@ -19,7 +29,8 @@ use crate::{
             prune_phase_1::PrunePhase1Table,
             prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table,
         },
-    }, simd_utils::{combine, lut_u8x16x2, lut_u16x16x3},
+    },
+    simd_utils::{combine, lut_u8x16x2, lut_u16x16x3},
 };
 
 #[repr(C)]
@@ -44,7 +55,7 @@ pub struct SearchPhase1Node {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ReconstructPhase1Node {
-    // while this is redundant with the search coord, it makes it easier to re-track the changes to the 
+    // while this is redundant with the search coord, it makes it easier to re-track the changes to the
     pub edge_group_orient_sym: u16,
     pub u_edge_positions: UEdgePositions,
     pub d_edge_positions: DEdgePositions,
@@ -132,7 +143,11 @@ fn axis_after_table(prev: CubePreviousAxis, moves_remaining: NonZeroU8) -> &'sta
 }
 
 impl SearchPhase1Node {
-    pub fn from_cube(mut cube: ReprCube, tables: &Tables, mut previous_face: CubePreviousFace) -> Self {
+    pub fn from_cube(
+        mut cube: ReprCube,
+        tables: &Tables,
+        mut previous_face: CubePreviousFace,
+    ) -> Self {
         let corner_orient_table: &LookupSymCornerOrientTable = tables.as_ref();
         let phase_1_prune: &PrunePhase1Table = tables.as_ref();
 
@@ -148,13 +163,18 @@ impl SearchPhase1Node {
                 EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
 
             cube = cube.domino_conjugate(edge_group_orient_combo.domino_conjugation);
-            previous_face = previous_face.domino_conjugate(edge_group_orient_combo.domino_conjugation);
+            previous_face =
+                previous_face.domino_conjugate(edge_group_orient_combo.domino_conjugation);
         };
 
-        let ReprCube { corner_perm, corner_orient, edge_perm, edge_orient } = cube;
+        let ReprCube {
+            corner_perm,
+            corner_orient,
+            edge_perm,
+            edge_orient,
+        } = cube;
 
-        let (_u, _d, e_edge_positions) =
-            split_edge_positions(edge_perm);
+        let (_u, _d, e_edge_positions) = split_edge_positions(edge_perm);
 
         let edge_group_raw_coord = e_edge_positions.into_edge_group_raw();
         let edge_orient_raw = edge_orient.into_coord();
@@ -165,15 +185,20 @@ impl SearchPhase1Node {
             EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
 
         // we rotated the input cube specifically so this would be true.
-        debug_assert_eq!(edge_group_orient_combo.domino_conjugation, DominoSymmetry::IDENTITY);
+        debug_assert_eq!(
+            edge_group_orient_combo.domino_conjugation,
+            DominoSymmetry::IDENTITY
+        );
 
         let corner_perm_combo = CornerPermComboCoord::from_raw(&tables, corner_perm.into_coord());
         let corner_orient_raw = corner_orient.into_coord();
         let corner_orient_combo = corner_orient_table.get_combo_from_raw(corner_orient_raw);
 
-        let combined_sym_correct = (corner_perm_combo.domino_conjugation.0 << 4) | (corner_orient_combo.domino_conjugation.0);
+        let combined_sym_correct = (corner_perm_combo.domino_conjugation.0 << 4)
+            | (corner_orient_combo.domino_conjugation.0);
 
-        let phase_1_dist = phase_1_prune.get_value(edge_group_orient_combo.sym_coord, corner_orient_raw);
+        let phase_1_dist =
+            phase_1_prune.get_value(edge_group_orient_combo.sym_coord, corner_orient_raw);
 
         Self {
             edge_group_orient_sym: edge_group_orient_combo.sym_coord.0,
@@ -187,7 +212,7 @@ impl SearchPhase1Node {
 
     /// Places the children from the first item in the array into the remainder of the array in place.
     /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
-    #[inline(always)]
+    #[inline(never)]
     pub fn produce_next_nodes(
         slice: &mut [Self; 16],
         moves_remaining: NonZeroU8,
@@ -205,72 +230,96 @@ impl SearchPhase1Node {
         let cp_row = cp_mv_tbl.row(CornerPermSymCoord(start_node.corner_perm_sym));
 
         let previous_face = CubePreviousFace(start_node.previous_face);
-        let mv = unsafe { core::mem::transmute::<&[CubeMove; 16], &[u8; 16]>(previous_face.get_moves()) };
+        let mv = Simd::from_array(*unsafe {
+            core::mem::transmute::<&[CubeMove; 16], &[u8; 16]>(previous_face.get_moves())
+        });
 
         let cmb_s = start_node.combined_sym_correct;
-        let offset = u128::from_ne_bytes([4u8; 16]);
+        let offset = Simd::splat(4);
 
         // indices adjusted by current coordinate symmetry
-        let ego_i = *mv;
-        let co_i = lut_u8x16x2(&SYM_CONJ[(cmb_s & 0xF) as usize], mv);
-        let cp_i = lut_u8x16x2(&SYM_CONJ[(cmb_s >> 4) as usize], mv);
+        let ego_i = mv;
+        let co_i = Simd::from_array(lut_u8x16x2(
+            &SYM_CONJ[(cmb_s & 0xF) as usize],
+            &mv.to_array(),
+        ));
+        let cp_i = Simd::from_array(lut_u8x16x2(
+            &SYM_CONJ[(cmb_s >> 4) as usize],
+            &mv.to_array(),
+        ));
 
         // indices adjusted for delayed position of offset
-        let ego_s_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(ego_i));
-        let co_s_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(co_i));
-        let cp_s_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(cp_i));
+        let ego_s_i = offset + ego_i;
+        let co_s_i = offset + co_i;
+        let cp_s_i = offset + cp_i;
 
         // pre-adjusted symmetries
-        let tbl_ego_s_arr = u128::from_ne_bytes(lut_u8x16x2(&ego_row.as_u8_arrays()[1], &ego_s_i));
-        let tbl_co_s_arr = u128::from_ne_bytes(lut_u8x16x2(&co_row.as_u8_arrays()[1], &co_s_i));
-        let tbl_cp_s_arr = u128::from_ne_bytes(lut_u8x16x2(&cp_row.as_u8_arrays()[1], &cp_s_i));
+        let tbl_ego_s_arr =
+            Simd::from_array(lut_u8x16x2(&ego_row.as_u8_arrays()[1], &ego_s_i.to_array()));
+        let tbl_co_s_arr =
+            Simd::from_array(lut_u8x16x2(&co_row.as_u8_arrays()[1], &co_s_i.to_array()));
+        let tbl_cp_s_arr =
+            Simd::from_array(lut_u8x16x2(&cp_row.as_u8_arrays()[1], &cp_s_i.to_array()));
+
+        let curr_cp_co_s_arr = Simd::splat(cmb_s);
 
         // packed syms in preparation for combining
         let tbl_ego_ego_s_arr = (tbl_ego_s_arr << 4) | tbl_ego_s_arr;
         let tbl_cp_co_s_arr = (tbl_cp_s_arr << 4) | tbl_co_s_arr;
-        let inv_ego_ego_s_arr = DominoSymmetry::bitwise_invert_32(tbl_ego_ego_s_arr);
 
         // final coordinates
-        let new_ego_c_arr = lut_u16x16x3(ego_row.as_u16_array(), &ego_i);
-        let new_co_c_arr = lut_u8x16x2(&co_row.as_u8_arrays()[0], &co_i);
-        let new_cp_c_arr = lut_u16x16x3(cp_row.as_u16_array(), &cp_i);
+        let new_ego_c_arr =
+            Simd::from_array(lut_u16x16x3(ego_row.as_u16_array(), &ego_i.to_array()));
+        let new_co_c_arr =
+            Simd::from_array(lut_u8x16x2(&co_row.as_u8_arrays()[0], &co_i.to_array()));
+        let new_cp_c_arr = Simd::from_array(lut_u16x16x3(cp_row.as_u16_array(), &cp_i.to_array()));
 
         // final packed syms
-        let new_cp_co_s_arr = DominoSymmetry::bitwise_then_32(inv_ego_ego_s_arr, tbl_cp_co_s_arr);
+        let new_cp_co_s_arr = DominoSymmetry::bitwise_then_simd(
+            DominoSymmetry::bitwise_then_simd(tbl_ego_ego_s_arr, curr_cp_co_s_arr),
+            tbl_cp_co_s_arr,
+        );
 
-        let new_co_s_lo_arr =
-            u128::to_ne_bytes((tbl_ego_s_arr ^ tbl_co_s_arr) & 0x0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C);
-        let dist_byte_addr_arr = ((Simd::from_array(new_ego_c_arr).cast::<u32>() << 2)
-            | (Simd::from_array(new_co_s_lo_arr).cast::<u32>())
-            | (Simd::from_array(new_co_c_arr).cast::<u32>() << 18))
+        let new_co_s_lo_arr = (tbl_ego_s_arr ^ tbl_co_s_arr ^ curr_cp_co_s_arr) & Simd::splat(0x03);
+        let dist_byte_addr_arr = ((new_ego_c_arr.cast::<u32>() << 2)
+            | (new_co_s_lo_arr.cast::<u32>())
+            | (new_co_c_arr.cast::<u32>() << 18))
             .cast::<usize>()
             .to_array();
 
         let dist_bytes =
             dist_byte_addr_arr.map(|i| *unsafe { prune_tbl.as_buffer().get_unchecked(i) });
-        let new_co_s_hi_arr = Simd::from_array(u128::to_ne_bytes(
-            (new_cp_co_s_arr >> 2) & 0x0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C,
-        ));
-        let dist_i = (Simd::from_array(dist_bytes) >> (new_co_s_hi_arr << 1)).to_array();
-        let distance_options = DISTANCE_OPTIONS_LOOKUP[start_node.phase_1_dist as usize];
+        let new_co_s_hi_arr = (new_cp_co_s_arr >> 2) & Simd::splat(0x03);
+        let dist_i = ((Simd::from_array(dist_bytes) >> (new_co_s_hi_arr << 1)) & Simd::splat(0x03))
+            .to_array();
+        let distance_options =
+            unsafe { DISTANCE_OPTIONS_LOOKUP.get_unchecked(start_node.phase_1_dist as usize) };
 
         // final dists
         let new_dist = lut_u8x16x2(&distance_options, &dist_i);
 
-        let initial_prev_faces = unsafe { core::mem::transmute::<&[CubePreviousFace; 16], &[u8; 16]>(previous_face.get_new_prev_axes()) };
-        let new_previous_faces = CubePreviousFace::domino_conjugate_16(*initial_prev_faces, u128::to_ne_bytes(tbl_ego_s_arr));
+        let initial_prev_faces = unsafe {
+            core::mem::transmute::<&[CubePreviousFace; 16], &[u8; 16]>(
+                previous_face.get_new_prev_axes(),
+            )
+        };
+        let new_previous_faces =
+            CubePreviousFace::domino_conjugate_16(*initial_prev_faces, tbl_ego_s_arr.to_array());
 
         let out = combine(
-            new_ego_c_arr,
-            new_cp_c_arr,
-            new_co_c_arr,
-            u128::to_ne_bytes(new_cp_co_s_arr),
+            new_ego_c_arr.to_array(),
+            new_cp_c_arr.to_array(),
+            new_co_c_arr.to_array(),
+            new_cp_co_s_arr.to_array(),
             new_dist,
             new_previous_faces,
         );
 
         for i in 1..16 {
-            unsafe { *slice.get_unchecked_mut(i) = core::mem::transmute(out.get_unchecked(i)) };
+            unsafe {
+                *slice.get_unchecked_mut(i) =
+                    core::mem::transmute::<[u8; 8], Self>(*out.get_unchecked(i))
+            };
         }
         previous_face.get_num_moves() as usize
     }
@@ -290,21 +339,32 @@ fn phase_1_normalize_cube(cube: ReprCube, tables: &Tables) -> ReprCube {
     cube.domino_conjugate(edge_group_orient_combo.domino_conjugation)
 }
 
-fn produce_next_nodes_reference(cube: ReprCube, dist: u8, previous_axis: CubePreviousAxis, tables: &Tables) -> Vec<ReprCube> {
+fn produce_next_nodes_reference(
+    cube: ReprCube,
+    dist: u8,
+    previous_axis: CubePreviousAxis,
+    tables: &Tables,
+) -> Vec<ReprCube> {
     let cube = phase_1_normalize_cube(cube, tables);
-    CubeMove::all_iter().map(|mv| phase_1_normalize_cube(cube.apply_cube_move(mv), tables)).collect()
+    CubeMove::all_iter()
+        .map(|mv| phase_1_normalize_cube(cube.apply_cube_move(mv), tables))
+        .collect()
 }
-
 
 #[cfg(test)]
 mod test {
     use crate::ReprCube;
 
     use super::*;
+    use itertools::Itertools as _;
     use rand::SeedableRng;
     use rand_chacha::ChaCha8Rng;
 
-    use std::{hint::black_box, num::NonZeroU8};
+    use std::{
+        hint::black_box,
+        io::{self, Write},
+        num::NonZeroU8,
+    };
     extern crate test;
 
     #[bench]
@@ -336,5 +396,116 @@ mod test {
             black_box(a);
             black_box(&buf);
         });
+    }
+
+    #[test]
+    fn neighbors_match() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let mut rng = ChaCha8Rng::seed_from_u64(3);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+
+        let previous_face = CubePreviousFace(0);
+        let expected = previous_face
+            .get_moves()
+            .into_iter()
+            .copied()
+            .skip(1)
+            .take(previous_face.get_num_moves() as usize)
+            .map(|mv| {
+                SearchPhase1Node::from_cube(
+                    cube.apply_cube_move(mv),
+                    &tables,
+                    previous_face.update_with_new_move(mv),
+                )
+            })
+            .collect_vec();
+        let actual = {
+            let x = SearchPhase1Node::from_cube(cube, &tables, previous_face);
+            let mut buf = [x; 16];
+            let count = SearchPhase1Node::produce_next_nodes(
+                &mut buf,
+                NonZeroU8::new(100).unwrap(),
+                &tables,
+            );
+
+            for c in buf.iter_mut() {
+                c.corner_perm_sym &= 0xFFF;
+            }
+
+            buf.into_iter().skip(1).take(count).collect_vec()
+        };
+
+        println!();
+        print!("ego: ");
+        for a in expected.iter() {
+            print!(" {:4x}", a.edge_group_orient_sym);
+        }
+        println!();
+        print!("     ");
+        for a in actual.iter() {
+            print!(" {:4x}", a.edge_group_orient_sym);
+        }
+
+        println!();
+        print!("co:  ");
+        for a in expected.iter() {
+            print!(" {:4x}", a.corner_orient_sym);
+        }
+        println!();
+        print!("     ");
+        for a in actual.iter() {
+            print!(" {:4x}", a.corner_orient_sym);
+        }
+
+        println!();
+        print!("cp:  ");
+        for a in expected.iter() {
+            print!(" {:4x}", a.corner_perm_sym);
+        }
+        println!();
+        print!("     ");
+        for a in actual.iter() {
+            print!(" {:4x}", a.corner_perm_sym);
+        }
+
+        println!();
+        print!("cor: ");
+        for a in expected.iter() {
+            print!(" {:4x}", a.combined_sym_correct);
+        }
+        println!();
+        print!("     ");
+        for a in actual.iter() {
+            print!(" {:4x}", a.combined_sym_correct);
+        }
+
+        println!();
+        print!("dst: ");
+        for a in expected.iter() {
+            print!(" {:4x}", a.phase_1_dist);
+        }
+        println!();
+        print!("     ");
+        for a in actual.iter() {
+            print!(" {:4x}", a.phase_1_dist);
+        }
+
+        println!();
+        print!("cpf: ");
+        for a in expected.iter() {
+            print!(" {:4b}", a.previous_face);
+        }
+        println!();
+        print!("     ");
+        for a in actual.iter() {
+            print!(" {:4b}", a.previous_face);
+        }
+
+        std::io::stdout().flush()?;
+
+        assert_eq!(expected, actual);
+
+        Ok(())
     }
 }

@@ -2,7 +2,8 @@ use core::simd;
 
 use crate::{
     CubeMove,
-    cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry}, simd_utils::lut_u8x16x3,
+    cube_ops::{cube_move::DominoMove, cube_sym::DominoSymmetry},
+    simd_utils::lut_u8x16x3,
 };
 
 #[repr(u8)]
@@ -141,7 +142,7 @@ fn draw_cube_axis_conj_table() {
                 3 => CubePreviousAxis::L,
                 4 => CubePreviousAxis::U,
                 5 => CubePreviousAxis::D,
-                _ => unreachable!()
+                _ => unreachable!(),
             };
             let r = ax.domino_conjugate(s);
             let x = match r {
@@ -151,14 +152,13 @@ fn draw_cube_axis_conj_table() {
                 CubePreviousAxis::B => 2,
                 CubePreviousAxis::R => 1,
                 CubePreviousAxis::L => 3,
-                _ => unreachable!()
+                _ => unreachable!(),
             };
 
             print!(" {x:03b}");
         }
         println!();
     }
-
 }
 
 #[repr(transparent)]
@@ -175,7 +175,13 @@ impl CubeFace {
 
     #[inline(always)]
     fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
-        todo!()
+        let faces = self.0;
+        let syms = sym.0;
+        let indices = (faces << 3) | (syms >> 3);
+        let shifts = (syms & 1) << 2;
+        let vals = *unsafe { FACE_CONJ.get_unchecked(indices as usize) };
+        let out = (vals >> shifts) & 0b1111;
+        Self(out)
     }
 
     #[inline(always)]
@@ -205,7 +211,7 @@ const FACE_CONJ: [u8; 48] = {
                 3 => CubePreviousAxis::L,
                 4 => CubePreviousAxis::U,
                 5 => CubePreviousAxis::D,
-                _ => unreachable!()
+                _ => unreachable!(),
             };
             let r = ax.domino_conjugate(sy);
             let x: u8 = match r {
@@ -215,7 +221,7 @@ const FACE_CONJ: [u8; 48] = {
                 CubePreviousAxis::B => 2,
                 CubePreviousAxis::R => 1,
                 CubePreviousAxis::L => 3,
-                _ => unreachable!()
+                _ => unreachable!(),
             };
 
             let i = (x << 3) | (s >> 3);
@@ -236,6 +242,20 @@ const FACE_CONJ: [u8; 48] = {
 pub struct CubePreviousFace(pub u8);
 
 impl CubePreviousFace {
+    const F: Self = CubePreviousFace(0b0000);
+    const R: Self = CubePreviousFace(0b0001);
+    const B: Self = CubePreviousFace(0b0010);
+    const L: Self = CubePreviousFace(0b0011);
+    const U: Self = CubePreviousFace(0b0100);
+    const D: Self = CubePreviousFace(0b0101);
+
+    const FBLOCKED: Self = CubePreviousFace(0b1000);
+    const RBLOCKED: Self = CubePreviousFace(0b1001);
+    const BBLOCKED: Self = CubePreviousFace(0b1010);
+    const LBLOCKED: Self = CubePreviousFace(0b1011);
+    const UBLOCKED: Self = CubePreviousFace(0b1100);
+    const DBLOCKED: Self = CubePreviousFace(0b1101);
+
     #[must_use]
     #[inline(always)]
     pub fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
@@ -245,22 +265,23 @@ impl CubePreviousFace {
     }
 
     #[inline(always)]
-     pub fn domino_conjugate_16(axes: [u8; 16], syms: [u8; 16]) -> [u8; 16] {
+    pub fn domino_conjugate_16(axes: [u8; 16], syms: [u8; 16]) -> [u8; 16] {
         let axes = simd::u8x16::from_array(axes);
         let faces = axes & simd::u8x16::splat(0b0111);
         let blocks = axes & simd::u8x16::splat(0b1000);
-        let face_out = simd::u8x16::from_array(CubeFace::domino_conjugate_16(faces.to_array(), syms));
+        let face_out =
+            simd::u8x16::from_array(CubeFace::domino_conjugate_16(faces.to_array(), syms));
         let out = blocks | face_out;
         out.to_array()
     }
 
     #[inline(always)]
-     pub fn get_moves(self) -> &'static [CubeMove; 16] {
-        &MOVES_TABLE[(self.0 & 0b111) as usize]
+    pub fn get_moves(self) -> &'static [CubeMove; 16] {
+        unsafe { MOVES_TABLE.get_unchecked((self.0 & 0b111) as usize) }
     }
 
     #[inline(always)]
-     pub fn get_new_prev_axes(self) -> &'static [Self; 16] {
+    pub fn get_new_prev_axes(self) -> &'static [Self; 16] {
         const TABLE: [[CubePreviousFace; 16]; 6] = {
             use CubeMove::*;
 
@@ -269,18 +290,14 @@ impl CubePreviousFace {
             while f < 6 {
                 let mut mv = 0;
                 while mv < 16 {
-                    #[rustfmt::skip]
-                    let new_f = match MOVES_TABLE[f][mv] {
-                        U1 | U2 | U3 => CubeFace::U,
-                        D1 | D2 | D3 => CubeFace::D,
-                        F1 | F2 | F3 => CubeFace::F,
-                        B1 | B2 | B3 => CubeFace::B,
-                        R1 | R2 | R3 => CubeFace::R,
-                        L1 | L2 | L3 => CubeFace::L,
-                    }.0;
-
-                    let blocking = ((mv > 12) as u8) << 3;
-                    new_table[f][mv] = CubePreviousFace(new_f | blocking);
+                    new_table[f][mv] = match MOVES_TABLE[f][mv] {
+                        U1 | U2 | U3 => CubePreviousFace::U,
+                        D1 | D2 | D3 => CubePreviousFace::DBLOCKED,
+                        F1 | F2 | F3 => CubePreviousFace::F,
+                        B1 | B2 | B3 => CubePreviousFace::BBLOCKED,
+                        R1 | R2 | R3 => CubePreviousFace::R,
+                        L1 | L2 | L3 => CubePreviousFace::LBLOCKED,
+                    };
 
                     mv += 1;
                 }
@@ -289,13 +306,42 @@ impl CubePreviousFace {
 
             new_table
         };
-        &TABLE[(self.0 & 0b111) as usize]
+        unsafe { TABLE.get_unchecked((self.0 & 0b111) as usize) }
     }
 
     #[inline(always)]
-     pub fn get_num_moves(self) -> u8 {
+    pub fn get_num_moves(self) -> u8 {
         let bit = self.0 & 8;
         12u8 + (bit >> 2) + (bit >> 3)
+    }
+
+    pub fn update_with_new_move(self, mv: CubeMove) -> Self {
+        use CubeMove::*;
+        match (mv, self) {
+            // (U1 | U2 | U3, Self::UBlocked) => Self::U,
+            (U1 | U2 | U3, Self::DBLOCKED) => unreachable!(),
+            (U1 | U2 | U3, _) => Self::U,
+
+            // (D1 | D2 | D3, Self::DBlocked) => Self::D,
+            (D1 | D2 | D3, Self::UBLOCKED) => unreachable!(),
+            (D1 | D2 | D3, _) => Self::DBLOCKED,
+
+            // (F1 | F2 | F3, Self::FBlocked) => Self::F,
+            (F1 | F2 | F3, Self::BBLOCKED) => unreachable!(),
+            (F1 | F2 | F3, _) => Self::F,
+
+            // (B1 | B2 | B3, Self::BBlocked) => Self::B,
+            (B1 | B2 | B3, Self::FBLOCKED) => unreachable!(),
+            (B1 | B2 | B3, _) => Self::BBLOCKED,
+
+            // (R1 | R2 | R3, Self::RBlocked) => Self::R,
+            (R1 | R2 | R3, Self::LBLOCKED) => unreachable!(),
+            (R1 | R2 | R3, _) => Self::R,
+
+            // (L1 | L2 | L3, Self::LBlocked) => Self::L,
+            (L1 | L2 | L3, Self::RBLOCKED) => unreachable!(),
+            (L1 | L2 | L3, _) => Self::LBLOCKED,
+        }
     }
 }
 

@@ -261,6 +261,15 @@ impl DominoSymmetry {
 
     #[must_use]
     #[inline(always)]
+    pub fn bitwise_then_simd<const N: usize>(a: Simd<u8, N>, b: Simd<u8, N>) -> Simd<u8, N> {
+        let as1 = a << 1;
+        let corr_mask = Simd::splat(0x44);
+        let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
+        a ^ b ^ corr
+    }
+
+    #[must_use]
+    #[inline(always)]
     pub const fn bitwise_invert(self) -> Self {
         let a = self.0;
         let corr_mask = 0x4;
@@ -636,6 +645,16 @@ fn check_no_duplicates_for_corner_perm_repr() {
 }
 
 #[test]
+fn print_inv() {
+    for i in 0..16 {
+        let s = DominoSymmetry(i);
+        let j = s.inverse().0;
+
+        println!("{:x} {:x}", i, j)
+    }
+}
+
+#[test]
 fn random_cubes_with_conjugation() {
     use rand::SeedableRng;
     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(17);
@@ -725,3 +744,4 @@ fn print_corner_sym() {
         println!("{:?}", CORNER_PERM_LOOKUP[i.0 as usize]);
     }
 }
+
