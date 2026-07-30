@@ -1,5 +1,5 @@
 use std::{
-    num::NonZeroU8,
+    num::{NonZeroU8, NonZeroUsize},
     simd::{Simd, num::SimdUint},
 };
 
@@ -23,6 +23,7 @@ use crate::{
             lookup_sym_corner_orient::{
                 CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable,
             },
+            move_edge_positions::MoveEdgePositionsTable,
             move_sym_corner_orient::MoveSymCornerOrientTable,
             move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable,
             move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable,
@@ -30,7 +31,7 @@ use crate::{
             prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table,
         },
     },
-    simd_utils::{combine, lut_u8x16x2, lut_u16x16x3},
+    simd_utils::{combine, gather16, lut_u8x16x2, lut_u16x16x3},
 };
 
 #[repr(C)]
@@ -56,7 +57,6 @@ pub struct SearchPhase1Node {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ReconstructPhase1Node {
     // while this is redundant with the search coord, it makes it easier to re-track the changes to the
-    pub edge_group_orient_sym: u16,
     pub u_edge_positions: UEdgePositions,
     pub d_edge_positions: DEdgePositions,
     pub e_edge_positions: EEdgePositions,
@@ -140,6 +140,80 @@ const DISTANCE_OPTIONS_LOOKUP: [[u8; 32]; 13] = const {
 fn axis_after_table(prev: CubePreviousAxis, moves_remaining: NonZeroU8) -> &'static [u8; 32] {
     let penultimate = (moves_remaining.get() == 2) as usize;
     &AXIS_AFTER[penultimate][prev as usize]
+}
+
+pub fn split_cube(
+    mut cube: ReprCube,
+    tables: &Tables,
+    mut previous_face: CubePreviousFace,
+) -> (SearchPhase1Node, ReconstructPhase1Node) {
+    let corner_orient_table: &LookupSymCornerOrientTable = tables.as_ref();
+    let phase_1_prune: &PrunePhase1Table = tables.as_ref();
+
+    {
+        let (_u, _d, e_edge_positions) = split_edge_positions(cube.edge_perm);
+        let edge_orient_raw = cube.edge_orient.into_coord();
+
+        let edge_group_raw_coord = e_edge_positions.into_edge_group_raw();
+        let edge_group_orient_raw_coord =
+            EdgeGroupOrientRawCoord::join(edge_group_raw_coord, edge_orient_raw);
+
+        let edge_group_orient_combo =
+            EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
+
+        cube = cube.domino_conjugate(edge_group_orient_combo.domino_conjugation);
+        previous_face = previous_face.domino_conjugate(edge_group_orient_combo.domino_conjugation);
+    };
+
+    let ReprCube {
+        corner_perm,
+        corner_orient,
+        edge_perm,
+        edge_orient,
+    } = cube;
+
+    let (u_edge_positions, d_edge_positions, e_edge_positions) = split_edge_positions(edge_perm);
+
+    let edge_group_raw_coord = e_edge_positions.into_edge_group_raw();
+    let edge_orient_raw = edge_orient.into_coord();
+    let edge_group_orient_raw_coord =
+        EdgeGroupOrientRawCoord::join(edge_group_raw_coord, edge_orient_raw);
+
+    let edge_group_orient_combo =
+        EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
+
+    // we rotated the input cube specifically so this would be true.
+    debug_assert_eq!(
+        edge_group_orient_combo.domino_conjugation,
+        DominoSymmetry::IDENTITY
+    );
+
+    let corner_perm_combo = CornerPermComboCoord::from_raw(&tables, corner_perm.into_coord());
+    let corner_orient_raw = corner_orient.into_coord();
+    let corner_orient_combo = corner_orient_table.get_combo_from_raw(corner_orient_raw);
+
+    let combined_sym_correct =
+        (corner_perm_combo.domino_conjugation.0 << 4) | (corner_orient_combo.domino_conjugation.0);
+
+    let phase_1_dist =
+        phase_1_prune.get_value(edge_group_orient_combo.sym_coord, corner_orient_raw);
+
+    let search = SearchPhase1Node {
+        edge_group_orient_sym: edge_group_orient_combo.sym_coord.0,
+        corner_perm_sym: corner_perm_combo.sym_coord.0,
+        corner_orient_sym: corner_orient_combo.sym_coord.0,
+        combined_sym_correct,
+        phase_1_dist,
+        previous_face: previous_face.0,
+    };
+
+    let recon = ReconstructPhase1Node {
+        u_edge_positions,
+        d_edge_positions,
+        e_edge_positions,
+    };
+
+    (search, recon)
 }
 
 impl SearchPhase1Node {
@@ -281,17 +355,13 @@ impl SearchPhase1Node {
         );
 
         let new_co_s_lo_arr = (tbl_ego_s_arr ^ tbl_co_s_arr ^ curr_cp_co_s_arr) & Simd::splat(0x03);
-        let dist_byte_addr_arr = ((new_ego_c_arr.cast::<u32>() << 2)
+        let dist_byte_addr_arr = (new_ego_c_arr.cast::<u32>() << 2)
             | (new_co_s_lo_arr.cast::<u32>())
-            | (new_co_c_arr.cast::<u32>() << 18))
-            .cast::<usize>()
-            .to_array();
+            | (new_co_c_arr.cast::<u32>() << 18);
 
-        let dist_bytes =
-            dist_byte_addr_arr.map(|i| *unsafe { prune_tbl.as_buffer().get_unchecked(i) });
+        let dist_bytes = unsafe { gather16(prune_tbl.as_buffer(), dist_byte_addr_arr) };
         let new_co_s_hi_arr = (new_cp_co_s_arr >> 2) & Simd::splat(0x03);
-        let dist_i = ((Simd::from_array(dist_bytes) >> (new_co_s_hi_arr << 1)) & Simd::splat(0x03))
-            .to_array();
+        let dist_i = ((dist_bytes >> (new_co_s_hi_arr << 1)) & Simd::splat(0x03)).to_array();
         let distance_options =
             unsafe { DISTANCE_OPTIONS_LOOKUP.get_unchecked(start_node.phase_1_dist as usize) };
 
@@ -325,6 +395,48 @@ impl SearchPhase1Node {
     }
 }
 
+impl ReconstructPhase1Node {
+    /// Places the children from the first item in the array into the remainder of the array in place.
+    /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
+    #[inline(never)]
+    pub fn produce_next_node(
+        &mut self,
+        ego: EdgeGroupOrientSymCoord,
+        prev_face: CubePreviousFace,
+        move_index: NonZeroUsize,
+        tables: &Tables,
+    ) {
+        let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
+        let edge_tbl: &MoveEdgePositionsTable = tables.as_ref();
+
+        let ego_row = ego_mv_tbl.row(ego);
+        // println!("{:?}", ego_row.conjugations);
+        let u_row_1 = edge_tbl.row(self.u_edge_positions.0);
+        let d_row_1 = edge_tbl.row(self.d_edge_positions.0);
+        let e_row_1 = edge_tbl.row(self.e_edge_positions.0);
+        
+        let mv = prev_face.get_moves()[move_index.get()] as u8 as usize;
+        for i in 1..16 {
+            let mv = prev_face.get_moves()[i] as u8 as usize;
+            print!("{}, ", ego_row.conjugations[mv]);
+        }
+        println!();
+        let sym = DominoSymmetry(ego_row.conjugations[mv]);
+
+        let u_adj = u_row_1.0[mv];
+        let d_adj = d_row_1.0[mv];
+        let e_adj = e_row_1.0[mv];
+
+        let u_row_2 = edge_tbl.row(EdgePositions(u_adj));
+        let d_row_2 = edge_tbl.row(EdgePositions(d_adj));
+        let e_row_2 = edge_tbl.row(EdgePositions(e_adj));
+
+        self.u_edge_positions = UEdgePositions(EdgePositions(u_row_2.get_conj(sym)));
+        self.d_edge_positions = DEdgePositions(EdgePositions(d_row_2.get_conj(sym)));
+        self.e_edge_positions = EEdgePositions(EdgePositions(e_row_2.get_conj(sym)));
+    }
+}
+
 fn phase_1_normalize_cube(cube: ReprCube, tables: &Tables) -> ReprCube {
     let (_, _, e_edge_positions) = split_edge_positions(cube.edge_perm);
 
@@ -337,18 +449,6 @@ fn phase_1_normalize_cube(cube: ReprCube, tables: &Tables) -> ReprCube {
         EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
 
     cube.domino_conjugate(edge_group_orient_combo.domino_conjugation)
-}
-
-fn produce_next_nodes_reference(
-    cube: ReprCube,
-    dist: u8,
-    previous_axis: CubePreviousAxis,
-    tables: &Tables,
-) -> Vec<ReprCube> {
-    let cube = phase_1_normalize_cube(cube, tables);
-    CubeMove::all_iter()
-        .map(|mv| phase_1_normalize_cube(cube.apply_cube_move(mv), tables))
-        .collect()
 }
 
 #[cfg(test)]
@@ -501,6 +601,155 @@ mod test {
         for a in actual.iter() {
             print!(" {:4b}", a.previous_face);
         }
+        println!();
+
+        std::io::stdout().flush()?;
+
+        assert_eq!(expected, actual);
+
+        Ok(())
+    }
+
+    #[test]
+    fn neighbors_match_full() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let mut rng = ChaCha8Rng::seed_from_u64(3);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+
+        let previous_face = CubePreviousFace(0);
+        let expected = previous_face
+            .get_moves()
+            .into_iter()
+            .copied()
+            .skip(1)
+            .take(previous_face.get_num_moves() as usize)
+            .map(|mv| {
+                split_cube(
+                    cube.apply_cube_move(mv),
+                    &tables,
+                    previous_face.update_with_new_move(mv),
+                )
+            })
+            .collect_vec();
+        let actual = {
+            let (x, y) = split_cube(cube, &tables, previous_face);
+            let mut buf = [x; 16];
+            let count = SearchPhase1Node::produce_next_nodes(
+                &mut buf,
+                NonZeroU8::new(100).unwrap(),
+                &tables,
+            );
+
+            for c in buf.iter_mut() {
+                c.corner_perm_sym &= 0xFFF;
+            }
+
+            buf[1..16]
+                .iter()
+                .copied()
+                .zip((1..16).into_iter().map(|i| {
+                    let mut y = y.clone();
+                    y.produce_next_node(
+                        EdgeGroupOrientSymCoord(x.edge_group_orient_sym),
+                        CubePreviousFace(x.previous_face),
+                        NonZeroUsize::new(i).unwrap(),
+                        &tables,
+                    );
+                    y
+                }))
+                .take(count)
+                .collect_vec()
+        };
+
+        println!();
+        print!("u:   ");
+        for a in expected.iter() {
+            print!(" {:4x}", a.1.u_edge_positions.0.0);
+        }
+        println!();
+        print!("     ");
+        for a in actual.iter() {
+            print!(" {:4x}", a.1.u_edge_positions.0.0);
+        }
+
+        println!();
+        print!("d:   ");
+        for a in expected.iter() {
+            print!(" {:4x}", a.1.d_edge_positions.0.0);
+        }
+        println!();
+        print!("     ");
+        for a in actual.iter() {
+            print!(" {:4x}", a.1.d_edge_positions.0.0);
+        }
+
+        println!();
+        print!("e:   ");
+        for a in expected.iter() {
+            print!(" {:4x}", a.1.e_edge_positions.0.0);
+        }
+        println!();
+        print!("     ");
+        for a in actual.iter() {
+            print!(" {:4x}", a.1.e_edge_positions.0.0);
+        }
+
+        // println!();
+        // print!("co:  ");
+        // for a in expected.iter() {
+        //     print!(" {:4x}", a.corner_orient_sym);
+        // }
+        // println!();
+        // print!("     ");
+        // for a in actual.iter() {
+        //     print!(" {:4x}", a.corner_orient_sym);
+        // }
+
+        // println!();
+        // print!("cp:  ");
+        // for a in expected.iter() {
+        //     print!(" {:4x}", a.corner_perm_sym);
+        // }
+        // println!();
+        // print!("     ");
+        // for a in actual.iter() {
+        //     print!(" {:4x}", a.corner_perm_sym);
+        // }
+
+        // println!();
+        // print!("cor: ");
+        // for a in expected.iter() {
+        //     print!(" {:4x}", a.combined_sym_correct);
+        // }
+        // println!();
+        // print!("     ");
+        // for a in actual.iter() {
+        //     print!(" {:4x}", a.combined_sym_correct);
+        // }
+
+        // println!();
+        // print!("dst: ");
+        // for a in expected.iter() {
+        //     print!(" {:4x}", a.phase_1_dist);
+        // }
+        // println!();
+        // print!("     ");
+        // for a in actual.iter() {
+        //     print!(" {:4x}", a.phase_1_dist);
+        // }
+
+        // println!();
+        // print!("cpf: ");
+        // for a in expected.iter() {
+        //     print!(" {:4b}", a.previous_face);
+        // }
+        // println!();
+        // print!("     ");
+        // for a in actual.iter() {
+        //     print!(" {:4b}", a.previous_face);
+        // }
+        // println!();
 
         std::io::stdout().flush()?;
 

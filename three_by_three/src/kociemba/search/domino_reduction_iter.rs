@@ -247,11 +247,10 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                 if i + 1 < N {
                     head_out[i + 1] = merge(
                         self.frame_data[self.frame_metadata[i + 1].start as usize - 1],
-                        out,
-                        self.tables
+                        out
                     );
                 } else {
-                    tail_out = merge(phase_1_tail, out, self.tables);
+                    tail_out = merge(phase_1_tail, out);
                 }
             }
 

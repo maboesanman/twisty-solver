@@ -17,7 +17,7 @@ use super::table_loader::load_table;
 
 pub(crate) const TABLE_SIZE_BYTES: usize =
     2768 * core::mem::size_of::<MoveSymCornerPermAugmentedRow>();
-const FILE_CHECKSUM: u32 = 580084048;
+const FILE_CHECKSUM: u32 = 1803162030;
 
 #[repr(C)]
 #[repr(align(64))]

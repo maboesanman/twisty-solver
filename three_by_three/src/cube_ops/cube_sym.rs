@@ -745,3 +745,28 @@ fn print_corner_sym() {
     }
 }
 
+#[test]
+fn move_composition() {
+    let cube = cube![R U D2 U L F B L];
+
+    for mv in CubeMove::all_iter() {
+        for sym in DominoSymmetry::all_iter() {
+            let a = cube.domino_conjugate(sym).apply_cube_move(mv.domino_conjugate(sym));
+            let b = cube.apply_cube_move(mv).domino_conjugate(sym);
+            assert_eq!(a, b)
+        }
+    }
+}
+
+#[test]
+fn sym_composition() {
+    let cube = cube![R U D2 U L F B L];
+
+    for sym_a in DominoSymmetry::all_iter() {
+        for sym_b in DominoSymmetry::all_iter() {
+            let a = cube.domino_conjugate(sym_a).domino_conjugate(sym_b);
+            let b = cube.domino_conjugate(sym_a.then(sym_b));
+            assert_eq!(a, b)
+        }
+    }
+}

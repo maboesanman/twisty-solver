@@ -1,3 +1,5 @@
+use std::simd::{Simd, num::SimdUint, ptr::SimdConstPtr};
+
 /// 16 parallel byte lookups from a small table.
 /// Contract: table.len() >= 32 (pad it), all idx[i] < table.len().
 #[cfg(not(all(target_arch = "aarch64", target_feature = "neon")))]
@@ -154,4 +156,14 @@ pub fn combine(
     }
 
     out
+}
+
+
+#[inline(always)]
+pub unsafe fn gather16(table: &[u8], offsets: Simd<u32, 16>) -> Simd<u8, 16> {
+    let base = Simd::splat(table.as_ptr());
+    let base_addr = base.addr();
+    let offsets = offsets.cast::<usize>();
+
+    unsafe { Simd::gather_ptr(Simd::with_addr(base, base_addr + offsets)) }
 }
