@@ -12,7 +12,7 @@ use crate::{
         search::{
             phase_1_node::Phase1Node,
             phase_2_node::Phase2Node,
-            split_phase_1_node::{SplitPhase1NodeA, merge, split},
+            split_phase_1_node::{SplitPhase1NodeA, SplitPhase1NodeB, merge, split},
         },
         tables::Tables,
     },
@@ -57,6 +57,9 @@ struct Stack<'t, const N: usize, Best> {
 
     frame_metadata: [FrameMetadata; N],
     start: Phase1Node,
+    /// Precomputed SplitPhase1NodeB for self.start, so next_unpruned
+    /// doesn't need to re-split on every call.
+    start_split_b: SplitPhase1NodeB,
     frame_data: Vec<SplitPhase1NodeA>,
 }
 
@@ -125,7 +128,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
 
     fn new_inner(start: Phase1Node, tables: &'t Tables, best: Best, target: u8) -> Self {
         let mut frame_data = Vec::with_capacity(15 * N + 1);
-        let (split_start, _) = split(start, tables);
+        let (split_start, start_split_b) = split(start, tables);
         frame_data.push(split_start);
 
         let mut stack = Self {
@@ -138,6 +141,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                 correct: 0,
             }; _],
             start,
+            start_split_b,
         };
 
         stack.fill_recurse(0);
@@ -147,7 +151,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
 
     /// ensure the top frame is non-empty and the top item is not too far away from reduced to reach in the remaining moves.
     /// this should be called to clean up AFTER THE ITEM WAS POPPED OR AFTER AN UNKNOWN NUMBER OF ITEMS HAVE POPULATED THE NEW FRAME
-    #[inline(always)]
+    #[inline(never)]
     fn drop_recurse(&mut self, i: &mut usize) -> bool {
         debug_assert!(*i > 0);
 
@@ -197,7 +201,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
         true
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn fill_recurse(&mut self, i: usize) {
         let mut i = i;
         while i < N {
@@ -230,7 +234,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
     fn next_unpruned(&mut self, phase_1_tail: SplitPhase1NodeA) -> ([Phase1Node; N], Phase2Node) {
         let (head, tail) = {
             let mut head_out = [self.start; N];
-            let mut out = split(self.start, self.tables).1;
+            let mut out = self.start_split_b;
             let mut tail_out = self.start;
 
             for i in 0..N {
@@ -273,7 +277,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
 impl<'t, const N: usize, Best: Clone + BestTrait> Iterator for Stack<'t, N, Best> {
     type Item = ([Phase1Node; N], Phase2Node);
 
-    #[inline(always)]
+    #[inline(never)]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let phase_1_tail = self.frame_data.pop()?;
@@ -350,6 +354,7 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
                 frame_data: new_frame_data,
                 target: self.target,
                 start: self.start,
+                start_split_b: self.start_split_b,
             };
 
             self.frame_metadata[i - 1].correct += (frame_split - frame_start) as u8;

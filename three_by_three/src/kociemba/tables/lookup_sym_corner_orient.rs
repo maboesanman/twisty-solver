@@ -25,6 +25,19 @@ pub struct CornerOrientComboCoord {
     pub domino_conjugation: DominoSymmetry
 }
 
+impl CornerOrientComboCoord {
+        pub fn from_raw(
+        tables: impl AsRef<LookupSymCornerOrientTable>,
+        raw_coord: CornerOrientRawCoord,
+    ) -> Self {
+        tables.as_ref().get_combo_from_raw(raw_coord)
+    }
+
+    pub fn into_raw(self, tables: impl AsRef<LookupSymCornerOrientTable>) -> CornerOrientRawCoord {
+        tables.as_ref().get_raw_from_combo(self)
+    }
+}
+
 pub struct LookupSymCornerOrientTable([u8]);
 
 impl LookupSymCornerOrientTable {

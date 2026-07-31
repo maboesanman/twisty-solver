@@ -1,29 +1,19 @@
 use std::num::NonZeroU8;
 
 use crate::{
-    CornerOrient, CornerPerm, CubeMove, EdgeOrient, EdgePerm, Permutation, ReprCube, Tables,
-    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
-    kociemba::{
+    CornerOrient, CornerPerm, CubeMove, EdgeOrient, EdgePerm, Permutation, ReprCube, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
         coords::{
             CornerOrientRawCoord, CornerPermRawCoord, CornerPermSymCoord, EdgeGroupOrientRawCoord,
             EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
-        },
-        partial_reprs::{
+        }, partial_reprs::{
             edge_group::EdgeGroup,
             edge_positions::{
                 DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions,
                 combine_edge_positions, split_edge_positions,
             },
-        },
-        tables::{
-            lookup_sym_corner_perm::LookupSymCornerPermTable,
-            lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable,
-            move_edge_positions::MoveEdgePositionsTable,
-            move_raw_corner_orient::MoveRawCornerOrientTable,
-            move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable,
-            move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable,
-            prune_phase_1::PrunePhase1Table,
+        }, tables::{
+            lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable}, lookup_sym_corner_perm::LookupSymCornerPermTable, lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table,
         },
     },
 };
@@ -39,7 +29,7 @@ pub struct Phase1Node {
     pub corner_perm_sym: CornerPermSymCoord,
 
     // edges
-    pub corner_orient_raw: CornerOrientRawCoord,
+    pub corner_orient_combo: CornerOrientComboCoord,
     pub u_edge_positions: UEdgePositions,
     pub d_edge_positions: DEdgePositions,
     pub e_edge_positions: EEdgePositions,
@@ -61,7 +51,7 @@ impl Default for Phase1Node {
                 edge_group_orient_sym: EdgeGroupOrientSymCoord(0),
                 edge_group_orient_correct: DominoSymmetry::IDENTITY,
                 corner_perm_sym: CornerPermSymCoord(0),
-                corner_orient_raw: CornerOrientRawCoord(0),
+                corner_orient_combo: CornerOrientComboCoord { sym_coord: CornerOrientSymCoord(0), domino_conjugation: DominoSymmetry::IDENTITY },
                 u_edge_positions,
                 d_edge_positions,
                 e_edge_positions,
@@ -73,19 +63,11 @@ impl Default for Phase1Node {
 }
 
 impl Phase1Node {
-    pub fn quick_print(&self) -> String {
-        format!(
-            "[{}, {}, {}]",
-            self.corner_orient_raw.0,
-            self.edge_group_orient_sym.0,
-            self.edge_group_orient_correct.0,
-        )
-    }
 
     pub(crate) fn from_phase_1_coords(
         edge_group_orient_sym: EdgeGroupOrientSymCoord,
         corner_orient_raw: CornerOrientRawCoord,
-        tables: impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<LookupSymCornerPermTable>,
+        tables: impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<LookupSymCornerPermTable> + AsRef<LookupSymCornerOrientTable>,
     ) -> Self {
         let edge_table: &LookupSymEdgeGroupOrientTable = tables.as_ref();
         let edge_group_orient_raw = edge_table.get_rep_from_sym(edge_group_orient_sym);
@@ -118,7 +100,7 @@ impl Phase1Node {
 
     pub fn from_cube(
         cube: ReprCube,
-        tables: impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<LookupSymCornerPermTable>,
+        tables: impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<LookupSymCornerPermTable> + AsRef<LookupSymCornerOrientTable>,
     ) -> Self {
         let ReprCube {
             corner_perm,
@@ -138,10 +120,10 @@ impl Phase1Node {
         let edge_group_orient_combo =
             EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
         let corner_perm_combo = CornerPermComboCoord::from_raw(&tables, corner_perm.into_coord());
-        let corner_orient_raw = corner_orient.into_coord();
+        let corner_orient_combo = CornerOrientComboCoord::from_raw(&tables, corner_orient.into_coord());
 
         Self {
-            corner_orient_raw,
+            corner_orient_combo,
             u_edge_positions,
             d_edge_positions,
             e_edge_positions,
@@ -171,7 +153,7 @@ impl Phase1Node {
         };
         let edge_orient =
             EdgeOrient::from_coord(edge_group_orient_combo.into_raw(tables).split().1);
-        let corner_orient = CornerOrient::from_coord(self.corner_orient_raw);
+        let corner_orient = CornerOrient::from_coord(self.corner_orient_combo.into_raw(tables));
 
         ReprCube {
             corner_perm,
@@ -185,108 +167,111 @@ impl Phase1Node {
 impl Phase1Node {
     #[inline(always)]
     pub fn is_domino_reduced(self) -> bool {
-        self.corner_orient_raw.0 == 0 && self.edge_group_orient_sym.0 == 0
+        self.corner_orient_combo.sym_coord.0 == 0 && self.edge_group_orient_sym.0 == 0
     }
 
     #[inline(always)]
     pub fn distance_heuristic(
         self,
-        tables: impl AsRef<MoveRawCornerOrientTable> + AsRef<PrunePhase1Table>,
+        tables: impl AsRef<MoveRawCornerOrientTable> + AsRef<PrunePhase1Table> + AsRef<LookupSymCornerOrientTable>,
     ) -> u8 {
         let move_table: &MoveRawCornerOrientTable = tables.as_ref();
         let prune_table: &PrunePhase1Table = tables.as_ref();
+        let lookup_table: &LookupSymCornerOrientTable = tables.as_ref();
+
+        let co_raw = lookup_table.get_raw_from_combo(self.corner_orient_combo);
 
         let corner_orient_adjusted =
-            move_table.domino_conjugate(self.corner_orient_raw, self.edge_group_orient_correct);
+            move_table.domino_conjugate(co_raw, self.edge_group_orient_correct);
 
         prune_table.get_value(self.edge_group_orient_sym, corner_orient_adjusted)
     }
 
-    /// Places the children from the first item in the array into the remainder of the array in place.
-    /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
-    #[inline(always)]
-    pub fn produce_next_nodes(
-        slice: &mut [Self; 16],
-        moves_remaining: NonZeroU8,
-        // tables: &(
-        //      impl AsRef<MoveEdgePositionsTable>
-        //      + AsRef<MoveRawCornerOrientTable>
-        //      + AsRef<MoveSymCornerPermTable>
-        //      + AsRef<MoveSymEdgeGroupOrientTable>
-        //      + AsRef<PrunePhase1Table>
-        //  ),
-        tables: &Tables,
-    ) -> usize {
-        let start_node = slice[0];
+    // /// Places the children from the first item in the array into the remainder of the array in place.
+    // /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
+    // #[inline(always)]
+    // pub fn produce_next_nodes(
+    //     slice: &mut [Self; 16],
+    //     moves_remaining: NonZeroU8,
+    //     // tables: &(
+    //     //      impl AsRef<MoveEdgePositionsTable>
+    //     //      + AsRef<MoveRawCornerOrientTable>
+    //     //      + AsRef<MoveSymCornerPermTable>
+    //     //      + AsRef<MoveSymEdgeGroupOrientTable>
+    //     //      + AsRef<PrunePhase1Table>
+    //     //  ),
+    //     tables: &Tables,
+    // ) -> usize {
+    //     let start_node = slice[0];
 
-        let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
-        let cp_mv_tbl: &MoveSymCornerPermAugmentedTable = tables.as_ref();
-        let co_mv_tbl: &MoveRawCornerOrientTable = tables.as_ref();
-        let ep_mv_tbl: &MoveEdgePositionsTable = tables.as_ref();
+    //     let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
+    //     let cp_mv_tbl: &MoveSymCornerPermAugmentedTable = tables.as_ref();
+    //     let co_mv_tbl: &MoveRawCornerOrientTable = tables.as_ref();
+    //     let ep_mv_tbl: &MoveEdgePositionsTable = tables.as_ref();
 
-        let ego_row = ego_mv_tbl.row(start_node.edge_group_orient_sym);
-        let cp_row = cp_mv_tbl.row(start_node.corner_perm_sym);
-        let co_row = co_mv_tbl.row(start_node.corner_orient_raw);
-        let u_row = ep_mv_tbl.row(start_node.u_edge_positions.0);
-        let d_row = ep_mv_tbl.row(start_node.d_edge_positions.0);
-        let e_row = ep_mv_tbl.row(start_node.e_edge_positions.0);
+    //     let ego_row = ego_mv_tbl.row(start_node.edge_group_orient_sym);
+    //     let cp_row = cp_mv_tbl.row(start_node.corner_perm_sym);
+    //     let co_row = co_mv_tbl.row(start_node.corner_orient_combo);
+    //     let u_row = ep_mv_tbl.row(start_node.u_edge_positions.0);
+    //     let d_row = ep_mv_tbl.row(start_node.d_edge_positions.0);
+    //     let e_row = ep_mv_tbl.row(start_node.e_edge_positions.0);
 
-        const LOOKUP: [CubeMove; 18 * 16] = {
-            let mut table = [CubeMove::U1; 18 * 16];
-            let mut i = 0usize;
-            while i < 18 * 16 {
-                let mv = unsafe { core::mem::transmute::<u8, CubeMove>((i >> 4) as u8) };
-                let sym = DominoSymmetry((i as u8) & 0b1111);
-                table[i] = mv.domino_conjugate(sym);
-                i += 1;
-            }
-            table
-        };
+    //     const LOOKUP: [CubeMove; 18 * 16] = {
+    //         let mut table = [CubeMove::U1; 18 * 16];
+    //         let mut i = 0usize;
+    //         while i < 18 * 16 {
+    //             let mv = unsafe { core::mem::transmute::<u8, CubeMove>((i >> 4) as u8) };
+    //             let sym = DominoSymmetry((i as u8) & 0b1111);
+    //             table[i] = mv.domino_conjugate(sym);
+    //             i += 1;
+    //         }
+    //         table
+    //     };
 
-        let (unaltered_move_offsets, num_moves) =
-            CubeMove::new_axis_move_array(start_node.previous_axis);
-        let ego_move_offsets = unaltered_move_offsets.map(|mv| {
-            LOOKUP[(mv.into_index() << 4) | (start_node.edge_group_orient_correct.0 as usize)]
-        });
-        let cp_move_offsets = unaltered_move_offsets
-            .map(|mv| LOOKUP[(mv.into_index() << 4) | (start_node.corner_perm_correct.0 as usize)]);
+    //     let (unaltered_move_offsets, num_moves) =
+    //         CubeMove::new_axis_move_array(start_node.previous_axis);
+    //     let ego_move_offsets = unaltered_move_offsets.map(|mv| {
+    //         LOOKUP[(mv.into_index() << 4) | (start_node.edge_group_orient_correct.0 as usize)]
+    //     });
+    //     let cp_move_offsets = unaltered_move_offsets
+    //         .map(|mv| LOOKUP[(mv.into_index() << 4) | (start_node.corner_perm_correct.0 as usize)]);
 
-        for i in 0..15 {
-            let ego_i = ego_move_offsets[i] as u8 as usize;
-            let new_ego_coord = EdgeGroupOrientSymCoord(ego_row.coords[ego_i]);
-            let new_ego_correction = DominoSymmetry(ego_row.conjugations[ego_i]);
+    //     for i in 0..15 {
+    //         let ego_i = ego_move_offsets[i] as u8 as usize;
+    //         let new_ego_coord = EdgeGroupOrientSymCoord(ego_row.coords[ego_i]);
+    //         let new_ego_correction = DominoSymmetry(ego_row.conjugations[ego_i]);
 
-            let cp_i = cp_move_offsets[i] as u8 as usize;
-            let new_cp_coord = CornerPermSymCoord(cp_row.coords[cp_i]);
-            let new_cp_correction = DominoSymmetry(cp_row.conjugations[cp_i]);
+    //         let cp_i = cp_move_offsets[i] as u8 as usize;
+    //         let new_cp_coord = CornerPermSymCoord(cp_row.coords[cp_i]);
+    //         let new_cp_correction = DominoSymmetry(cp_row.conjugations[cp_i]);
 
-            let un_i = unaltered_move_offsets[i] as u8 as usize;
-            let new_co_coord = CornerOrientRawCoord(co_row.moves[un_i]);
-            let new_u_coord = UEdgePositions(EdgePositions(u_row.0[un_i]));
-            let new_d_coord = DEdgePositions(EdgePositions(d_row.0[un_i]));
-            let new_e_coord = EEdgePositions(EdgePositions(e_row.0[un_i]));
+    //         let un_i = unaltered_move_offsets[i] as u8 as usize;
+    //         let new_co_coord = CornerOrientRawCoord(co_row.moves[un_i]);
+    //         let new_u_coord = UEdgePositions(EdgePositions(u_row.0[un_i]));
+    //         let new_d_coord = DEdgePositions(EdgePositions(d_row.0[un_i]));
+    //         let new_e_coord = EEdgePositions(EdgePositions(e_row.0[un_i]));
 
-            let new_previous_axis = start_node
-                .previous_axis
-                .update_with_new_move(unaltered_move_offsets[i], moves_remaining.get() - 1);
+    //         let new_previous_axis = start_node
+    //             .previous_axis
+    //             .update_with_new_move(unaltered_move_offsets[i], moves_remaining.get() - 1);
 
-            slice[i + 1] = Phase1Node {
-                edge_group_orient_sym: new_ego_coord,
-                edge_group_orient_correct: start_node
-                    .edge_group_orient_correct
-                    .then(new_ego_correction),
-                corner_perm_correct: start_node.corner_perm_correct.then(new_cp_correction),
-                corner_perm_sym: new_cp_coord,
-                corner_orient_raw: new_co_coord,
-                u_edge_positions: new_u_coord,
-                d_edge_positions: new_d_coord,
-                e_edge_positions: new_e_coord,
-                previous_axis: new_previous_axis,
-            };
-        }
+    //         slice[i + 1] = Phase1Node {
+    //             edge_group_orient_sym: new_ego_coord,
+    //             edge_group_orient_correct: start_node
+    //                 .edge_group_orient_correct
+    //                 .then(new_ego_correction),
+    //             corner_perm_correct: start_node.corner_perm_correct.then(new_cp_correction),
+    //             corner_perm_sym: new_cp_coord,
+    //             corner_orient_combo: new_co_coord,
+    //             u_edge_positions: new_u_coord,
+    //             d_edge_positions: new_d_coord,
+    //             e_edge_positions: new_e_coord,
+    //             previous_axis: new_previous_axis,
+    //         };
+    //     }
 
-        num_moves
-    }
+    //     num_moves
+    // }
 }
 
 // #[derive(Clone, Debug)]
