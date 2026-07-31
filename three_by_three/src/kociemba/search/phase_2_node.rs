@@ -35,7 +35,7 @@ impl Phase2Node {
             e_edge_positions,
             previous_axis,
             corner_perm_correct,
-            corner_perm_raw,
+            corner_perm_sym: corner_perm_raw,
             ..
         } = node;
 

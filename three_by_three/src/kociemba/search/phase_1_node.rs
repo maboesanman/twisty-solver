@@ -36,7 +36,7 @@ pub struct Phase1Node {
 
     pub edge_group_orient_correct: DominoSymmetry,
     pub corner_perm_correct: DominoSymmetry,
-    pub corner_perm_raw: CornerPermSymCoord,
+    pub corner_perm_sym: CornerPermSymCoord,
 
     // edges
     pub corner_orient_raw: CornerOrientRawCoord,
@@ -60,7 +60,7 @@ impl Default for Phase1Node {
             Self {
                 edge_group_orient_sym: EdgeGroupOrientSymCoord(0),
                 edge_group_orient_correct: DominoSymmetry::IDENTITY,
-                corner_perm_raw: CornerPermSymCoord(0),
+                corner_perm_sym: CornerPermSymCoord(0),
                 corner_orient_raw: CornerOrientRawCoord(0),
                 u_edge_positions,
                 d_edge_positions,
@@ -149,7 +149,7 @@ impl Phase1Node {
             edge_group_orient_sym: edge_group_orient_combo.sym_coord,
             edge_group_orient_correct: edge_group_orient_combo.domino_conjugation,
             corner_perm_correct: corner_perm_combo.domino_conjugation,
-            corner_perm_raw: corner_perm_combo.sym_coord,
+            corner_perm_sym: corner_perm_combo.sym_coord,
         }
     }
 
@@ -160,7 +160,7 @@ impl Phase1Node {
             self.e_edge_positions,
         );
         let corner_perm_combo = CornerPermComboCoord {
-            sym_coord: self.corner_perm_raw,
+            sym_coord: self.corner_perm_sym,
             domino_conjugation: self.corner_perm_correct,
         };
         let corner_perm = CornerPerm::from_coord(corner_perm_combo.into_raw(tables));
@@ -225,7 +225,7 @@ impl Phase1Node {
         let ep_mv_tbl: &MoveEdgePositionsTable = tables.as_ref();
 
         let ego_row = ego_mv_tbl.row(start_node.edge_group_orient_sym);
-        let cp_row = cp_mv_tbl.row(start_node.corner_perm_raw);
+        let cp_row = cp_mv_tbl.row(start_node.corner_perm_sym);
         let co_row = co_mv_tbl.row(start_node.corner_orient_raw);
         let u_row = ep_mv_tbl.row(start_node.u_edge_positions.0);
         let d_row = ep_mv_tbl.row(start_node.d_edge_positions.0);
@@ -276,7 +276,7 @@ impl Phase1Node {
                     .edge_group_orient_correct
                     .then(new_ego_correction),
                 corner_perm_correct: start_node.corner_perm_correct.then(new_cp_correction),
-                corner_perm_raw: new_cp_coord,
+                corner_perm_sym: new_cp_coord,
                 corner_orient_raw: new_co_coord,
                 u_edge_positions: new_u_coord,
                 d_edge_positions: new_d_coord,

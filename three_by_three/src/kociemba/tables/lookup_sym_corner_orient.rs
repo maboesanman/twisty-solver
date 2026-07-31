@@ -16,6 +16,7 @@ const TABLE_SIZE_BYTES: usize = 168 * 2;
 const FILE_CHECKSUM: u32 = 638929069;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[repr(transparent)]
 pub struct CornerOrientSymCoord(pub u8);
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

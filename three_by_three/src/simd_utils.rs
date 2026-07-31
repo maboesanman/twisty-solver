@@ -95,21 +95,22 @@ pub fn lut_u16x16x3(table: &[u16; 24], idx: &[u8; 16]) -> [u16; 16] {
 pub fn combine(
     a: [u16; 16],
     b: [u16; 16],
-    c: [u16; 16],
+    c: [u8; 16],
     d: [u8; 16],
     e: [u8; 16],
-) -> [SplitPhase1NodeA; 16] {
-    let mut out = [SPLIT_A_ZERO; 16];
+    f: [u8; 16],
+) -> [[u8; 8]; 16] {
+    let mut out = [[0u8; 8]; 16];
     for i in 0..16 {
-        out[i] = SplitPhase1NodeA {
-            edge_group_orient_sym: EdgeGroupOrientSymCoord(a[i]),
-            corner_perm_raw: CornerPermSymCoord(b[i]),
-            corner_orient_raw: CornerOrientRawCoord(c[i]),
-            previous_axis: unsafe { core::mem::transmute::<u8, CubePreviousAxis>(d[i]) },
-            combined_sym_correct: e[i],
-        };
+        out[i][0] = a[i] as u8;
+        out[i][1] = (a[i] >> 8) as u8;
+        out[i][2] = b[i] as u8;
+        out[i][3] = (b[i] >> 8) as u8;
+        out[i][4] = c[i];
+        out[i][5] = d[i];
+        out[i][6] = e[i];
+        out[i][7] = f[i];
     }
-
     out
 }
 
