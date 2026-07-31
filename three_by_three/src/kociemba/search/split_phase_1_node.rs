@@ -281,10 +281,13 @@ impl SplitPhase1NodeA {
         let next_co_sym = u128::from_ne_bytes(co_j);
         let co_syms = DominoSymmetry::bitwise_then_32(a, next_co_sym);
 
-        let co_lookup = DominoSymmetry::bitwise_then_32(
-            co_syms,
-            DominoSymmetry::bitwise_invert_32(cmb_syms >> 4)
-        ) & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F;
+        // We need S = ego_syms.inverse().then(co_syms) so that
+        // get_raw_from_combo(co_sym, S) = domino_conjugate(co_raw, ego_syms)
+        // which is what the non-split prune table lookup uses.
+        let ego_syms = cmb_syms >> 4;
+        let ego_syms_inv = DominoSymmetry::bitwise_invert_32(ego_syms);
+        let co_lookup = DominoSymmetry::bitwise_then_32(ego_syms_inv, co_syms)
+            & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F;
 
         let ego_c_simd = Simd::from_array(ego_c);
         let co_c_simd = Simd::from_array(co_c);
@@ -307,14 +310,15 @@ impl SplitPhase1NodeA {
         let new_prev_axis = Simd::from_array(axis_n);
         let combined_dist_axis = (new_dists << 4) | (new_prev_axis);
 
+        let cmb_syms = u128::to_ne_bytes(cmb_syms);
+        let co_syms = u128::to_ne_bytes(co_syms);
+
         let out = combine(
             ego_c, cp_c, co_c,
-            u128::to_ne_bytes(co_syms),
+            co_syms,
             Simd::to_array(combined_dist_axis), 
-            u128::to_ne_bytes(cmb_syms),
+            cmb_syms,
         );
-
-        println!("{out:#?}");
 
         for i in 1..16 {
             unsafe {
@@ -380,6 +384,86 @@ mod test {
     use std::num::NonZeroU8;
     extern crate test;
 
+    #[test]
+    fn split_produce_next_nodes_matches_unsplit() {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
+
+        for _ in 0..100 {
+            let cube: ReprCube =
+                rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+            let moves_remaining = unsafe { NonZeroU8::new_unchecked(30) };
+
+            let phase_1 = Phase1Node::from_cube(cube, &tables);
+            let (split_a, split_b) = split(phase_1, tables);
+
+            // Run the unsplit version
+            let mut unsplit_buf = [phase_1; 16];
+            let unsplit_count = Phase1Node::produce_next_nodes(&mut unsplit_buf, moves_remaining, tables);
+
+            // Run the split A version
+            let mut split_a_buf = [split_a; 16];
+            let split_count = SplitPhase1NodeA::produce_next_nodes_a(&mut split_a_buf, moves_remaining, tables);
+
+            assert_eq!(unsplit_count, split_count, "produce_next_nodes count mismatch");
+
+            // For each child, compute the split B counterpart and merge back
+            for i in 0..unsplit_count {
+                let child_unsplit = unsplit_buf[i + 1];
+                let child_split_a = split_a_buf[i + 1];
+                let child_split_b = split_b.produce_next_node_b(moves_remaining, tables, i);
+
+                let remerged = merge(child_split_a, child_split_b, tables);
+
+                assert_eq!(
+                    child_unsplit.edge_group_orient_sym, remerged.edge_group_orient_sym,
+                    "ego sym mismatch at child {}", i
+                );
+                assert_eq!(
+                    child_unsplit.edge_group_orient_correct, remerged.edge_group_orient_correct,
+                    "ego correct mismatch at child {}", i
+                );
+                assert_eq!(
+                    child_unsplit.corner_perm_correct, remerged.corner_perm_correct,
+                    "cp correct mismatch at child {}", i
+                );
+                assert_eq!(
+                    child_unsplit.corner_perm_sym, remerged.corner_perm_sym,
+                    "cp sym mismatch at child {}", i
+                );
+                assert_eq!(
+                    child_unsplit.corner_orient_raw, remerged.corner_orient_raw,
+                    "co raw mismatch at child {}", i
+                );
+                assert_eq!(
+                    child_unsplit.u_edge_positions, remerged.u_edge_positions,
+                    "u edge mismatch at child {}", i
+                );
+                assert_eq!(
+                    child_unsplit.d_edge_positions, remerged.d_edge_positions,
+                    "d edge mismatch at child {}", i
+                );
+                assert_eq!(
+                    child_unsplit.e_edge_positions, remerged.e_edge_positions,
+                    "e edge mismatch at child {}", i
+                );
+                assert_eq!(
+                    child_unsplit.previous_axis, remerged.previous_axis,
+                    "prev axis mismatch at child {}", i
+                );
+
+                assert_eq!(
+                    child_unsplit.distance_heuristic(&tables),
+                    child_split_a.distance_heuristic(),
+                    "distance heuristic mismatch at child {}: unsplit={}, split_a={}",
+                    i,
+                    child_unsplit.distance_heuristic(&tables),
+                    child_split_a.distance_heuristic()
+                );
+            }
+        }
+    }
+
     #[bench]
     fn phase_1_next(bench: &mut test::Bencher) {
         let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
@@ -392,47 +476,46 @@ mod test {
         let mut buf = [phase_1; 16];
 
         bench.iter(|| {
-            let _ = Phase1Node::produce_next_nodes(
+            Phase1Node::produce_next_nodes(
                 &mut buf,
                 unsafe { NonZeroU8::new_unchecked(30) },
                 tables,
-            );
+            )
         });
     }
 
-    // #[bench]
-    // fn phase_1_next_a(bench: &mut test::Bencher) {
-    //     let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
-    //     let mut rng = ChaCha8Rng::seed_from_u64(3);
-    //     let cube: ReprCube =
-    //         rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
-    //     let mut phase_1 = split(Phase1Node::from_cube(cube, &tables)).0;
-    //     phase_1.previous_axis = CubePreviousAxis::B;
+    #[bench]
+    fn phase_1_next_a(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(3);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let phase_1 = split(Phase1Node::from_cube(cube, &tables), tables).0;
 
-    //     let mut buf = [phase_1; 16];
+        let mut buf = [phase_1; 16];
 
-    //     bench.iter(|| {
-    //         let _ = SplitPhase1NodeA::produce_next_nodes_a(
-    //             &mut buf,
-    //             unsafe { NonZeroU8::new_unchecked(30) },
-    //             tables,
-    //         );
-    //     });
-    // }
+        bench.iter(|| {
+            SplitPhase1NodeA::produce_next_nodes_a(
+                &mut buf,
+                unsafe { NonZeroU8::new_unchecked(30) },
+                tables,
+            )
+        });
+    }
 
-    // #[bench]
-    // fn phase_1_next_b(bench: &mut test::Bencher) {
-    //     let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
-    //     let mut rng = ChaCha8Rng::seed_from_u64(3);
-    //     let cube: ReprCube =
-    //         rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
-    //     let mut phase_1 = split(Phase1Node::from_cube(cube, &tables)).1;
-    //     phase_1.previous_axis = CubePreviousAxis::B;
+    #[bench]
+    fn phase_1_next_b(bench: &mut test::Bencher) {
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(3);
+        let cube: ReprCube =
+            rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+        let mut phase_1 = split(Phase1Node::from_cube(cube, &tables), tables).1;
+        phase_1.previous_axis = CubePreviousAxis::B;
 
-    //     // let mut buf = [phase_1; 16];
+        // let mut buf = [phase_1; 16];
 
-    //     bench.iter(|| {
-    //         let _ = phase_1.produce_next_node_b(unsafe { NonZeroU8::new_unchecked(30) }, tables, 0);
-    //     });
-    // }
+        bench.iter(|| {
+            phase_1.produce_next_node_b(unsafe { NonZeroU8::new_unchecked(30) }, tables, 0)
+        });
+    }
 }
