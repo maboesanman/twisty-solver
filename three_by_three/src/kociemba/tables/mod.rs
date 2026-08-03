@@ -6,9 +6,9 @@ use memmap2::Mmap;
 use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
-use crate::kociemba::tables::{
+use crate::kociemba::{coords::CornerPermSymCoord, tables::{
     lookup_sym_corner_orient::LookupSymCornerOrientTable, move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable, move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_orient::MoveSymCornerOrientTable, move_sym_corner_perm::MoveSymCornerPermTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, prune_phase_1::PrunePhase1Table, prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table, prune_phase_2::PrunePhase2Table
-};
+}};
 
 pub mod lookup_sym_corner_perm;
 pub mod lookup_sym_edge_group_orient;
@@ -241,6 +241,20 @@ impl Tables {
 #[test]
 fn generate() -> anyhow::Result<()> {
     let _tables = Tables::new("tables")?;
+
+    let t: &MoveSymCornerPermAugmentedTable = _tables.as_ref();
+
+    let mut max = 0;
+
+    for i in 0..2768 {
+        let i = t.row(CornerPermSymCoord(i));
+
+        if i.distance > max {
+            max = i.distance;
+        }
+    }
+
+    println!("{max}");
 
     Ok(())
 }

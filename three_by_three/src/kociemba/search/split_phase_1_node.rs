@@ -1,4 +1,4 @@
-use std::{num::NonZeroU8, simd::{Simd, num::SimdUint}};
+use std::{num::NonZeroU8, simd::{Mask, Simd, cmp::{SimdPartialEq as _, SimdPartialOrd as _}, num::{SimdInt as _, SimdUint}}};
 
 use crate::{
     CornerOrient, CubeMove, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
@@ -7,7 +7,7 @@ use crate::{
         }, search::phase_1_node::Phase1Node, tables::{
             lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable}, move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable, move_sym_corner_orient::MoveSymCornerOrientTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table, prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table
         },
-    }, simd_utils::{combine, gather16, lut_u8x16x2, lut_u16x16x3}
+    }, simd_utils::{combine, gather16, lut_u8x16x2, lut_u16x16x3, mask_to_backpointers}
 };
 
 #[repr(C)]
@@ -16,7 +16,7 @@ pub struct SplitPhase1NodeA {
     pub edge_group_orient_sym: EdgeGroupOrientSymCoord,
     pub corner_perm_sym: CornerPermSymCoord,
     pub corner_orient_sym: CornerOrientSymCoord,
-    pub corner_orient_correct: DominoSymmetry,
+    pub corner_orient_correct: u8,
     pub combined_phase_1_dist_previous_axis: u8,
 
     /// ego_hi, co_lo
@@ -27,7 +27,7 @@ const SPLIT_A_ZERO: SplitPhase1NodeA = SplitPhase1NodeA {
     edge_group_orient_sym: EdgeGroupOrientSymCoord(0),
     corner_perm_sym: CornerPermSymCoord(0),
     corner_orient_sym: CornerOrientSymCoord(0),
-    corner_orient_correct: DominoSymmetry::IDENTITY,
+    corner_orient_correct: 16,
     combined_phase_1_dist_previous_axis: 0,
     combined_sym_correct: 0,
 };
@@ -67,7 +67,7 @@ pub fn split(node: Phase1Node ,tables: &Tables) -> (SplitPhase1NodeA, SplitPhase
             combined_phase_1_dist_previous_axis: (previous_axis as u8 | (dist << 4)),
             combined_sym_correct: (edge_group_orient_correct.0 << 4) | corner_perm_correct.0,
             corner_orient_sym: corner_orient_combo.sym_coord,
-            corner_orient_correct: corner_orient_combo.domino_conjugation,
+            corner_orient_correct: corner_orient_combo.domino_conjugation.0 | 16,
         },
         SplitPhase1NodeB {
             u_edge_positions,
@@ -94,7 +94,6 @@ pub fn merge(a: SplitPhase1NodeA, b: SplitPhase1NodeB ,tables: &Tables) -> Phase
         e_edge_positions,
         previous_axis,
     } = b;
-    let lookup_table: &LookupSymCornerOrientTable = tables.as_ref();
     Phase1Node {
         edge_group_orient_sym,
         edge_group_orient_correct: DominoSymmetry(combined_sym_correct >> 4),
@@ -102,7 +101,7 @@ pub fn merge(a: SplitPhase1NodeA, b: SplitPhase1NodeB ,tables: &Tables) -> Phase
         corner_perm_sym,
         corner_orient_combo: CornerOrientComboCoord {
             sym_coord: corner_orient_sym,
-            domino_conjugation: corner_orient_correct,
+            domino_conjugation: DominoSymmetry(corner_orient_correct & 0xF),
         },
         u_edge_positions,
         d_edge_positions,
@@ -208,9 +207,15 @@ impl SplitPhase1NodeA {
         // prune_table.get_value(self.edge_group_orient_sym, corner_orient_adjusted)
     }
 
+    pub fn back_pointer(
+        self
+    ) -> u8 {
+        self.corner_orient_correct >> 4
+    }
+
     /// Places the children from the first item in the array into the remainder of the array in place.
     /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
-    #[inline(never)]
+    #[inline(always)]
     pub fn produce_next_nodes_a(
         slice: &mut [Self; 16],
         moves_remaining: NonZeroU8,
@@ -241,7 +246,7 @@ impl SplitPhase1NodeA {
             mv,
         );
         let co_i = lut_u8x16x2(
-            unsafe { SYM_CONJ.get_unchecked(start_node.corner_orient_correct.0 as usize) },
+            unsafe { SYM_CONJ.get_unchecked((start_node.corner_orient_correct & 0xF) as usize) },
             mv,
         );
         let ego_c = lut_u16x16x3(ego_row.as_u16_array(), &ego_i);
@@ -266,7 +271,7 @@ impl SplitPhase1NodeA {
         let next_cmb_syms = u128::from_ne_bytes(ego_j) << 4 | u128::from_ne_bytes(cp_j);
         let cmb_syms = DominoSymmetry::bitwise_then_32(a, next_cmb_syms);
         
-        let a = u128::from_ne_bytes([start_node.corner_orient_correct.0; 16]);
+        let a = u128::from_ne_bytes([start_node.corner_orient_correct & 0xF; 16]);
         let next_co_sym = u128::from_ne_bytes(co_j);
         let co_syms = DominoSymmetry::bitwise_then_32(a, next_co_sym);
 
@@ -297,9 +302,32 @@ impl SplitPhase1NodeA {
         let new_dists = Simd::from_array(lut_u8x16x2(&distance_options, &dist_i));
         let new_prev_axis = Simd::from_array(axis_n);
         let combined_dist_axis = (new_dists << 4) | (new_prev_axis);
+        
+        let valid = {
+            let m = moves_remaining.get();
+            // reduced = distance == 0   (Mask<i8,16> via to_int -> Simd<i8,16> of -1/0)
+            let reduced: Mask<i8, 16> = new_dists.simd_eq(Simd::splat(0));
+            // d <= m-1   (m >= 1 always since NonZeroU8)
+            let le_limit: Mask<i8, 16> = new_dists
+                .simd_le(Simd::splat(m - 1));
+
+            let reduced_ok = (m == 1) || (m > 7); // scalar viable-when-reduced term
+
+            // valid = le_limit & (!reduced | splat(red_ok))
+            let mut valid = le_limit & (!reduced | Mask::splat(reduced_ok));
+
+            valid.set(0, true);
+            let num_moves_mask = Simd::from_array([0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]).simd_le(Simd::splat(num_moves as u8));
+    
+            valid & num_moves_mask
+        };
+
+        let back_pointers = mask_to_backpointers(valid);
+
+        let num_moves = 15 - (valid.to_bitmask() as u16).leading_zeros() as usize;
 
         let cmb_syms = u128::to_ne_bytes(cmb_syms);
-        let co_syms = u128::to_ne_bytes(co_syms);
+        let co_syms = (Simd::from_array(u128::to_ne_bytes(co_syms)) | (back_pointers << 4)).to_array();
 
         let out = combine(
             ego_c, cp_c, co_c,
@@ -489,6 +517,70 @@ mod test {
                 tables,
             )
         });
+    }
+
+    // Diagnostic-only differential check (not part of the opaque e2e suite):
+    // recomputes the ported "viable" formula using each *stored* child's own
+    // distance, then verifies the back_pointer chain (walked from the top,
+    // num_moves) visits exactly the set of indices the formula calls valid.
+    #[test]
+    fn produce_next_nodes_a_backpointer_matches_formula() {
+        fn old_viable(dist: u8, m: u8) -> bool {
+            // m here is the PARENT's moves_remaining (as passed to produce_next_nodes_a).
+            // old code's "moves_remaining" (MR_check) at validity-check time == m - 1.
+            let mr_check = m - 1;
+            let reduced = dist == 0;
+            (mr_check == 0 && reduced) || (!reduced) || (reduced && mr_check > 6)
+        }
+        fn old_valid(dist: u8, m: u8) -> bool {
+            old_viable(dist, m) && dist <= (m - 1)
+        }
+
+        let tables = Box::leak(Box::new(Tables::new("tables").unwrap()));
+        let mut rng = ChaCha8Rng::seed_from_u64(7);
+
+        let mut mismatches = 0usize;
+        let mut total = 0usize;
+
+        for _ in 0..2000 {
+            let cube: ReprCube =
+                rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+            let phase_1 = Phase1Node::from_cube(cube, &tables);
+            let (split_a, _) = split(phase_1, tables);
+
+            for m in [1u8, 2, 3, 6, 7, 8, 15, 30] {
+                let moves_remaining = NonZeroU8::new(m).unwrap();
+                let mut buf = [split_a; 16];
+                let num_moves = SplitPhase1NodeA::produce_next_nodes_a(&mut buf, moves_remaining, tables);
+
+                // Walk the back_pointer chain from the top (num_moves) down to 0,
+                // collecting the set of indices the algorithm treats as valid.
+                let mut reachable = [false; 16];
+                let mut j = num_moves;
+                while j > 0 {
+                    reachable[j] = true;
+                    let bp = buf[j].back_pointer() as usize;
+                    assert!(bp >= 1, "back_pointer must be >=1, got {bp} at j={j}");
+                    assert!(bp <= j, "back_pointer {bp} at j={j} would underflow the frame");
+                    j -= bp;
+                }
+
+                for idx in 1..=num_moves {
+                    let dist = buf[idx].distance_heuristic();
+                    let expected = old_valid(dist, m);
+                    let actual = reachable[idx];
+                    total += 1;
+                    if expected != actual {
+                        mismatches += 1;
+                        eprintln!(
+                            "mismatch: m={m} idx={idx} num_moves={num_moves} dist={dist} expected={expected} actual={actual}"
+                        );
+                    }
+                }
+            }
+        }
+
+        assert_eq!(mismatches, 0, "{mismatches}/{total} mismatches between formula and back_pointer chain");
     }
 
     #[bench]

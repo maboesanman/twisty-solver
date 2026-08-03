@@ -1,4 +1,4 @@
-use std::simd::{Simd, num::SimdUint, ptr::SimdConstPtr};
+use std::simd::{Mask, Select as _, Simd, cmp::SimdOrd as _, num::{SimdInt as _, SimdUint}, ptr::SimdConstPtr};
 
 /// 16 parallel byte lookups from a small table.
 /// Contract: table.len() >= 32 (pad it), all idx[i] < table.len().
@@ -167,4 +167,46 @@ pub unsafe fn gather16(table: &[u8], offsets: Simd<u32, 16>) -> Simd<u8, 16> {
     let offsets = offsets.cast::<usize>();
 
     unsafe { Simd::gather_ptr(Simd::with_addr(base, base_addr + offsets)) }
+}
+
+#[inline(always)]
+pub fn mask_to_backpointers(mask: Mask<i8, 16>) -> Simd<u8, 16> {
+    const IDX: Simd<i8, 16> =
+    Simd::from_array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+
+    // Lane i holds i if mask[i] is set, else -1.
+    let v = mask.select(IDX, Simd::splat(-1));
+
+    // We want the last set index *strictly before* each lane, so shift by one
+    // (shifting -1 in at the bottom), then prefix-max in log2(16) = 4 steps.
+    let v = v.shift_elements_right::<1>(-1);
+    let v = v.simd_max(v.shift_elements_right::<1>(-1));
+    let v = v.simd_max(v.shift_elements_right::<2>(-1));
+    let v = v.simd_max(v.shift_elements_right::<4>(-1));
+    let v = v.simd_max(v.shift_elements_right::<8>(-1));
+
+    // i - j; with j = -1 this gives i + 1, matching the scalar version.
+    (IDX - v).cast::<u8>()
+}
+
+pub fn mask_to_backpointers_expected(mask: Mask<i8, 16>) -> Simd<u8, 16> {
+    let mut since_last = 1;
+    let mut out = [0u8; 16];
+    for i in 0..16 {
+        out[i] = since_last;
+        if mask.test(i) {
+            since_last = 0;
+        }
+        since_last += 1;
+    }
+
+    Simd::from_array(out)
+}
+
+#[test]
+fn mask_to_backpointers_test() {
+    for i in 0..u16::MAX {
+        let mask = Mask::from_bitmask(i as u64);
+        assert_eq!(mask_to_backpointers_expected(mask), mask_to_backpointers(mask));
+    }
 }

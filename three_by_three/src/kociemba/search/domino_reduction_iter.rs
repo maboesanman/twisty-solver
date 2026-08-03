@@ -151,57 +151,37 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
 
     /// ensure the top frame is non-empty and the top item is not too far away from reduced to reach in the remaining moves.
     /// this should be called to clean up AFTER THE ITEM WAS POPPED OR AFTER AN UNKNOWN NUMBER OF ITEMS HAVE POPULATED THE NEW FRAME
-    #[inline(never)]
+    #[inline(always)]
     fn drop_recurse(&mut self, i: &mut usize) -> bool {
         debug_assert!(*i > 0);
 
         let mut len = self.frame_data.len() as u16;
         let frame_metadata = self.frame_metadata.as_ptr();
 
-        loop {
-            unsafe {
+        unsafe {
+            loop {
                 let top_frame_empty = (*frame_metadata.add(*i - 1)).start == len;
 
-                if top_frame_empty {
-                    len -= 1;
-
-                    if *i == 1 {
-                        self.frame_data.set_len(0);
-                        return false;
-                    }
-                    *i -= 1;
-                    continue;
+                if !top_frame_empty {
+                    break;
                 }
 
-                let moves_remaining = (N - *i) as u8;
+                if *i == 1 {
+                    self.frame_data.set_len(0);
+                    return false;
+                }
+                *i -= 1;
+
                 let top = *self.frame_data.as_ptr().add((len - 1) as usize);
-
-                let reduced = top.is_domino_reduced();
-                let viable = (moves_remaining == 0 && reduced)
-                    || (!reduced)
-                    || (reduced && moves_remaining > 6);
-
-                if viable {
-                    let distance = (*self.frame_data.as_ptr().add((len - 1) as usize))
-                        .distance_heuristic();
-
-                    if distance <= moves_remaining {
-                        break;
-                    }
-                }
-
-                len -= 1;
+                len -= top.back_pointer() as u16;
             }
-        }
-
-        unsafe {
             self.frame_data.set_len(len as usize);
         }
 
         true
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn fill_recurse(&mut self, i: usize) {
         let mut i = i;
         while i < N {
@@ -231,7 +211,11 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
     }
 
     #[inline(never)]
-    fn next_unpruned(&mut self, phase_1_tail: SplitPhase1NodeA) -> ([Phase1Node; N], Phase2Node) {
+    fn next_unpruned(
+        &mut self,
+        phase_1_tail: SplitPhase1NodeA,
+        pre_pop_len: u16,
+    ) -> ([Phase1Node; N], Phase2Node) {
         let (head, tail) = {
             let mut head_out = [self.start; N];
             let mut out = self.start_split_b;
@@ -243,7 +227,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                     .frame_metadata
                     .get(i + 1)
                     .map(|m| m.start as usize)
-                    .unwrap_or(self.frame_data.len() + 1)
+                    .unwrap_or(pre_pop_len as usize)
                     - self.frame_metadata[i].start as usize;
 
                 let j = (frame_i_remaining + self.frame_metadata[i].correct as usize) - 1;
@@ -252,11 +236,10 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                     head_out[i + 1] = merge(
                         self.frame_data[self.frame_metadata[i + 1].start as usize - 1],
                         out,
-                        self.tables
+                        self.tables,
                     );
                 } else {
-                    tail_out = merge(phase_1_tail, out,
-                        self.tables);
+                    tail_out = merge(phase_1_tail, out, self.tables);
                 }
             }
 
@@ -280,7 +263,13 @@ impl<'t, const N: usize, Best: Clone + BestTrait> Iterator for Stack<'t, N, Best
     #[inline(never)]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let phase_1_tail = self.frame_data.pop()?;
+            let phase_1_tail = self.frame_data.last()?.clone();
+            let pre_pop_len = self.frame_data.len() as u16;
+            unsafe {
+                self.frame_data
+                    .set_len(self.frame_data.len() - phase_1_tail.back_pointer() as usize);
+            }
+
             let corner_dist = (phase_1_tail.corner_perm_sym.0 >> 12) as u8;
 
             let best = self.best.get_best();
@@ -296,7 +285,7 @@ impl<'t, const N: usize, Best: Clone + BestTrait> Iterator for Stack<'t, N, Best
                 continue;
             }
 
-            break Some(self.next_unpruned(phase_1_tail));
+            break Some(self.next_unpruned(phase_1_tail, pre_pop_len));
         }
     }
 }
@@ -400,6 +389,114 @@ mod test {
     use crate::{cube, kociemba::search::move_resolver::move_resolver_multi_dimension_domino};
 
     use super::*;
+
+    // Diagnostic-only differential check (not part of the opaque e2e suite):
+    // a simple, non-flattened recursive brute force (no back_pointer bookkeeping,
+    // no frame_data flattening) that ports the exact same "viable" formula
+    // (already independently verified against produce_next_nodes_a's back_pointer
+    // chain in split_phase_1_node.rs), compared against Stack's iterator output.
+    fn old_valid(dist: u8, m: u8) -> bool {
+        let mr_check = m - 1;
+        let reduced = dist == 0;
+        ((mr_check == 0 && reduced) || (!reduced) || (reduced && mr_check > 6)) && dist <= mr_check
+    }
+
+    fn brute_recurse(
+        node: Phase1Node,
+        tables: &Tables,
+        remaining: usize,
+        path: &mut Vec<Phase1Node>,
+        results: &mut Vec<(Vec<Phase1Node>, Phase2Node)>,
+    ) {
+        let (split_a, split_b) = split(node, tables);
+        let moves_remaining = NonZeroU8::new(remaining as u8).unwrap();
+        let mut buf = [split_a; 16];
+        let num_moves = SplitPhase1NodeA::produce_next_nodes_a(&mut buf, moves_remaining, tables);
+        for j in 1..=num_moves {
+            let dist = buf[j].distance_heuristic();
+            if !old_valid(dist, remaining as u8) {
+                continue;
+            }
+            let child_b = split_b.produce_next_node_b(moves_remaining, tables, j - 1);
+            let child = merge(buf[j], child_b, tables);
+            path.push(node);
+            if remaining == 1 {
+                results.push((path.clone(), Phase2Node::from_phase_1_node(child)));
+            } else {
+                brute_recurse(child, tables, remaining - 1, path, results);
+            }
+            path.pop();
+        }
+    }
+
+    fn brute_force<const N: usize>(
+        cube: ReprCube,
+        tables: &Tables,
+        axes: &[u8],
+    ) -> Vec<(Vec<Phase1Node>, Phase2Node)> {
+        let mut results = Vec::new();
+        for &ax in axes {
+            let base = Phase1Node::from_cube(cube.conjugate(CubeSymmetry(ax << 4)), tables);
+            if N == 0 {
+                if base.is_domino_reduced() {
+                    results.push((vec![], Phase2Node::from_phase_1_node(base)));
+                }
+                continue;
+            }
+            let mut alt = base;
+            alt.previous_axis = CubePreviousAxis::NoneAlt;
+            for start in [base, alt] {
+                let mut path = Vec::new();
+                brute_recurse(start, tables, N, &mut path, &mut results);
+            }
+        }
+        results
+    }
+
+    fn check_matches_brute_force<const N: usize>(cube: ReprCube, tables: &Tables) {
+        let axes = &[0u8, 1, 2];
+        let best = &255u8 as *const u8;
+        let stack_results = all_domino_reductions::<N>(cube, tables, axes, best, 0).collect_vec();
+        let brute_results = brute_force::<N>(cube, tables, axes);
+        assert_eq!(
+            stack_results.len(),
+            brute_results.len(),
+            "N={N}: Stack produced {} results, brute force produced {}",
+            stack_results.len(),
+            brute_results.len()
+        );
+
+        use std::collections::HashSet;
+        let key = |path: &[Phase1Node], last: &Phase2Node| format!("{path:?}|{last:?}");
+        let stack_set: HashSet<String> = stack_results.iter().map(|(p, l)| key(p, l)).collect();
+        let brute_set: HashSet<String> = brute_results.iter().map(|(p, l)| key(p, l)).collect();
+        assert_eq!(stack_set, brute_set, "N={N}: content mismatch");
+    }
+
+    #[test]
+    fn domino_reduce_matches_brute_force() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let cube = cube![R U Rp Up];
+
+        check_matches_brute_force::<0>(cube, &tables);
+        check_matches_brute_force::<1>(cube, &tables);
+        check_matches_brute_force::<2>(cube, &tables);
+        check_matches_brute_force::<3>(cube, &tables);
+        check_matches_brute_force::<4>(cube, &tables);
+        check_matches_brute_force::<5>(cube, &tables);
+
+        let mut rng = ChaCha8Rng::seed_from_u64(11);
+        for _ in 0..5 {
+            let cube2: ReprCube =
+                rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
+            check_matches_brute_force::<0>(cube2, &tables);
+            check_matches_brute_force::<1>(cube2, &tables);
+            check_matches_brute_force::<2>(cube2, &tables);
+            check_matches_brute_force::<3>(cube2, &tables);
+        }
+
+        Ok(())
+    }
 
     #[test]
     fn domino_reduce_empty() -> anyhow::Result<()> {
@@ -623,5 +720,4 @@ mod test {
 
         Ok(())
     }
-    // {(12, 19), (1, 16), (5, 20), (3, 11), (2, 9), (4, 16), (11, 20), (2, 15), (6, 15), (8, 12), (8, 19), (5, 11), (2, 16), (4, 15), (7, 14), (10, 13), (3, 15), (9, 10), (8, 8), (10, 19), (8, 13), (3, 8), (2, 3), (10, 10), (10, 14), (8, 18), (7, 20), (1, 14), (7, 16), (8, 15), (6, 14), (6, 13), (0, 6), (2, 8), (5, 9), (9, 16), (4, 18), (2, 20), (5, 18), (1, 20), (5, 13), (7, 12), (0, 1), (12, 14), (3, 10), (4, 7), (2, 10), (9, 17), (4, 20), (3, 13), (3, 18), (2, 6), (1, 17), (1, 9), (2, 5), (2, 19), (7, 17), (7, 13), (7, 19), (7, 11), (12, 18), (9, 18), (11, 18), (4, 17), (6, 18), (6, 7), (3, 9), (8, 10), (10, 15), (9, 20), (4, 5), (0, 16), (0, 7), (3, 3), (0, 11), (4, 19), (0, 13), (1, 10), (6, 6), (3, 20), (12, 16), (1, 12), (11, 12), (6, 8), (9, 15), (9, 14), (5, 6), (6, 19), (10, 20), (2, 12), (3, 16), (10, 17), (9, 9), (8, 11), (1, 4), (10, 18), (9, 13), (0, 9), (7, 18), (5, 10), (12, 15), (1, 15), (11, 14), (12, 12), (11, 19), (3, 17), (0, 12), (4, 6), (6, 9), (3, 19), (4, 4), (6, 12), (1, 8), (1, 11), (0, 5), (6, 17), (5, 12), (0, 8), (12, 20), (0, 17), (3, 6), (12, 17), (2, 18), (5, 8), (6, 11), (5, 17), (2, 13), (11, 17), (4, 13), (8, 20), (3, 14), (9, 19), (5, 19), (6, 16), (11, 11), (0, 0), (6, 20), (11, 16), (7, 7), (0, 15), (5, 16), (7, 8), (0, 10), (10, 16), (5, 7), (7, 10), (0, 14), (2, 4), (8, 9), (12, 13), (0, 20), (10, 12), (4, 10), (5, 15), (4, 9), (1, 19), (9, 12), (2, 2), (11, 13), (7, 15), (6, 10), (3, 12), (0, 18), (1, 1), (8, 14), (10, 11), (4, 12), (4, 14), (4, 8), (5, 14), (2, 7), (1, 18), (3, 5), (7, 9), (3, 4), (2, 17), (2, 11), (2, 14), (5, 5), (1, 7), (8, 17), (8, 16), (11, 15), (3, 7), (0, 19), (4, 11), (1, 13), (1, 6), (1, 5), (9, 11)}
 }
