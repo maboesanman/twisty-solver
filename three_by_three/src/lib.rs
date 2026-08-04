@@ -5,6 +5,7 @@
 #![allow(long_running_const_eval)]
 #![allow(dead_code)]
 #![feature(likely_unlikely)]
+#![feature(core_intrinsics)]
 
 mod cube_entry;
 mod cube_ops;

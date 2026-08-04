@@ -162,11 +162,37 @@ pub fn combine(
 
 #[inline(always)]
 pub unsafe fn gather16(table: &[u8], offsets: Simd<u32, 16>) -> Simd<u8, 16> {
-    let base = Simd::splat(table.as_ptr());
-    let base_addr = base.addr();
-    let offsets = offsets.cast::<usize>();
+    let base = table.as_ptr();
+    let o: [u32; 16] = offsets.to_array();
 
-    unsafe { Simd::gather_ptr(Simd::with_addr(base, base_addr + offsets)) }
+    #[inline(always)]
+    unsafe fn word8(base: *const u8, o: &[u32]) -> u64 {
+        unsafe {
+            // 8 independent loads — all misses go in flight immediately
+            let b0 = *base.add(o[0] as usize) as u64;
+            let b1 = *base.add(o[1] as usize) as u64;
+            let b2 = *base.add(o[2] as usize) as u64;
+            let b3 = *base.add(o[3] as usize) as u64;
+            let b4 = *base.add(o[4] as usize) as u64;
+            let b5 = *base.add(o[5] as usize) as u64;
+            let b6 = *base.add(o[6] as usize) as u64;
+            let b7 = *base.add(o[7] as usize) as u64;
+            // log-depth pack: 3 levels instead of a 7-deep chain
+            let p0 = b0 | (b1 << 8);
+            let p1 = b2 | (b3 << 8);
+            let p2 = b4 | (b5 << 8);
+            let p3 = b6 | (b7 << 8);
+            let q0 = p0 | (p1 << 16);
+            let q1 = p2 | (p3 << 16);
+            q0 | (q1 << 32)
+        }
+    }
+
+    unsafe {
+        let lo = word8(base, &o[0..8]);
+        let hi = word8(base, &o[8..16]);
+        core::mem::transmute(Simd::<u64, 2>::from_array([lo, hi]))
+    }
 }
 
 #[inline(always)]

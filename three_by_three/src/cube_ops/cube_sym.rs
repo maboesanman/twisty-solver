@@ -284,6 +284,14 @@ impl DominoSymmetry {
         let corr = ((a << 1) & !((a << 2) ^ (a >> 1))) & corr_mask;
         a ^ corr
     }
+
+    #[must_use]
+    #[inline(always)]
+    pub fn bitwise_invert_simd<const N: usize>(a: Simd<u8, N>) -> Simd<u8, N> {
+        let corr_mask = Simd::splat(0x44);
+        let corr = ((a << 1) & !((a << 2) ^ (a >> 1))) & corr_mask;
+        a ^ corr
+    }
     
     #[must_use]
     #[inline(always)]

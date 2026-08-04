@@ -213,6 +213,13 @@ impl SplitPhase1NodeA {
         self.corner_orient_correct >> 4
     }
 
+    pub fn set_back_pointer(
+        &mut self,
+        new_value: u8
+    ) {
+        self.corner_orient_correct = (self.corner_orient_correct & 0x0F) | (new_value << 4)
+    }
+
     /// Places the children from the first item in the array into the remainder of the array in place.
     /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
     #[inline(always)]
@@ -253,87 +260,93 @@ impl SplitPhase1NodeA {
         let cp_c = lut_u16x16x3(cp_row.as_u16_array(), &cp_i);
         let co_c = lut_u8x16x2(&co_row.as_u8_arrays()[0], &co_i);
 
-        let offset = u128::from_ne_bytes([4u8; 16]);
-        let ego_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(ego_i));
-        let cp_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(cp_i));
-        let co_i = u128::to_ne_bytes(offset + u128::from_ne_bytes(co_i));
+        let ego_i = Simd::from_array(ego_i) + Simd::splat(4);
+        let cp_i = Simd::from_array(cp_i) + Simd::splat(4);
+        let co_i = Simd::from_array(co_i) + Simd::splat(4);
 
-        let ego_j = lut_u8x16x2(&ego_row.as_u8_arrays()[1], &ego_i);
-        let cp_j = lut_u8x16x2(&cp_row.as_u8_arrays()[1], &cp_i);
-        let co_j = lut_u8x16x2(&co_row.as_u8_arrays()[1], &co_i);
+        let ego_j = lut_u8x16x2(&ego_row.as_u8_arrays()[1], &ego_i.to_array());
+        let cp_j = lut_u8x16x2(&cp_row.as_u8_arrays()[1], &cp_i.to_array());
+        let co_j = lut_u8x16x2(&co_row.as_u8_arrays()[1], &co_i.to_array());
         let axis_n = lut_u8x16x2(
             axis_after_table(previous_axis, moves_remaining),
             mv,
         );
 
-        // --- portable, autovec-reliable from here ---
-        let a = u128::from_ne_bytes([start_node.combined_sym_correct; 16]);
-        let next_cmb_syms = u128::from_ne_bytes(ego_j) << 4 | u128::from_ne_bytes(cp_j);
-        let cmb_syms = DominoSymmetry::bitwise_then_32(a, next_cmb_syms);
-        
-        let a = u128::from_ne_bytes([start_node.corner_orient_correct & 0xF; 16]);
-        let next_co_sym = u128::from_ne_bytes(co_j);
-        let co_syms = DominoSymmetry::bitwise_then_32(a, next_co_sym);
+        let cmb_syms = {
+            let a = Simd::splat(start_node.combined_sym_correct);
+            let next = Simd::from_array(ego_j) << 4 | Simd::from_array(cp_j);
+            DominoSymmetry::bitwise_then_simd(a, next)
+        };
+
+        let co_syms = {
+            let a = Simd::splat(start_node.corner_orient_correct & 0xF);
+            let next = Simd::from_array(co_j);
+            DominoSymmetry::bitwise_then_simd(a, next)
+        };
 
         let ego_syms = cmb_syms >> 4;
-        let ego_syms_inv = DominoSymmetry::bitwise_invert_32(ego_syms);
-        let co_lookup = DominoSymmetry::bitwise_then_32(ego_syms_inv, co_syms)
-            & 0x0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F0F;
+        let ego_syms_inv = DominoSymmetry::bitwise_invert_simd(ego_syms);
+        let co_lookup = (DominoSymmetry::bitwise_then_simd(ego_syms_inv, co_syms))
+            & Simd::splat(0x0F);
         let co_lookup_lo = ego_syms ^ co_syms;
 
         let ego_c_simd = Simd::from_array(ego_c);
         let co_c_simd = Simd::from_array(co_c);
-        let co_s_simd = Simd::from_array(u128::to_ne_bytes(co_lookup));
-        let co_s_simd_lo = Simd::from_array(u128::to_ne_bytes(co_lookup_lo));
 
-        let new_co_s_lo_arr = (co_s_simd_lo) & Simd::splat(0x03);
+        let new_co_s_lo_arr = co_lookup_lo & Simd::splat(0x03);
         let dist_byte_addr_arr = (ego_c_simd.cast::<u32>() << 2)
             | (new_co_s_lo_arr.cast::<u32>())
             | (co_c_simd.cast::<u32>() << 18);
 
         let dist_bytes = unsafe { gather16(prune_tbl.as_buffer(), dist_byte_addr_arr) };
-        let new_co_s_hi_arr = (co_s_simd >> 2) & Simd::splat(0x03);
+        let new_co_s_hi_arr = (co_lookup >> 2) & Simd::splat(0x03);
 
         let dist_i = ((dist_bytes >> (new_co_s_hi_arr << 1)) & Simd::splat(0x03)).to_array();
         let distance_options =
             unsafe { DISTANCE_OPTIONS_LOOKUP.get_unchecked(phase_1_distance as usize) };
 
-        // final dists
         let new_dists = Simd::from_array(lut_u8x16x2(&distance_options, &dist_i));
         let new_prev_axis = Simd::from_array(axis_n);
         let combined_dist_axis = (new_dists << 4) | (new_prev_axis);
-        
+
         let valid = {
             let m = moves_remaining.get();
-            // reduced = distance == 0   (Mask<i8,16> via to_int -> Simd<i8,16> of -1/0)
             let reduced: Mask<i8, 16> = new_dists.simd_eq(Simd::splat(0));
-            // d <= m-1   (m >= 1 always since NonZeroU8)
             let le_limit: Mask<i8, 16> = new_dists
                 .simd_le(Simd::splat(m - 1));
 
-            let reduced_ok = (m == 1) || (m > 7); // scalar viable-when-reduced term
+            let reduced_ok = (m == 1) || (m > 7);
 
-            // valid = le_limit & (!reduced | splat(red_ok))
             let mut valid = le_limit & (!reduced | Mask::splat(reduced_ok));
 
             valid.set(0, true);
             let num_moves_mask = Simd::from_array([0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]).simd_le(Simd::splat(num_moves as u8));
-    
+
             valid & num_moves_mask
         };
 
-        let back_pointers = mask_to_backpointers(valid);
-
         let num_moves = 15 - (valid.to_bitmask() as u16).leading_zeros() as usize;
 
-        let cmb_syms = u128::to_ne_bytes(cmb_syms);
-        let co_syms = (Simd::from_array(u128::to_ne_bytes(co_syms)) | (back_pointers << 4)).to_array();
+        unsafe {
+            let preheat_ego_row = ego_mv_tbl.row(EdgeGroupOrientSymCoord(*ego_c.get_unchecked(num_moves)));
+            let preheat_cp_row = cp_mv_tbl.row(CornerPermSymCoord(*cp_c.get_unchecked(num_moves)));
+            let preheat_co_row = co_mv_tbl.row(CornerOrientSymCoord(*co_c.get_unchecked(num_moves)));
+            core::intrinsics::prefetch_read_data::<_, 3>(preheat_ego_row as *const _);
+            core::intrinsics::prefetch_read_data::<_, 3>(preheat_cp_row as *const _);
+            core::intrinsics::prefetch_read_data::<_, 3>(preheat_co_row as *const _);
+        }
+
+        let back_pointers = mask_to_backpointers(valid);
+
+
+        let cmb_syms_arr = cmb_syms.to_array();
+        let co_syms_arr = (co_syms | (back_pointers << 4)).to_array();
 
         let out = combine(
             ego_c, cp_c, co_c,
-            co_syms,
-            Simd::to_array(combined_dist_axis), 
-            cmb_syms,
+            co_syms_arr,
+            combined_dist_axis.to_array(),
+            cmb_syms_arr,
         );
 
         for i in 1..16 {

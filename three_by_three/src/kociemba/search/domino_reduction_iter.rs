@@ -68,7 +68,6 @@ pub struct FrameMetadata {
     // the offset into the frame_data buffer that this begins.
     // note that this can never be empty
     start: u16,
-    correct: u8,
 }
 
 pub trait BestTrait: Copy {
@@ -138,7 +137,6 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
             frame_data,
             frame_metadata: [FrameMetadata {
                 start: 0,
-                correct: 0,
             }; _],
             start,
             start_split_b,
@@ -187,7 +185,6 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
         while i < N {
             self.frame_metadata[i] = FrameMetadata {
                 start: self.frame_data.len() as u16,
-                correct: 0,
             };
 
             let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
@@ -230,7 +227,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                     .unwrap_or(pre_pop_len as usize)
                     - self.frame_metadata[i].start as usize;
 
-                let j = (frame_i_remaining + self.frame_metadata[i].correct as usize) - 1;
+                let j = (frame_i_remaining as usize) - 1;
                 out = out.produce_next_node_b(moves_remaining, self.tables, j);
                 if i + 1 < N {
                     head_out[i + 1] = merge(
@@ -260,7 +257,6 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
 impl<'t, const N: usize, Best: Clone + BestTrait> Iterator for Stack<'t, N, Best> {
     type Item = ([Phase1Node; N], Phase2Node);
 
-    #[inline(never)]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let phase_1_tail = self.frame_data.last()?.clone();
@@ -300,41 +296,36 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
                 return (self, None);
             }
 
-            let mut i = 0;
-            let (frame_start, frame_end) = loop {
+            let mut i = 1;
+            let new_top = loop {
                 if i + 2 > N {
                     return (self, None);
                 }
-                let start = if i == 0 {
-                    0
-                } else {
-                    unsafe { *self.frame_metadata.get_unchecked(i - 1) }.start
-                };
-                let end = self.frame_metadata[i].start;
 
-                if end - start > 1 {
-                    break (start as usize, end as usize);
+                let start = unsafe { *self.frame_metadata.get_unchecked(i - 1) }.start;
+                let end = self.frame_metadata[i].start - 1;
+                
+                if start == end {
+                    i += 1;
+                    continue;
+                }
+                let end_frame = unsafe { self.frame_data.get_unchecked_mut(end as usize) };
+                let penultimate = end - (end_frame.back_pointer() as u16);
+
+                if penultimate != start - 1 {
+                    // this means the frame is splittable
+
+                    // need to tweak end's backpointer to point directly to start
+                    // need to copy the stack data up to penultimate as the new stack.
+                    end_frame.set_back_pointer((end + 1 - start) as u8);
+                    break penultimate;
                 }
 
                 i += 1;
             };
 
-            // frame i has more than 1 item in it. let's produce a new frame metadata and data.
-
-            // if it's odd, the last one in the frame is alreay potentially partially expanded so we
-            // give more items to the latter half (round down)
-            let frame_split = (frame_start + frame_end) / 2;
-
             let mut new_frame_data = Vec::with_capacity(15 * N + 1);
-            new_frame_data.extend_from_slice(&self.frame_data[0..frame_split]);
-
-            self.frame_data.drain(frame_start..frame_split);
-
-            for x in 0..N {
-                if self.frame_metadata[x].start > frame_start as u16 {
-                    self.frame_metadata[x].start -= (frame_split - frame_start) as u16;
-                }
-            }
+            new_frame_data.extend_from_slice(&self.frame_data[0..=(new_top as usize)]);
 
             let mut new_stack = Stack {
                 tables: self.tables,
@@ -345,8 +336,6 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
                 start: self.start,
                 start_split_b: self.start_split_b,
             };
-
-            self.frame_metadata[i - 1].correct += (frame_split - frame_start) as u8;
 
             new_stack.fill_recurse(i);
 
