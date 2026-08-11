@@ -701,8 +701,7 @@ mod test {
             i += 1;
             let mut stream = get_incremental_solutions_stream(*cube, tables, Some(20), 20, true);
             let future = stream.next();
-            let solution = futures::executor::block_on(future).unwrap();
-            test::black_box(solution);
+            futures::executor::block_on(future).unwrap()
         });
     }
 
@@ -722,8 +721,7 @@ mod test {
             i += 1;
             let mut stream = get_incremental_solutions_stream(*cube, tables, Some(20), 20, false);
             let future = stream.next();
-            let solution = futures::executor::block_on(future).unwrap();
-            test::black_box(solution);
+            futures::executor::block_on(future).unwrap()
         });
     }
 
@@ -743,8 +741,7 @@ mod test {
             i += 1;
             let mut stream = get_incremental_solutions_stream(*cube, tables, Some(21), 21, true);
             let future = stream.next();
-            let solution = futures::executor::block_on(future).unwrap();
-            test::black_box(solution);
+            futures::executor::block_on(future).unwrap()
         });
     }
 
@@ -764,8 +761,7 @@ mod test {
             i += 1;
             let mut stream = get_incremental_solutions_stream(*cube, tables, Some(21), 21, false);
             let future = stream.next();
-            let solution = futures::executor::block_on(future).unwrap();
-            test::black_box(solution);
+            futures::executor::block_on(future).unwrap()
         });
     }
 
@@ -785,8 +781,7 @@ mod test {
             i += 1;
             let mut stream = get_incremental_solutions_stream(*cube, tables, Some(22), 22, true);
             let future = stream.next();
-            let solution = futures::executor::block_on(future).unwrap();
-            test::black_box(solution);
+            futures::executor::block_on(future).unwrap()
         });
     }
 
@@ -806,8 +801,7 @@ mod test {
             i += 1;
             let mut stream = get_incremental_solutions_stream(*cube, tables, Some(22), 22, false);
             let future = stream.next();
-            let solution = futures::executor::block_on(future).unwrap();
-            test::black_box(solution);
+            futures::executor::block_on(future).unwrap()
         });
     }
 
@@ -825,8 +819,7 @@ mod test {
         bench.iter(|| {
             let cube = cubes.get(i % 10000).unwrap();
             i += 1;
-            let solution = solve_direct(*cube, tables);
-            test::black_box(solution);
+            solve_direct(*cube, tables)
         });
     }
 

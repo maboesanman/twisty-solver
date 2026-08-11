@@ -298,7 +298,7 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
 
             let mut i = 1;
             let new_top = loop {
-                if i + 2 > N {
+                if i + 2 > N || i > 4 {
                     return (self, None);
                 }
 
@@ -312,12 +312,26 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
                 let end_frame = unsafe { self.frame_data.get_unchecked_mut(end as usize) };
                 let penultimate = end - (end_frame.back_pointer() as u16);
 
+                
                 if penultimate != start - 1 {
+                    let mut i = penultimate;
+                    let mut j = end;
+                    let mut k;
+                    loop {
+                        let i_backpointer = unsafe { self.frame_data.get_unchecked(i as usize) }.back_pointer();
+                        k = i - (i_backpointer as u16);
+                        let j_mut = unsafe { self.frame_data.get_unchecked_mut(j as usize) };
+                        j_mut.set_back_pointer(j_mut.back_pointer() + i_backpointer);
+                        if k == start - 1 {
+                            break
+                        }
+                        j = i;
+                        i = k;
+                    }
                     // this means the frame is splittable
 
                     // need to tweak end's backpointer to point directly to start
                     // need to copy the stack data up to penultimate as the new stack.
-                    end_frame.set_back_pointer((end + 1 - start) as u8);
                     break penultimate;
                 }
 
@@ -641,6 +655,80 @@ mod test {
         );
 
         println!("{:?}", stack.count());
+
+        Ok(())
+    }
+
+    fn check_par_seq_identical<const N: usize>(
+        cube: ReprCube,
+        tables: &Tables,
+        axes: &[u8],
+    ) -> usize {
+        let best: u8 = 255;
+        let seq_results: Vec<_> =
+            all_domino_reductions::<N>(cube, tables, axes, &best as *const _, 0).collect();
+
+        let par_results: Vec<_> = all_domino_reductions_par::<N>(
+            cube,
+            tables,
+            axes,
+            &AtomicU8::new(255),
+            0,
+        )
+        .collect();
+
+        assert_eq!(
+            seq_results.len(),
+            par_results.len(),
+            "N={N}: sequential produced {}, parallel produced {}",
+            seq_results.len(),
+            par_results.len()
+        );
+
+        let seq_len = seq_results.len();
+        let seq_set: std::collections::HashSet<_> = seq_results.into_iter().collect();
+        let par_set: std::collections::HashSet<_> = par_results.into_iter().collect();
+
+        assert_eq!(
+            seq_set, par_set,
+            "N={N}: sequential and parallel sets differ"
+        );
+
+        seq_len
+    }
+
+    #[test]
+    fn par_and_seq_produce_identical_set() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let axes = &[0u8, 1, 2];
+
+        let cubes = [
+            cube![R U R U R U],
+            cube![R2 U2 R2 U2],
+            cube![R U2 R U2 R2],
+            cube![R L U D F B],
+            cube![R U F R U F],
+            cube![R2 U2 F2 R2 U2],
+        ];
+
+        let mut total = 0;
+        for cube in cubes {
+            for &n in &[6, 7, 8] {
+                let count = match n {
+                    6 => check_par_seq_identical::<6>(cube, &tables, axes),
+                    7 => check_par_seq_identical::<7>(cube, &tables, axes),
+                    8 => check_par_seq_identical::<8>(cube, &tables, axes),
+                    _ => unreachable!(),
+                };
+                assert!(
+                    count > 0,
+                    "N={n} produced 0 results for cube={cube:?} — trivial case"
+                );
+                total += count;
+            }
+        }
+
+        assert!(total > 0, "No non-trivial comparisons were performed");
 
         Ok(())
     }
