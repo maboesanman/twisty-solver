@@ -9,7 +9,7 @@ use rayon::iter::{
 use crate::{
     cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube}, kociemba::{
         search::{
-            phase_1_node::Phase1Node, phase_2_node::Phase2Node, split_phase_1_node::{SplitPhase1NodeA, SplitPhase1NodeAStackStruct, SplitPhase1NodeB, merge, soa_produce_next_nodes, split},
+            phase_1_node::Phase1Node, phase_2_node::Phase2Node, split_phase_1_node::{SplitPhase1NodeA, SplitPhase1NodeAStackStruct, SplitPhase1NodeB, merge, split},
         }, tables::Tables,
     },
 };
@@ -123,7 +123,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
 
     fn new_inner(start: Phase1Node, tables: &'t Tables, best: Best, target: u8) -> Self {
         let (split_start, start_split_b) = split(start, tables);
-        let frame_data = SplitPhase1NodeAStackStruct::new(15 * N + 1, split_start);
+        let frame_data = SplitPhase1NodeAStackStruct::new((15 * N + 1) as u16, split_start);
 
         let mut stack = Self {
             tables,
@@ -152,7 +152,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
 
         unsafe {
             loop {
-                let top_frame_empty = (*frame_metadata.add(*i - 1)).start as usize == self.frame_data.len;
+                let top_frame_empty = (*frame_metadata.add(*i - 1)).start == self.frame_data.len;
 
                 if !top_frame_empty {
                     break;
@@ -180,8 +180,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
             };
 
             let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
-            let slice = self.frame_data.get_slice_for_expansion(self.frame_data.len - 1);
-            let added = soa_produce_next_nodes(slice, moves_remaining, self.tables);
+            let added = self.frame_data.soa_produce_next_nodes(moves_remaining, self.tables);
             self.frame_data.len += added;
 
             i += 1;
@@ -196,7 +195,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
     fn next_unpruned(
         &mut self,
         phase_1_tail: SplitPhase1NodeA,
-        pre_pop_len: usize,
+        pre_pop_len: u16,
     ) -> ([Phase1Node; N], Phase2Node) {
         let (head, tail) = {
             let mut head_out = [self.start; N];
@@ -216,7 +215,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                 out = out.produce_next_node_b(moves_remaining, self.tables, j);
                 if i + 1 < N {
                     head_out[i + 1] = merge(
-                        self.frame_data.get_aaa(self.frame_metadata[i + 1].start as usize - 1),
+                        self.frame_data.get_aaa(self.frame_metadata[i + 1].start - 1),
                         out,
                         self.tables,
                     );
