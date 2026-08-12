@@ -7,14 +7,10 @@ use rayon::iter::{
 };
 
 use crate::{
-    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
-    kociemba::{
+    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube}, kociemba::{
         search::{
-            phase_1_node::Phase1Node,
-            phase_2_node::Phase2Node,
-            split_phase_1_node::{SplitPhase1NodeA, SplitPhase1NodeB, merge, split},
-        },
-        tables::Tables,
+            phase_1_node::Phase1Node, phase_2_node::Phase2Node, split_phase_1_node::{SplitPhase1NodeA, SplitPhase1NodeAStackStruct, SplitPhase1NodeB, merge, soa_produce_next_nodes, split},
+        }, tables::Tables,
     },
 };
 
@@ -60,7 +56,7 @@ struct Stack<'t, const N: usize, Best> {
     /// Precomputed SplitPhase1NodeB for self.start, so next_unpruned
     /// doesn't need to re-split on every call.
     start_split_b: SplitPhase1NodeB,
-    frame_data: Vec<SplitPhase1NodeA>,
+    frame_data: SplitPhase1NodeAStackStruct,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -126,9 +122,8 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
     }
 
     fn new_inner(start: Phase1Node, tables: &'t Tables, best: Best, target: u8) -> Self {
-        let mut frame_data = Vec::with_capacity(15 * N + 1);
         let (split_start, start_split_b) = split(start, tables);
-        frame_data.push(split_start);
+        let frame_data = SplitPhase1NodeAStackStruct::new(15 * N + 1, split_start);
 
         let mut stack = Self {
             tables,
@@ -153,27 +148,24 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
     fn drop_recurse(&mut self, i: &mut usize) -> bool {
         debug_assert!(*i > 0);
 
-        let mut len = self.frame_data.len() as u16;
         let frame_metadata = self.frame_metadata.as_ptr();
 
         unsafe {
             loop {
-                let top_frame_empty = (*frame_metadata.add(*i - 1)).start == len;
+                let top_frame_empty = (*frame_metadata.add(*i - 1)).start as usize == self.frame_data.len;
 
                 if !top_frame_empty {
                     break;
                 }
 
                 if *i == 1 {
-                    self.frame_data.set_len(0);
+                    self.frame_data.len = 0;
                     return false;
                 }
                 *i -= 1;
 
-                let top = *self.frame_data.as_ptr().add((len - 1) as usize);
-                len -= top.back_pointer() as u16;
+                self.frame_data.pop_unchecked_aaa();
             }
-            self.frame_data.set_len(len as usize);
         }
 
         true
@@ -184,20 +176,13 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
         let mut i = i;
         while i < N {
             self.frame_metadata[i] = FrameMetadata {
-                start: self.frame_data.len() as u16,
+                start: self.frame_data.len as u16,
             };
 
-            let last_data = unsafe { self.frame_data.last_mut().unwrap_unchecked() };
-
-            let slice = unsafe { &mut *(last_data as *mut SplitPhase1NodeA).cast_array::<16>() };
-
             let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
-
-            let added = SplitPhase1NodeA::produce_next_nodes_a(slice, moves_remaining, self.tables);
-
-            unsafe {
-                self.frame_data.set_len(self.frame_data.len() + added);
-            }
+            let slice = self.frame_data.get_slice_for_expansion(self.frame_data.len - 1);
+            let added = soa_produce_next_nodes(slice, moves_remaining, self.tables);
+            self.frame_data.len += added;
 
             i += 1;
 
@@ -211,7 +196,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
     fn next_unpruned(
         &mut self,
         phase_1_tail: SplitPhase1NodeA,
-        pre_pop_len: u16,
+        pre_pop_len: usize,
     ) -> ([Phase1Node; N], Phase2Node) {
         let (head, tail) = {
             let mut head_out = [self.start; N];
@@ -231,7 +216,7 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                 out = out.produce_next_node_b(moves_remaining, self.tables, j);
                 if i + 1 < N {
                     head_out[i + 1] = merge(
-                        self.frame_data[self.frame_metadata[i + 1].start as usize - 1],
+                        self.frame_data.get_aaa(self.frame_metadata[i + 1].start as usize - 1),
                         out,
                         self.tables,
                     );
@@ -259,12 +244,9 @@ impl<'t, const N: usize, Best: Clone + BestTrait> Iterator for Stack<'t, N, Best
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let phase_1_tail = self.frame_data.last()?.clone();
-            let pre_pop_len = self.frame_data.len() as u16;
-            unsafe {
-                self.frame_data
-                    .set_len(self.frame_data.len() - phase_1_tail.back_pointer() as usize);
-            }
+            let phase_1_tail = self.frame_data.get_aaa(self.frame_data.len.checked_sub(1)?);
+            let pre_pop_len = self.frame_data.len;
+            self.frame_data.pop_unchecked_aaa();
 
             let corner_dist = (phase_1_tail.corner_perm_sym.0 >> 12) as u8;
 
@@ -290,73 +272,74 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
     type Item = <Self as Iterator>::Item;
 
     fn split(mut self) -> (Self, Option<Self>) {
-        loop {
-            // we've already been exhausted. nothing to split
-            if self.frame_data.is_empty() {
-                return (self, None);
-            }
+        todo!()
+        // loop {
+        //     // we've already been exhausted. nothing to split
+        //     if self.frame_data.len == 0 {
+        //         return (self, None);
+        //     }
 
-            let mut i = 1;
-            let new_top = loop {
-                if i + 2 > N || i > 4 {
-                    return (self, None);
-                }
+        //     let mut i = 1;
+        //     let new_top = loop {
+        //         if i + 2 > N || i > 4 {
+        //             return (self, None);
+        //         }
 
-                let start = unsafe { *self.frame_metadata.get_unchecked(i - 1) }.start;
-                let end = self.frame_metadata[i].start - 1;
+        //         let start = unsafe { *self.frame_metadata.get_unchecked(i - 1) }.start;
+        //         let end = self.frame_metadata[i].start - 1;
                 
-                if start == end {
-                    i += 1;
-                    continue;
-                }
-                let end_frame = unsafe { self.frame_data.get_unchecked_mut(end as usize) };
-                let penultimate = end - (end_frame.back_pointer() as u16);
+        //         if start == end {
+        //             i += 1;
+        //             continue;
+        //         }
+        //         let end_frame = unsafe { self.frame_data.get_unchecked_mut(end as usize) };
+        //         let penultimate = end - (end_frame.back_pointer() as u16);
 
                 
-                if penultimate != start - 1 {
-                    let mut i = penultimate;
-                    let mut j = end;
-                    let mut k;
-                    loop {
-                        let i_backpointer = unsafe { self.frame_data.get_unchecked(i as usize) }.back_pointer();
-                        k = i - (i_backpointer as u16);
-                        let j_mut = unsafe { self.frame_data.get_unchecked_mut(j as usize) };
-                        j_mut.set_back_pointer(j_mut.back_pointer() + i_backpointer);
-                        if k == start - 1 {
-                            break
-                        }
-                        j = i;
-                        i = k;
-                    }
-                    // this means the frame is splittable
+        //         if penultimate != start - 1 {
+        //             let mut i = penultimate;
+        //             let mut j = end;
+        //             let mut k;
+        //             loop {
+        //                 let i_backpointer = unsafe { self.frame_data.get_unchecked(i as usize) }.back_pointer();
+        //                 k = i - (i_backpointer as u16);
+        //                 let j_mut = unsafe { self.frame_data.get_unchecked_mut(j as usize) };
+        //                 j_mut.set_back_pointer(j_mut.back_pointer() + i_backpointer);
+        //                 if k == start - 1 {
+        //                     break
+        //                 }
+        //                 j = i;
+        //                 i = k;
+        //             }
+        //             // this means the frame is splittable
 
-                    // need to tweak end's backpointer to point directly to start
-                    // need to copy the stack data up to penultimate as the new stack.
-                    break penultimate;
-                }
+        //             // need to tweak end's backpointer to point directly to start
+        //             // need to copy the stack data up to penultimate as the new stack.
+        //             break penultimate;
+        //         }
 
-                i += 1;
-            };
+        //         i += 1;
+        //     };
 
-            let mut new_frame_data = Vec::with_capacity(15 * N + 1);
-            new_frame_data.extend_from_slice(&self.frame_data[0..=(new_top as usize)]);
+        //     let mut new_frame_data = Vec::with_capacity(15 * N + 1);
+        //     new_frame_data.extend_from_slice(&self.frame_data[0..=(new_top as usize)]);
 
-            let mut new_stack = Stack {
-                tables: self.tables,
-                best: self.best,
-                frame_metadata: self.frame_metadata,
-                frame_data: new_frame_data,
-                target: self.target,
-                start: self.start,
-                start_split_b: self.start_split_b,
-            };
+        //     let mut new_stack = Stack {
+        //         tables: self.tables,
+        //         best: self.best,
+        //         frame_metadata: self.frame_metadata,
+        //         frame_data: new_frame_data,
+        //         target: self.target,
+        //         start: self.start,
+        //         start_split_b: self.start_split_b,
+        //     };
 
-            new_stack.fill_recurse(i);
+        //     new_stack.fill_recurse(i);
 
-            if !new_stack.frame_data.is_empty() {
-                break (self, Some(new_stack));
-            };
-        }
+        //     if !new_stack.frame_data.is_empty() {
+        //         break (self, Some(new_stack));
+        //     };
+        // }
     }
 
     fn fold_with<F>(mut self, mut folder: F) -> F

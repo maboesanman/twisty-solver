@@ -1,4 +1,5 @@
-use std::{num::NonZeroU8, simd::{Mask, Simd, cmp::{SimdPartialEq as _, SimdPartialOrd as _}, num::{SimdInt as _, SimdUint}}};
+use core::slice;
+use std::{intrinsics::simd, mem::offset_of, num::NonZeroU8, ptr::copy_nonoverlapping, simd::{Mask, Simd, cmp::{SimdPartialEq as _, SimdPartialOrd as _}, num::{SimdInt as _, SimdUint}, ptr::{SimdConstPtr as _, SimdMutPtr}}};
 
 use crate::{
     CornerOrient, CubeMove, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
@@ -21,6 +22,297 @@ pub struct SplitPhase1NodeA {
 
     /// ego_hi, co_lo
     pub combined_sym_correct: u8,
+}
+
+#[derive(Debug, Clone)]
+pub struct SplitPhase1NodeAStackStruct {
+    pub len: usize,
+    // this is a lie, it's actually SoA. we use MaybeUninit<SoATemplatePhase1NodeA>
+    // to set the size, but we actually use this as a *mut u8
+    buffer: Box<[std::mem::MaybeUninit<SoATemplatePhase1NodeA>]>,
+    offsets: Simd<usize, 8>,
+    sizes_as_shifts: Simd<usize, 8>,
+}
+
+impl SplitPhase1NodeAStackStruct {
+    pub fn new(cap: usize, start: SplitPhase1NodeA) -> Self {
+        let mut buffer = Box::<[SoATemplatePhase1NodeA]>::new_zeroed_slice(cap);
+
+        let bytes = buffer.as_mut_ptr().cast::<u8>();
+
+        let offsets = Simd::from_array([
+            core::mem::offset_of!(SoATemplatePhase1NodeA, edge_group_orient_sym),
+            core::mem::offset_of!(SoATemplatePhase1NodeA, corner_perm_sym),
+            core::mem::offset_of!(SoATemplatePhase1NodeA, combined_sym_correct),
+            core::mem::offset_of!(SoATemplatePhase1NodeA, corner_orient_sym),
+            core::mem::offset_of!(SoATemplatePhase1NodeA, corner_orient_correct),
+            core::mem::offset_of!(SoATemplatePhase1NodeA, phase_1_dists),
+            core::mem::offset_of!(SoATemplatePhase1NodeA, previous_axes),
+            core::mem::offset_of!(SoATemplatePhase1NodeA, back_pointers),
+        ]) * Simd::splat(cap);
+        let sizes_as_shifts = Simd::from_array([
+            1, 1, 0, 0, 0, 0, 0, 0
+        ]);
+
+        let base_addresses: Simd<*mut u8, 8> = Simd::splat(bytes);
+        let ptrs = base_addresses.wrapping_add(offsets).to_array();
+
+        unsafe {
+            *(ptrs[0] as *mut EdgeGroupOrientSymCoord) = start.edge_group_orient_sym;
+            *(ptrs[1] as *mut CornerPermSymCoord) = start.corner_perm_sym;
+            *(ptrs[2] as *mut u8) = start.combined_sym_correct;
+            *(ptrs[3] as *mut CornerOrientSymCoord) = start.corner_orient_sym;
+            *(ptrs[4] as *mut u8) = start.corner_orient_correct & 0xF;
+            *(ptrs[5] as *mut u8) = start.combined_phase_1_dist_previous_axis >> 4;
+            *(ptrs[6] as *mut u8) = start.combined_phase_1_dist_previous_axis & 0xF;
+            *(ptrs[7] as *mut u8) = start.corner_orient_correct >> 4;
+        }
+
+        Self {
+            buffer,
+            len: 1,
+            offsets,
+            sizes_as_shifts,
+        }
+    }
+
+#[inline(never)]
+    pub fn get_slice_for_expansion(&mut self, index: usize) -> SplitPhase1NodeABufs<'_> {
+        debug_assert!(index + 15 < self.buffer.len());
+        let base_addr = self.buffer.as_mut_ptr();
+
+        let base_addresses: Simd<*mut u8, 8> = Simd::splat(base_addr.cast());
+        let ptrs = base_addresses.wrapping_add(self.offsets + (Simd::splat(index) << self.sizes_as_shifts)).to_array();
+
+        unsafe {
+            SplitPhase1NodeABufs {
+                edge_group_orient_sym: &mut *(ptrs[0] as *mut [EdgeGroupOrientSymCoord; 16]),
+                corner_perm_sym: &mut *(ptrs[1] as *mut [CornerPermSymCoord; 16]),
+                combined_sym_correct: &mut *(ptrs[2] as *mut [u8; 16]),
+                corner_orient_sym: &mut *(ptrs[3] as *mut [CornerOrientSymCoord; 16]),
+                corner_orient_correct: &mut *(ptrs[4] as *mut [DominoSymmetry; 16]),
+                phase_1_dists: &mut *(ptrs[5] as *mut [u8; 16]),
+                previous_axes: &mut *(ptrs[6] as *mut [CubePreviousAxis; 16]),
+                back_pointers: &mut *(ptrs[7] as *mut [u8; 16]),
+            }
+        }
+    }
+
+#[inline(never)]
+    pub fn get_aaa(&self, i: usize) -> SplitPhase1NodeA {
+        debug_assert!(i < self.buffer.len());
+        let base_addr = self.buffer.as_ptr();
+
+        let base_addresses: Simd<*const u8, 8> = Simd::splat(base_addr.cast());
+        let ptrs = base_addresses.wrapping_add(self.offsets + (Simd::splat(i) << self.sizes_as_shifts)).to_array();
+
+        unsafe {
+            let edge_group_orient_sym = *(ptrs[0] as *mut EdgeGroupOrientSymCoord);
+            let corner_perm_sym = *(ptrs[1] as *mut CornerPermSymCoord);
+            let combined_sym_correct = *(ptrs[2] as *mut u8);
+            let corner_orient_sym = *(ptrs[3] as *mut CornerOrientSymCoord);
+            let corner_orient_correct = *(ptrs[4] as *mut DominoSymmetry);
+            let phase_1_dists = *(ptrs[5] as *mut u8);
+            let previous_axes = *(ptrs[6] as *mut CubePreviousAxis);
+            let back_pointers = *(ptrs[7] as *mut u8);
+
+            SplitPhase1NodeA {
+                edge_group_orient_sym,
+                corner_perm_sym,
+                corner_orient_sym,
+                combined_sym_correct,
+
+                corner_orient_correct: (back_pointers << 4) | corner_orient_correct.0,
+                combined_phase_1_dist_previous_axis: (phase_1_dists << 4) | previous_axes as u8,
+            }
+        }
+    }
+
+#[inline(never)]
+    pub fn pop_unchecked_aaa(&mut self) {
+        let back_pointer_offset = self.offsets[7] + self.len.wrapping_sub(1);
+        let back_pointer = unsafe { *self.buffer.as_ptr().cast::<u8>().add(back_pointer_offset) };
+        self.len -= back_pointer as usize;
+    }
+}
+
+#[derive(Copy, Clone)]
+struct SoATemplatePhase1NodeA {
+    edge_group_orient_sym: EdgeGroupOrientSymCoord,
+    corner_perm_sym: CornerPermSymCoord,
+    /// ego_hi, co_lo
+    combined_sym_correct: u8,
+
+    corner_orient_sym: CornerOrientSymCoord,
+    corner_orient_correct: DominoSymmetry,
+    
+    phase_1_dists: u8,
+    previous_axes: CubePreviousAxis,
+    back_pointers: u8,
+}
+
+pub struct SplitPhase1NodeABufs<'a> {
+    edge_group_orient_sym: &'a mut [EdgeGroupOrientSymCoord; 16],
+    corner_perm_sym: &'a mut [CornerPermSymCoord; 16],
+    /// ego_hi, co_lo
+    combined_sym_correct: &'a mut [u8; 16],
+
+    corner_orient_sym: &'a mut [CornerOrientSymCoord; 16],
+    corner_orient_correct: &'a mut [DominoSymmetry; 16],
+    
+    phase_1_dists: &'a mut [u8; 16],
+    previous_axes: &'a mut [CubePreviousAxis; 16],
+    back_pointers: &'a mut [u8; 16],
+}
+
+#[inline(never)]
+pub fn soa_produce_next_nodes(
+    slice: SplitPhase1NodeABufs,
+    moves_remaining: NonZeroU8,
+    tables: &Tables
+) -> usize {
+    let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
+    let cp_mv_tbl: &MoveSymCornerPermAugmentedTable = tables.as_ref();
+    let co_mv_tbl: &MoveSymCornerOrientTable = tables.as_ref();
+    let prune_tbl: &PrunePhase1DoubleSymMod3Table = tables.as_ref();
+
+    let ego_row = ego_mv_tbl.row(slice.edge_group_orient_sym[0]);
+    let cp_row = cp_mv_tbl.row(slice.corner_perm_sym[0]);
+    let co_row = co_mv_tbl.row(slice.corner_orient_sym[0]);
+
+    let previous_axis = slice.previous_axes[0];
+
+    let (mv, num_moves) = CubeMove::new_axis_move_array_raw(previous_axis);
+
+    let ego_i = lut_u8x16x2(
+        unsafe { SYM_CONJ.get_unchecked((slice.combined_sym_correct[0] >> 4) as usize) },
+        mv,
+    );
+    let cp_i = lut_u8x16x2(
+        unsafe { SYM_CONJ.get_unchecked((slice.combined_sym_correct[0] & 0xF) as usize) },
+        mv,
+    );
+    let co_i = lut_u8x16x2(
+        unsafe { SYM_CONJ.get_unchecked((slice.corner_orient_correct[0].0) as usize) },
+        mv,
+    );
+    let ego_c = lut_u16x16x3(ego_row.as_u16_array(), &ego_i);
+    let cp_c = lut_u16x16x3(cp_row.as_u16_array(), &cp_i);
+    let co_c = lut_u8x16x2(&co_row.as_u8_arrays()[0], &co_i);
+
+    let ego_i = Simd::from_array(ego_i) + Simd::splat(4);
+    let cp_i = Simd::from_array(cp_i) + Simd::splat(4);
+    let co_i = Simd::from_array(co_i) + Simd::splat(4);
+
+    let ego_j = lut_u8x16x2(&ego_row.as_u8_arrays()[1], &ego_i.to_array());
+    let cp_j = lut_u8x16x2(&cp_row.as_u8_arrays()[1], &cp_i.to_array());
+    let co_j = lut_u8x16x2(&co_row.as_u8_arrays()[1], &co_i.to_array());
+    let axis_n = lut_u8x16x2(
+        axis_after_table(previous_axis, moves_remaining),
+        mv,
+    );
+
+    let cmb_syms = {
+        let a = Simd::splat(slice.combined_sym_correct[0]);
+        let next = Simd::from_array(ego_j) << 4 | Simd::from_array(cp_j);
+        DominoSymmetry::bitwise_then_simd(a, next)
+    };
+
+    let co_syms = {
+        let a = Simd::splat(slice.corner_orient_correct[0].0);
+        let next = Simd::from_array(co_j);
+        DominoSymmetry::bitwise_then_simd(a, next)
+    };
+
+    let ego_syms = cmb_syms >> 4;
+    let ego_syms_inv = DominoSymmetry::bitwise_invert_simd(ego_syms);
+    let co_lookup = (DominoSymmetry::bitwise_then_simd(ego_syms_inv, co_syms))
+        & Simd::splat(0x0F);
+    let co_lookup_lo = ego_syms ^ co_syms;
+
+    let ego_c_simd = Simd::from_array(ego_c);
+    let co_c_simd = Simd::from_array(co_c);
+
+    let new_co_s_lo_arr = co_lookup_lo & Simd::splat(0x03);
+    let dist_byte_addr_arr = (ego_c_simd.cast::<u32>() << 2)
+        | (new_co_s_lo_arr.cast::<u32>())
+        | (co_c_simd.cast::<u32>() << 18);
+
+    let dist_bytes = unsafe { gather16(prune_tbl.as_buffer(), dist_byte_addr_arr) };
+    let new_co_s_hi_arr = (co_lookup >> 2) & Simd::splat(0x03);
+
+    let dist_i = ((dist_bytes >> (new_co_s_hi_arr << 1)) & Simd::splat(0x03)).to_array();
+    let distance_options =
+        unsafe { DISTANCE_OPTIONS_LOOKUP.get_unchecked(slice.phase_1_dists[0] as usize) };
+
+    let new_dists = Simd::from_array(lut_u8x16x2(&distance_options, &dist_i));
+    let new_prev_axis = Simd::from_array(axis_n);
+
+    let valid = {
+        let m = moves_remaining.get();
+        let reduced: Mask<i8, 16> = new_dists.simd_eq(Simd::splat(0));
+        let le_limit: Mask<i8, 16> = new_dists
+            .simd_le(Simd::splat(m - 1));
+
+        let reduced_ok = (m == 1) || (m > 7);
+
+        let mut valid = le_limit & (!reduced | Mask::splat(reduced_ok));
+
+        valid.set(0, true);
+        let num_moves_mask = Simd::from_array([0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]).simd_le(Simd::splat(num_moves as u8));
+
+        valid & num_moves_mask
+    };
+
+    let num_moves = 15 - (valid.to_bitmask() as u16).leading_zeros() as usize;
+
+    unsafe {
+        let preheat_ego_row = ego_mv_tbl.row(EdgeGroupOrientSymCoord(*ego_c.get_unchecked(num_moves)));
+        let preheat_cp_row = cp_mv_tbl.row(CornerPermSymCoord(*cp_c.get_unchecked(num_moves)));
+        let preheat_co_row = co_mv_tbl.row(CornerOrientSymCoord(*co_c.get_unchecked(num_moves)));
+        core::intrinsics::prefetch_read_data::<_, 3>(preheat_ego_row as *const _);
+        core::intrinsics::prefetch_read_data::<_, 3>(preheat_cp_row as *const _);
+        core::intrinsics::prefetch_read_data::<_, 3>(preheat_co_row as *const _);
+    }
+
+    let back_pointers = mask_to_backpointers(valid);
+    let cmb_syms_arr = cmb_syms.to_array();
+
+    unsafe {
+        copy_nonoverlapping(
+            ego_c.as_ptr().add(1),
+            slice.edge_group_orient_sym.as_mut_ptr().cast::<u16>().add(1),
+        15);
+        copy_nonoverlapping(
+            cp_c.as_ptr().add(1),
+            slice.corner_perm_sym.as_mut_ptr().cast::<u16>().add(1),
+        15);
+        copy_nonoverlapping(
+            cmb_syms_arr.as_ptr().add(1),
+            slice.combined_sym_correct.as_mut_ptr().cast::<u8>().add(1),
+        15);
+        copy_nonoverlapping(
+            co_c.as_ptr().add(1),
+            slice.corner_orient_sym.as_mut_ptr().cast::<u8>().add(1),
+        15);
+        copy_nonoverlapping(
+            co_syms.as_array().as_ptr().add(1),
+            slice.corner_orient_correct.as_mut_ptr().cast::<u8>().add(1),
+        15);
+        copy_nonoverlapping(
+            new_dists.as_array().as_ptr().add(1),
+            slice.phase_1_dists.as_mut_ptr().cast::<u8>().add(1),
+        15);
+        copy_nonoverlapping(
+            new_prev_axis.as_array().as_ptr().add(1),
+            slice.previous_axes.as_mut_ptr().cast::<u8>().add(1),
+        15);
+        copy_nonoverlapping(
+            back_pointers.as_array().as_ptr().add(1),
+            slice.back_pointers.as_mut_ptr().cast::<u8>().add(1),
+        15);
+    }
+    num_moves
 }
 
 const SPLIT_A_ZERO: SplitPhase1NodeA = SplitPhase1NodeA {
