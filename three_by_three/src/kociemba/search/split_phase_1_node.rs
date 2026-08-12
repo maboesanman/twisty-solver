@@ -248,20 +248,17 @@ impl SplitPhase1NodeAStackStruct {
         let valid = {
             let m = moves_remaining.get();
             let reduced: Mask<i8, 16> = new_dists.simd_eq(Simd::splat(0));
-            let le_limit: Mask<i8, 16> = new_dists
-                .simd_le(Simd::splat(m - 1));
+            let le_limit: Mask<i8, 16> = new_dists.simd_le(Simd::splat(m - 1));
 
             let reduced_ok = (m == 1) || (m > 7);
 
-            let mut valid = le_limit & (!reduced | Mask::splat(reduced_ok));
-
-            valid.set(0, true);
-            let num_moves_mask = Simd::from_array([0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]).simd_le(Simd::splat(num_moves as u8));
+            let valid = le_limit & (!reduced | Mask::splat(reduced_ok));
+            let num_moves_mask = Simd::from_array([0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]).simd_lt(Simd::splat(num_moves as u8));
 
             valid & num_moves_mask
         };
 
-        let num_moves = 15 - (valid.to_bitmask() as u16).leading_zeros() as usize;
+        let num_moves = 16 - (valid.to_bitmask() as u16).leading_zeros() as usize;
 
         unsafe {
             let preheat_ego_row = ego_mv_tbl.row(EdgeGroupOrientSymCoord(*ego_c.get_unchecked(num_moves)));
@@ -276,38 +273,14 @@ impl SplitPhase1NodeAStackStruct {
         let cmb_syms_arr = cmb_syms.to_array();
 
         unsafe {
-            copy_nonoverlapping(
-                ego_c.as_ptr().add(1),
-                ptrs[0].cast::<u16>().add(1),
-            15);
-            copy_nonoverlapping(
-                cp_c.as_ptr().add(1),
-                ptrs[1].cast::<u16>().add(1),
-            15);
-            copy_nonoverlapping(
-                cmb_syms_arr.as_ptr().add(1),
-                ptrs[2].cast::<u8>().add(1),
-            15);
-            copy_nonoverlapping(
-                co_c.as_ptr().add(1),
-                ptrs[3].cast::<u8>().add(1),
-            15);
-            copy_nonoverlapping(
-                co_syms.as_array().as_ptr().add(1),
-                ptrs[4].cast::<u8>().add(1),
-            15);
-            copy_nonoverlapping(
-                new_dists.as_array().as_ptr().add(1),
-                ptrs[5].cast::<u8>().add(1),
-            15);
-            copy_nonoverlapping(
-                new_prev_axis.as_array().as_ptr().add(1),
-                ptrs[6].cast::<u8>().add(1),
-            15);
-            copy_nonoverlapping(
-                back_pointers.as_array().as_ptr().add(1),
-                ptrs[7].cast::<u8>().add(1),
-            15);
+            ptrs[0].cast::<u16>().wrapping_add(1).cast::<[u16; 16]>().write_unaligned(ego_c);
+            ptrs[1].cast::<u16>().wrapping_add(1).cast::<[u16; 16]>().write_unaligned(cp_c);
+            ptrs[2].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(cmb_syms_arr);
+            ptrs[3].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(co_c);
+            ptrs[4].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(co_syms.to_array());
+            ptrs[5].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(new_dists.to_array());
+            ptrs[6].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(new_prev_axis.to_array());
+            ptrs[7].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(back_pointers.to_array());
         }
         num_moves as u16
     }

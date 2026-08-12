@@ -207,7 +207,7 @@ impl CubeMove {
             CubePreviousAxis::U => (
                 &const {
                     [
-                        U1, D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3,
+                        D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, D1
                     ]
                 },
                 15,
@@ -215,7 +215,7 @@ impl CubeMove {
             CubePreviousAxis::D | CubePreviousAxis::UD => (
                 &const {
                     [
-                        U1, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1, U1, U1,
+                        F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, F1, F1, F1, F1
                     ]
                 },
                 12,
@@ -223,7 +223,7 @@ impl CubeMove {
             CubePreviousAxis::F => (
                 &const {
                     [
-                        U1, U1, U2, U3, D1, D2, D3, B1, B2, B3, R1, R2, R3, L1, L2, L3,
+                        U1, U2, U3, D1, D2, D3, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1
                     ]
                 },
                 15,
@@ -231,7 +231,7 @@ impl CubeMove {
             CubePreviousAxis::B | CubePreviousAxis::FB => (
                 &const {
                     [
-                        U1, U1, U2, U3, D1, D2, D3, R1, R2, R3, L1, L2, L3, U1, U1, U1,
+                        U1, U2, U3, D1, D2, D3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1
                     ]
                 },
                 12,
@@ -239,7 +239,7 @@ impl CubeMove {
             CubePreviousAxis::R => (
                 &const {
                     [
-                        U1, U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, L1, L2, L3,
+                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, L1, L2, L3, U1
                     ]
                 },
                 15,
@@ -247,7 +247,7 @@ impl CubeMove {
             CubePreviousAxis::L | CubePreviousAxis::RL => (
                 &const {
                     [
-                        U1, U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, U1, U1, U1,
+                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, U1, U1, U1, U1
                     ]
                 },
                 12,
@@ -255,7 +255,7 @@ impl CubeMove {
             CubePreviousAxis::None => (
                 &const {
                     [
-                        U1, U1, U2, U3, D1, D2, D3, F1, F2, F3, U1, U1, U1, U1, U1, U1,
+                        U1, U2, U3, D1, D2, D3, F1, F2, F3, U1, U1, U1, U1, U1, U1, U1
                     ]
                 },
                 9,
@@ -263,7 +263,7 @@ impl CubeMove {
             CubePreviousAxis::NoneAlt => (
                 &const {
                     [
-                        U1, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1, U1, U1,
+                        B1, B2, B3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1, U1, U1, U1
                     ]
                 },
                 9,
