@@ -1,16 +1,24 @@
 use crate::{
-    CubeMove, ReprCube, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
+    CubeMove, ReprCube, Tables,
+    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
+    kociemba::{
         coords::{
             CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupOrientRawCoord,
             EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
-        }, partial_reprs::{
+        },
+        partial_reprs::{
             edge_positions::{
                 DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions, split_edge_positions,
             },
             ud_edge_perm::UDEdgePerm,
-        }, search::phase_2_node::Phase2Node, tables::{
-            lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord}, move_edge_positions::MoveEdgePositionsTable, prune_phase_1::PrunePhase1Table, prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table,
+        },
+        search::phase_2_node::Phase2Node,
+        tables::{
+            lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord},
+            move_edge_positions::MoveEdgePositionsTable,
+            prune_phase_1::PrunePhase1Table,
+            prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table,
         },
     },
 };
@@ -77,6 +85,7 @@ impl Phase1 {
         }
     }
 
+    /// Apply a cube move to this subset of coordinates via move tables
     fn apply_cube_move(self, cube_move: CubeMove, tables: &Tables) -> Self {
         let new_ego = self.ego_combo().apply_cube_move(tables, cube_move);
         let new_co = self.co_combo().apply_cube_move(tables, cube_move);
@@ -88,6 +97,10 @@ impl Phase1 {
         }
     }
 
+    /// Compute the residue modulo 3 (dist % 3) of HTM distance from this phase 1 representation to phase 1 solved.
+    ///
+    /// This distance variant uses the mod 3 table, performing a descent to compute, and therefore should
+    /// not be called anywhere hot, since it's quite loopy.
     fn dist_mod_3(&self, tables: &Tables) -> u8 {
         let prune_table: &PrunePhase1DoubleSymMod3Table = tables.as_ref();
 
@@ -99,6 +112,10 @@ impl Phase1 {
         prune_table.get_value(self.ego_c, co_combo)
     }
 
+    /// Compute the HTM distance from this phase 1 representation to phase 1 solved.
+    ///
+    /// This distance variant uses the mod 3 table, performing a descent to compute, and therefore should
+    /// not be called anywhere hot, since it's quite loopy.
     fn dist_recurse(&self, tables: &Tables) -> u8 {
         let mut n = 0;
         let mut probe = *self;
@@ -114,7 +131,7 @@ impl Phase1 {
             };
 
             'a: for cube_move in CubeMove::all_iter() {
-                let child = self.apply_cube_move(cube_move, tables);
+                let child = probe.apply_cube_move(cube_move, tables);
                 if child.dist_mod_3(tables) == next_mod_3 {
                     probe = child;
                     break 'a;
@@ -125,6 +142,9 @@ impl Phase1 {
         n
     }
 
+    /// Compute the HTM distance from this phase 1 representation to phase 1 solved.
+    ///
+    /// This distance variant uses the full distance table, which is larger than it needs to be.
     fn dist_direct(&self, tables: &Tables) -> u8 {
         let prune_table: &PrunePhase1Table = tables.as_ref();
 
@@ -284,41 +304,55 @@ mod test {
 
         for _ in 0..100 {
             let cube: ReprCube = Distribution::sample(&StandardUniform, &mut rng);
-            let (phase_1, phase_2) = produce_phase_1_phase_2(cube, &tables);
+            let (p1, p2) = produce_phase_1_phase_2(cube, &tables);
 
             for cube_move in CubeMove::all_iter() {
                 let cube_moved = cube.apply_cube_move(cube_move);
-                let (phase_1_expected, phase_2_expected) =
-                    produce_phase_1_phase_2(cube_moved, &tables);
-                let phase_1_actual = phase_1.apply_cube_move(cube_move, &tables);
-                let phase_2_actual = phase_2.apply_cube_move(cube_move, &tables);
+                let (p1_expected, p2_expected) = produce_phase_1_phase_2(cube_moved, &tables);
+                let p1_actual = p1.apply_cube_move(cube_move, &tables);
+                let p2_actual = p2.apply_cube_move(cube_move, &tables);
 
                 // ego
-                assert_eq!(phase_1_actual.ego_c, phase_1_expected.ego_c);
-                let ego_exp = ego_lookup.get_raw_from_combo(phase_1_expected.ego_combo());
-                let ego_act = ego_lookup.get_raw_from_combo(phase_1_actual.ego_combo());
+                assert_eq!(p1_actual.ego_c, p1_expected.ego_c);
+                let ego_exp = ego_lookup.get_raw_from_combo(p1_expected.ego_combo());
+                let ego_act = ego_lookup.get_raw_from_combo(p1_actual.ego_combo());
                 assert_eq!(ego_exp, ego_act);
 
                 // co
-                assert_eq!(phase_1_actual.co_c, phase_1_expected.co_c);
-                let co_exp = co_lookup.get_raw_from_combo(phase_1_expected.co_combo());
-                let co_act = co_lookup.get_raw_from_combo(phase_1_actual.co_combo());
+                assert_eq!(p1_actual.co_c, p1_expected.co_c);
+                let co_exp = co_lookup.get_raw_from_combo(p1_expected.co_combo());
+                let co_act = co_lookup.get_raw_from_combo(p1_actual.co_combo());
                 assert_eq!(co_exp, co_act);
 
                 // cp
-                assert_eq!(
-                    phase_2_actual.cp_c.sym_coord,
-                    phase_2_expected.cp_c.sym_coord
-                );
-                let cp_exp = cp_lookup.get_raw_from_combo(phase_2_expected.cp_c);
-                let cp_act = cp_lookup.get_raw_from_combo(phase_2_actual.cp_c);
+                assert_eq!(p2_actual.cp_c.sym_coord, p2_expected.cp_c.sym_coord);
+                let cp_exp = cp_lookup.get_raw_from_combo(p2_expected.cp_c);
+                let cp_act = cp_lookup.get_raw_from_combo(p2_actual.cp_c);
                 assert_eq!(cp_exp, cp_act);
 
                 // ep
-                assert_eq!(phase_2_actual.u_edge_c, phase_2_expected.u_edge_c);
-                assert_eq!(phase_2_actual.d_edge_c, phase_2_expected.d_edge_c);
-                assert_eq!(phase_2_actual.e_edge_c, phase_2_expected.e_edge_c);
+                assert_eq!(p2_actual.u_edge_c, p2_expected.u_edge_c);
+                assert_eq!(p2_actual.d_edge_c, p2_expected.d_edge_c);
+                assert_eq!(p2_actual.e_edge_c, p2_expected.e_edge_c);
             }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn dists_agree() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let mut rng = ChaCha8Rng::seed_from_u64(12345);
+
+        for _ in 0..100 {
+            let cube: ReprCube = Distribution::sample(&StandardUniform, &mut rng);
+            let (p1, _) = produce_phase_1_phase_2(cube, &tables);
+
+            let direct = p1.dist_direct(&tables);
+            let recurse = p1.dist_recurse(&tables);
+
+            assert_eq!(direct, recurse);
         }
 
         Ok(())
