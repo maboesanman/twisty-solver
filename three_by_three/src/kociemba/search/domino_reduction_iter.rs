@@ -19,13 +19,10 @@ use crate::{
 pub fn all_domino_reductions<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
-    axes: &'_ [u8],
     best: *const u8,
     target: u8,
 ) -> impl 'a + Iterator<Item = ([Phase1Node; N], Phase2Node)> {
-    Stack::<_, _>::new(cube, tables, best, target, axes)
-        .into_iter()
-        .flatten()
+    Stack::<_, _>::new(cube, tables, best, target)
 }
 
 /// returns all sequences of sym cubes which correspond with a
@@ -33,13 +30,10 @@ pub fn all_domino_reductions<'a, const N: usize>(
 pub fn all_domino_reductions_par<'a, const N: usize>(
     cube: ReprCube,
     tables: &'a Tables,
-    axes: &'_ [u8],
     best: &'a AtomicU8,
     target: u8,
 ) -> impl 'a + ParallelIterator<Item = ([Phase1Node; N], Phase2Node)> {
-    Stack::<'a, N, _>::new(cube, tables, best, target, axes)
-        .into_par_iter()
-        .flatten()
+    Stack::<'a, N, _>::new(cube, tables, best, target)
 }
 
 // N is number of moves
@@ -53,9 +47,13 @@ struct Stack<'t, const N: usize, Best> {
 
     frame_metadata: [FrameMetadata; N],
     start: Phase1Node,
+    start_r1: Phase1Node,
+    start_r2: Phase1Node,
     /// Precomputed SplitPhase1NodeB for self.start, so next_unpruned
     /// doesn't need to re-split on every call.
     start_split_b: SplitPhase1NodeB,
+    start_split_b_r1: SplitPhase1NodeB,
+    start_split_b_r2: SplitPhase1NodeB,
     frame_data: SplitPhase1NodeAStackStruct,
 }
 
@@ -94,52 +92,55 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
         tables: &'t Tables,
         best: Best,
         target: u8,
-        axes: &[u8],
-    ) -> Vec<Self> {
-        assert!(axes.iter().all_unique() & axes.iter().all(|a| *a < 3));
+    ) -> Self {
+        todo!()
+        // let [base, r1, r2] = [0, 1, 2]
+        //     .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
 
-        let nodes = axes
-            .iter()
-            .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
+        // let (split_start, start_split_b) = split(base, tables);
+        // let (split_start_r1, start_split_b_r1) = split(r1, tables);
+        // let (split_start_r2, start_split_b_r2) = split(r1, tables);
+        // let frame_data = SplitPhase1NodeAStackStruct::new((15 * N + 1) as u16, split_start);
 
-        if N == 0 {
-            nodes
-                .filter(|n| n.is_domino_reduced())
-                .map(|start| Self::new_inner(start, tables, best.clone(), target))
-                .collect_vec()
-        } else {
-            nodes
-                .flat_map(|n| {
-                    let mut o = n;
-                    o.previous_axis = CubePreviousAxis::NoneAlt;
-                    [
-                        Self::new_inner(n, tables, best.clone(), target),
-                        Self::new_inner(o, tables, best.clone(), target),
-                    ]
-                })
-                .collect_vec()
-        }
+        // let mut stack = Self {
+        //     tables,
+        //     best,
+        //     target,
+        //     frame_data,
+        //     frame_metadata: [FrameMetadata {
+        //         start: 0,
+        //     }; _],
+        //     start,
+        //     start_split_b,
+        // };
+
+        // stack.fill_recurse(0);
+
+        // stack
+
+        // if N == 0 {
+        //     todo!()
+        //     // nodes
+        //     //     .filter(|n| n.is_domino_reduced())
+        //     //     .map(|start| Self::new_inner(start, tables, best.clone(), target))
+        //     //     .collect_vec()
+        // } else {
+        //     todo!()
+        //     // nodes
+        //     //     .flat_map(|n| {
+        //     //         let mut o = n;
+        //     //         o.previous_axis = CubePreviousAxis::NoneAlt;
+        //     //         [
+        //     //             Self::new_inner(n, tables, best.clone(), target),
+        //     //             Self::new_inner(o, tables, best.clone(), target),
+        //     //         ]
+        //     //     })
+        //     //     .collect_vec()
+        // }
     }
 
     fn new_inner(start: Phase1Node, tables: &'t Tables, best: Best, target: u8) -> Self {
-        let (split_start, start_split_b) = split(start, tables);
-        let frame_data = SplitPhase1NodeAStackStruct::new((15 * N + 1) as u16, split_start);
-
-        let mut stack = Self {
-            tables,
-            best,
-            target,
-            frame_data,
-            frame_metadata: [FrameMetadata {
-                start: 0,
-            }; _],
-            start,
-            start_split_b,
-        };
-
-        stack.fill_recurse(0);
-
-        stack
+        todo!()
     }
 
     /// ensure the top frame is non-empty and the top item is not too far away from reduced to reach in the remaining moves.
@@ -386,109 +387,12 @@ mod test {
         ((mr_check == 0 && reduced) || (!reduced) || (reduced && mr_check > 6)) && dist <= mr_check
     }
 
-    fn brute_recurse(
-        node: Phase1Node,
-        tables: &Tables,
-        remaining: usize,
-        path: &mut Vec<Phase1Node>,
-        results: &mut Vec<(Vec<Phase1Node>, Phase2Node)>,
-    ) {
-        let (split_a, split_b) = split(node, tables);
-        let moves_remaining = NonZeroU8::new(remaining as u8).unwrap();
-        let mut buf = [split_a; 16];
-        let num_moves = SplitPhase1NodeA::produce_next_nodes_a(&mut buf, moves_remaining, tables);
-        for j in 1..=num_moves {
-            let dist = buf[j].distance_heuristic();
-            if !old_valid(dist, remaining as u8) {
-                continue;
-            }
-            let child_b = split_b.produce_next_node_b(moves_remaining, tables, j - 1);
-            let child = merge(buf[j], child_b, tables);
-            path.push(node);
-            if remaining == 1 {
-                results.push((path.clone(), Phase2Node::from_phase_1_node(child)));
-            } else {
-                brute_recurse(child, tables, remaining - 1, path, results);
-            }
-            path.pop();
-        }
-    }
-
-    fn brute_force<const N: usize>(
-        cube: ReprCube,
-        tables: &Tables,
-        axes: &[u8],
-    ) -> Vec<(Vec<Phase1Node>, Phase2Node)> {
-        let mut results = Vec::new();
-        for &ax in axes {
-            let base = Phase1Node::from_cube(cube.conjugate(CubeSymmetry(ax << 4)), tables);
-            if N == 0 {
-                if base.is_domino_reduced() {
-                    results.push((vec![], Phase2Node::from_phase_1_node(base)));
-                }
-                continue;
-            }
-            let mut alt = base;
-            alt.previous_axis = CubePreviousAxis::NoneAlt;
-            for start in [base, alt] {
-                let mut path = Vec::new();
-                brute_recurse(start, tables, N, &mut path, &mut results);
-            }
-        }
-        results
-    }
-
-    fn check_matches_brute_force<const N: usize>(cube: ReprCube, tables: &Tables) {
-        let axes = &[0u8, 1, 2];
-        let best = &255u8 as *const u8;
-        let stack_results = all_domino_reductions::<N>(cube, tables, axes, best, 0).collect_vec();
-        let brute_results = brute_force::<N>(cube, tables, axes);
-        assert_eq!(
-            stack_results.len(),
-            brute_results.len(),
-            "N={N}: Stack produced {} results, brute force produced {}",
-            stack_results.len(),
-            brute_results.len()
-        );
-
-        use std::collections::HashSet;
-        let key = |path: &[Phase1Node], last: &Phase2Node| format!("{path:?}|{last:?}");
-        let stack_set: HashSet<String> = stack_results.iter().map(|(p, l)| key(p, l)).collect();
-        let brute_set: HashSet<String> = brute_results.iter().map(|(p, l)| key(p, l)).collect();
-        assert_eq!(stack_set, brute_set, "N={N}: content mismatch");
-    }
-
-    #[test]
-    fn domino_reduce_matches_brute_force() -> anyhow::Result<()> {
-        let tables = Tables::new("tables")?;
-        let cube = cube![R U Rp Up];
-
-        check_matches_brute_force::<0>(cube, &tables);
-        check_matches_brute_force::<1>(cube, &tables);
-        check_matches_brute_force::<2>(cube, &tables);
-        check_matches_brute_force::<3>(cube, &tables);
-        check_matches_brute_force::<4>(cube, &tables);
-        check_matches_brute_force::<5>(cube, &tables);
-
-        let mut rng = ChaCha8Rng::seed_from_u64(11);
-        for _ in 0..5 {
-            let cube2: ReprCube =
-                rand::distr::Distribution::sample(&rand::distr::StandardUniform, &mut rng);
-            check_matches_brute_force::<0>(cube2, &tables);
-            check_matches_brute_force::<1>(cube2, &tables);
-            check_matches_brute_force::<2>(cube2, &tables);
-            check_matches_brute_force::<3>(cube2, &tables);
-        }
-
-        Ok(())
-    }
-
     #[test]
     fn domino_reduce_empty() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
         let cube = cube![R U Rp Up];
         let best = &20;
-        let stack = all_domino_reductions::<0>(cube, &tables, &[0, 1, 2], best, 0).collect_vec();
+        let stack = all_domino_reductions::<0>(cube, &tables, best, 0).collect_vec();
 
         println!("{stack:#?}");
 
@@ -510,19 +414,19 @@ mod test {
             move_resolver_multi_dimension_domino(cube, cubes)
         };
         let best = (&20u8) as *const _;
-        let stack = all_domino_reductions::<2>(cube, &tables, &[0, 1, 2], best, 0);
+        let stack = all_domino_reductions::<2>(cube, &tables, best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions::<3>(cube, &tables, &[0, 1, 2], best, 0);
+        let stack = all_domino_reductions::<3>(cube, &tables, best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions::<4>(cube, &tables, &[0, 1, 2], best, 0);
+        let stack = all_domino_reductions::<4>(cube, &tables, best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions::<5>(cube, &tables, &[0, 1, 2], best, 0);
+        let stack = all_domino_reductions::<5>(cube, &tables, best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
@@ -546,19 +450,19 @@ mod test {
             move_resolver_multi_dimension_domino(cube, cubes)
         };
         let best = &AtomicU8::new(20);
-        let stack = all_domino_reductions_par::<2>(cube, &tables, &[0, 1, 2], best, 0);
+        let stack = all_domino_reductions_par::<2>(cube, &tables, best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions_par::<3>(cube, &tables, &[0, 1, 2], best, 0);
+        let stack = all_domino_reductions_par::<3>(cube, &tables, best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions_par::<4>(cube, &tables, &[0, 1, 2], best, 0);
+        let stack = all_domino_reductions_par::<4>(cube, &tables, best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
-        let stack = all_domino_reductions_par::<5>(cube, &tables, &[0, 1, 2], best, 0);
+        let stack = all_domino_reductions_par::<5>(cube, &tables, best, 0);
         stack.for_each(|(path, last)| {
             println!("{:?}", res(&path, &last));
         });
@@ -582,7 +486,7 @@ mod test {
 
             move_resolver_multi_dimension_domino(cube, cubes)
         };
-        let stack = Stack::<5, _>::new(cube, &tables, &cancel, 0, &[0, 1, 2])
+        let stack = Some(Stack::<5, _>::new(cube, &tables, &cancel, 0))
             .into_iter()
             .filter_map(|x| {
                 let old = x.clone();
@@ -612,7 +516,7 @@ mod test {
         let stack = all_domino_reductions::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
-            &[0],
+            
             best,
             0,
         );
@@ -631,7 +535,7 @@ mod test {
         let stack = all_domino_reductions_par::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
-            &[0],
+            
             &cancel,
             0,
         );
@@ -644,16 +548,14 @@ mod test {
     fn check_par_seq_identical<const N: usize>(
         cube: ReprCube,
         tables: &Tables,
-        axes: &[u8],
     ) -> usize {
         let best: u8 = 255;
         let seq_results: Vec<_> =
-            all_domino_reductions::<N>(cube, tables, axes, &best as *const _, 0).collect();
+            all_domino_reductions::<N>(cube, tables, &best as *const _, 0).collect();
 
         let par_results: Vec<_> = all_domino_reductions_par::<N>(
             cube,
             tables,
-            axes,
             &AtomicU8::new(255),
             0,
         )
@@ -682,7 +584,6 @@ mod test {
     #[test]
     fn par_and_seq_produce_identical_set() -> anyhow::Result<()> {
         let tables = Tables::new("tables")?;
-        let axes = &[0u8, 1, 2];
 
         let cubes = [
             cube![R U R U R U],
@@ -697,9 +598,9 @@ mod test {
         for cube in cubes {
             for &n in &[6, 7, 8] {
                 let count = match n {
-                    6 => check_par_seq_identical::<6>(cube, &tables, axes),
-                    7 => check_par_seq_identical::<7>(cube, &tables, axes),
-                    8 => check_par_seq_identical::<8>(cube, &tables, axes),
+                    6 => check_par_seq_identical::<6>(cube, &tables),
+                    7 => check_par_seq_identical::<7>(cube, &tables),
+                    8 => check_par_seq_identical::<8>(cube, &tables),
                     _ => unreachable!(),
                 };
                 assert!(
@@ -726,55 +627,55 @@ mod test {
 
         println!(
             "0: {}",
-            all_domino_reductions_par::<0>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<0>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "1: {}",
-            all_domino_reductions_par::<1>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<1>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "2: {}",
-            all_domino_reductions_par::<2>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<2>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "3: {}",
-            all_domino_reductions_par::<3>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<3>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "4: {}",
-            all_domino_reductions_par::<4>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<4>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "5: {}",
-            all_domino_reductions_par::<5>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<5>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "6: {}",
-            all_domino_reductions_par::<6>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<6>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "7: {}",
-            all_domino_reductions_par::<7>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<7>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "8: {}",
-            all_domino_reductions_par::<8>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<8>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "9: {}",
-            all_domino_reductions_par::<9>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<9>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "10: {}",
-            all_domino_reductions_par::<10>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<10>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "11: {}",
-            all_domino_reductions_par::<11>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<11>(cube, &tables, &cancel, 0).count()
         );
         println!(
             "12: {}",
-            all_domino_reductions_par::<12>(cube, &tables, &[0, 1, 2], &cancel, 0).count()
+            all_domino_reductions_par::<12>(cube, &tables, &cancel, 0).count()
         );
 
         Ok(())

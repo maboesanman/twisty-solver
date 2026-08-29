@@ -38,140 +38,140 @@ fn solver_thread_single(
     if best <= 1 {
         return;
     }
-    produce_solutions::<1>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<1>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 2 + 1 {
         return;
     }
-    produce_solutions::<2>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<2>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 3 + 1 {
         return;
     }
-    produce_solutions::<3>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<3>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 4 + 1 {
         return;
     }
-    produce_solutions::<4>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<4>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 5 + 1 {
         return;
     }
-    produce_solutions::<5>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<5>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 6 + 1 {
         return;
     }
-    produce_solutions::<6>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<6>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 7 + 1 {
         return;
     }
-    produce_solutions::<7>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<7>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 8 + 1 {
         return;
     }
-    produce_solutions::<8>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<8>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 9 + 1 {
         return;
     }
-    produce_solutions::<9>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<9>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 10 + 1 {
         return;
     }
-    produce_solutions::<10>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<10>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 11 + 1 {
         return;
     }
-    produce_solutions::<11>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<11>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 12 + 1 {
         return;
     }
-    produce_solutions::<12>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<12>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 13 + 1 {
         return;
     }
-    produce_solutions::<13>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<13>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 14 + 1 {
         return;
     }
-    produce_solutions::<14>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<14>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 15 + 1 {
         return;
     }
-    produce_solutions::<15>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<15>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 16 + 1 {
         return;
     }
-    produce_solutions::<16>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<16>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 17 + 1 {
         return;
     }
-    produce_solutions::<17>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<17>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 18 + 1 {
         return;
     }
-    produce_solutions::<18>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<18>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 19 + 1 {
         return;
     }
-    produce_solutions::<19>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<19>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if best <= 20 + 1 {
         return;
     }
-    produce_solutions::<20>(cube, &mut best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions::<20>(cube, &mut best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 }
@@ -193,140 +193,140 @@ fn solver_thread_parallel(
     if *(best.get_mut()) <= 1 {
         return;
     }
-    produce_solutions_par::<1>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<1>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 2 + 1 {
         return;
     }
-    produce_solutions_par::<2>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<2>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 3 + 1 {
         return;
     }
-    produce_solutions_par::<3>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<3>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 4 + 1 {
         return;
     }
-    produce_solutions_par::<4>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<4>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 5 + 1 {
         return;
     }
-    produce_solutions_par::<5>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<5>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 6 + 1 {
         return;
     }
-    produce_solutions_par::<6>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<6>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 7 + 1 {
         return;
     }
-    produce_solutions_par::<7>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<7>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 8 + 1 {
         return;
     }
-    produce_solutions_par::<8>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<8>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 9 + 1 {
         return;
     }
-    produce_solutions_par::<9>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<9>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 10 + 1 {
         return;
     }
-    produce_solutions_par::<10>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<10>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 11 + 1 {
         return;
     }
-    produce_solutions_par::<11>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<11>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 12 + 1 {
         return;
     }
-    produce_solutions_par::<12>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<12>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 13 + 1 {
         return;
     }
-    produce_solutions_par::<13>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<13>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 14 + 1 {
         return;
     }
-    produce_solutions_par::<14>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<14>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 15 + 1 {
         return;
     }
-    produce_solutions_par::<15>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<15>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 16 + 1 {
         return;
     }
-    produce_solutions_par::<16>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<16>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 17 + 1 {
         return;
     }
-    produce_solutions_par::<17>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<17>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 18 + 1 {
         return;
     }
-    produce_solutions_par::<18>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<18>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 19 + 1 {
         return;
     }
-    produce_solutions_par::<19>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<19>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 
     if *(best.get_mut()) <= 20 + 1 {
         return;
     }
-    produce_solutions_par::<20>(cube, &best, target, tables, &[0, 1, 2]).for_each(|solution| {
+    produce_solutions_par::<20>(cube, &best, target, tables).for_each(|solution| {
         let _ = send.send(solution);
     });
 }
@@ -420,7 +420,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -429,7 +428,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -438,7 +436,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -447,7 +444,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -456,7 +452,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -465,7 +460,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -474,7 +468,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -483,7 +476,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -492,7 +484,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -501,7 +492,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -510,7 +500,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -519,7 +508,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),
@@ -528,7 +516,6 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
             &mut 255,
             0,
             tables,
-            &[0],
         )
         .next()
         .unwrap(),

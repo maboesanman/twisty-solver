@@ -58,6 +58,18 @@ impl MoveSymCornerOrientTable {
         unsafe { self.rows().get_unchecked(coord.0 as usize) }
     }
 
+    pub fn apply_cube_move(
+        &self,
+        coord: CornerOrientSymCoord,
+        mv: CubeMove,
+    ) -> CornerOrientComboCoord {
+        let row = self.row(coord);
+        CornerOrientComboCoord {
+            sym_coord: CornerOrientSymCoord(row.coords[mv.into_index()]),
+            domino_conjugation: DominoSymmetry(row.conjugations[mv.into_index()]),
+        }
+    }
+
     fn generate(buffer: &mut [u8], sym_lookup_table: &LookupSymCornerOrientTable) {
         assert_eq!(buffer.len(), TABLE_SIZE_BYTES);
         let buffer = unsafe {

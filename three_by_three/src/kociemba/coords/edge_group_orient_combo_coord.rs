@@ -29,9 +29,7 @@ impl EdgeGroupOrientComboCoord {
     ) -> EdgeGroupOrientRawCoord {
         table.as_ref().get_raw_from_combo(self)
     }
-}
 
-impl EdgeGroupOrientComboCoord {
     pub fn apply_cube_move(
         self,
         table: impl AsRef<MoveSymEdgeGroupOrientTable>,

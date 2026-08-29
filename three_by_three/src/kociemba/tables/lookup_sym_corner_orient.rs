@@ -5,8 +5,8 @@ use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::{
-    CornerOrient, cube_ops::cube_sym::DominoSymmetry, kociemba::{
-        coords::CornerOrientRawCoord, tables::table_loader::{as_u16_slice, collect_unique_sorted_parallel}
+    CornerOrient, CubeMove, cube_ops::cube_sym::DominoSymmetry, kociemba::{
+        coords::CornerOrientRawCoord, tables::{move_sym_corner_orient::MoveSymCornerOrientTable, table_loader::{as_u16_slice, collect_unique_sorted_parallel}}
     }
 };
 
@@ -26,7 +26,7 @@ pub struct CornerOrientComboCoord {
 }
 
 impl CornerOrientComboCoord {
-        pub fn from_raw(
+    pub fn from_raw(
         tables: impl AsRef<LookupSymCornerOrientTable>,
         raw_coord: CornerOrientRawCoord,
     ) -> Self {
@@ -35,6 +35,28 @@ impl CornerOrientComboCoord {
 
     pub fn into_raw(self, tables: impl AsRef<LookupSymCornerOrientTable>) -> CornerOrientRawCoord {
         tables.as_ref().get_raw_from_combo(self)
+    }
+
+    pub fn apply_cube_move(
+        self,
+        table: impl AsRef<MoveSymCornerOrientTable>,
+        cube_move: CubeMove,
+    ) -> Self {
+        let preimage_move = cube_move.domino_conjugate(self.domino_conjugation);
+        let mut result = table
+            .as_ref()
+            .apply_cube_move(self.sym_coord, preimage_move);
+
+        result.domino_conjugation = self.domino_conjugation.then(result.domino_conjugation);
+
+        result
+    }
+
+    pub fn domino_conjugate(self, domino_symmetry: DominoSymmetry) -> Self {
+        Self {
+            sym_coord: self.sym_coord,
+            domino_conjugation: domino_symmetry.inverse().then(self.domino_conjugation),
+        }
     }
 }
 

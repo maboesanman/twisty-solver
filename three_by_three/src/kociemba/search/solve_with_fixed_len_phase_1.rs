@@ -16,12 +16,10 @@ pub fn produce_solutions<'t, const N: usize>(
     current_best: &'t mut u8,
     target: u8,
     tables: &'t Tables,
-    axes: &[u8],
 ) -> impl 't + Iterator<Item = Vec<CubeMove>> {
     let domino_reductions = super::domino_reduction_iter::all_domino_reductions::<N>(
         cube,
         tables,
-        axes,
         current_best as *const _,
         target,
     );
@@ -57,10 +55,9 @@ pub fn produce_solutions_par<'a, const N: usize>(
     best: &'a AtomicU8,
     target: u8,
     tables: &'a Tables,
-    axes: &[u8],
 ) -> impl 'a + ParallelIterator<Item = Vec<CubeMove>> {
     let domino_reductions = super::domino_reduction_iter::all_domino_reductions_par::<N>(
-        cube, tables, axes, best, target,
+        cube, tables, best, target,
     );
 
     domino_reductions
@@ -106,7 +103,6 @@ mod test {
             &mut best,
             0,
             &tables,
-            &[0],
         );
 
         for solution in solutions {
@@ -131,7 +127,6 @@ mod test {
             &best,
             0,
             &tables,
-            &[0],
         );
 
         let block = Mutex::new(());

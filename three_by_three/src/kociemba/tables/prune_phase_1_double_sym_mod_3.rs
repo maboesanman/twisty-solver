@@ -17,6 +17,7 @@ use crate::kociemba::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOri
 use crate::kociemba::tables::move_raw_corner_orient::MoveRawCornerOrientTable;
 use crate::kociemba::tables::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 use crate::kociemba::tables::prune_phase_1::PrunePhase1Table;
+use crate::kociemba::tables::table_loader::as_u32_slice;
 
 use super::table_loader::{as_atomic_u8_slice, load_table};
 
@@ -102,6 +103,10 @@ impl PrunePhase1DoubleSymMod3Table {
 
     pub(crate) fn as_buffer(&self) -> &[u8] {
         unsafe { &*(self as *const Self as *const [u8]) }
+    }
+
+    pub(crate) fn as_u32_buffer(&self) -> &[u32] {
+        as_u32_slice(self.as_buffer())
     }
 
     pub(crate) unsafe fn from_buffer(buf: &[u8]) -> &Self {
