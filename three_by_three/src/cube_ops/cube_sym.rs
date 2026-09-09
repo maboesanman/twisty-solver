@@ -1,7 +1,15 @@
 use std::simd::{Simd, num::SimdUint};
 
+use fearless_simd::SimdBase;
+
 use crate::{
-    cube, cube_ops::partial_reprs::corner_orient, kociemba::{coords::CornerOrientRawCoord, partial_reprs::{edge_group::EdgeGroup, edge_positions::split_edge_positions}}, simd_utils::{lut_u8x16x2, lut_u16x16x3}
+    cube,
+    cube_ops::partial_reprs::corner_orient,
+    kociemba::{
+        coords::CornerOrientRawCoord,
+        partial_reprs::{edge_group::EdgeGroup, edge_positions::split_edge_positions},
+    },
+    simd_utils::{lut_u8x16x2, lut_u16x16x3},
 };
 
 use super::{
@@ -153,6 +161,71 @@ impl TryFrom<CubeSymmetry> for DominoSymmetry {
 }
 
 impl CubeSymmetry {
+    /// this function computes the index of the composition result in the TRANSFORM_COMPOSE_LOOKUP table.
+    /// this table is used for both
+    const fn index(a: u8, b: u8) -> usize {
+        let a = a as usize;
+        let b = b as usize;
+
+        let a_dom = a & 0xF;
+        let b_dom = b & 0xF;
+        let a_surf3 = a & 0x30;
+        let b_surf3 = b & 0x30;
+        let lo = a_dom << 4 | b_dom;
+        let hi = (a_surf3) + (a_surf3 << 1) + b_surf3;
+
+        (hi << 4) | lo
+    }
+
+    const fn index_dom(a: u8, b: u8) -> usize {
+        let a = a as usize;
+        let b = b as usize;
+
+        a << 4 | b
+    }
+
+    const TRANSFORM_COMPOSE_LOOKUP: [CubeSymmetry; 48 * 48] = {
+        let reference_cube = cube![R U D2 F L2 B];
+
+        let mut output = [CubeSymmetry(0); 48 * 48];
+
+        let mut possible_outputs = [ReprCube::SOLVED; 48];
+
+        let mut t3 = 0u8;
+        while t3 < 48 {
+            let conj_3 = reference_cube.conjugate(CubeSymmetry(t3));
+            possible_outputs[t3 as usize] = conj_3;
+            t3 += 1;
+        }
+
+        let mut t1 = 0u8;
+        while t1 < 48 {
+            let conj_1 = possible_outputs[t1 as usize];
+            let mut t2 = 0u8;
+            while t2 < 48 {
+                let conj_2 = conj_1.conjugate(CubeSymmetry(t2));
+                let i = Self::index(t1, t2);
+                let mut t3 = 0;
+                'deep: while t3 < 48 {
+                    if conj_2.const_eq(possible_outputs[t3 as usize]) {
+                        output[i] = CubeSymmetry(t3);
+                        break 'deep;
+                    }
+                    t3 += 1;
+                }
+                t2 += 1;
+            }
+            t1 += 1;
+        }
+
+        output
+    };
+
+    #[must_use]
+    pub const fn then(self, other: Self) -> Self {
+        Self::TRANSFORM_COMPOSE_LOOKUP[Self::index(self.0, other.0)]
+    }
+
     #[must_use]
     pub fn all_iter() -> impl Iterator<Item = Self> {
         (0..48).map(Self)
@@ -167,40 +240,9 @@ impl CubeSymmetry {
 impl DominoSymmetry {
     #[must_use]
     pub const fn then(self, other: Self) -> Self {
-        const TRANSFORM_COMPOSE_LOOKUP: [DominoSymmetry; 256] = {
-            let reference_cube = cube![R U D2];
-
-            let mut output = [DominoSymmetry(0); 256];
-
-            let mut t1 = 0u8;
-            while t1 < 16 {
-                let conj_1 = reference_cube
-                    .corner_perm
-                    .domino_conjugate(DominoSymmetry(t1));
-                let mut t2 = 0u8;
-                while t2 < 16 {
-                    let conj_2 = conj_1.domino_conjugate(DominoSymmetry(t2));
-                    let i = ((t1 << 4) + t2) as usize;
-                    let mut t3 = 0;
-                    'deep: while t3 < 16 {
-                        let conj_3 = reference_cube
-                            .corner_perm
-                            .domino_conjugate(DominoSymmetry(t3));
-                        if conj_2.const_eq(conj_3) {
-                            output[i] = DominoSymmetry(t3);
-                            break 'deep;
-                        }
-                        t3 += 1;
-                    }
-                    t2 += 1;
-                }
-                t1 += 1;
-            }
-
-            output
-        };
-
-        TRANSFORM_COMPOSE_LOOKUP[((self.0 << 4) + other.0) as usize]
+        DominoSymmetry(
+            CubeSymmetry::TRANSFORM_COMPOSE_LOOKUP[CubeSymmetry::index_dom(self.0, other.0)].0,
+        )
     }
 
     #[must_use]
@@ -292,16 +334,16 @@ impl DominoSymmetry {
         let corr = ((a << 1) & !((a << 2) ^ (a >> 1))) & corr_mask;
         a ^ corr
     }
-    
+
     #[must_use]
     #[inline(always)]
     pub const fn bitwise_then_inv(self, other: Self) -> Self {
         let a = self.0;
         let b = other.0;
         let corr_mask = 0x4;
-        let as1 = a << 1;             // a1 at bit 2
-        let corr = (((b << 1) & !(as1 ^ (a << 2) ^ (b << 2) ^ (b >> 1)))
-                ^ (as1 & (b >> 1))) & corr_mask;
+        let as1 = a << 1; // a1 at bit 2
+        let corr =
+            (((b << 1) & !(as1 ^ (a << 2) ^ (b << 2) ^ (b >> 1))) ^ (as1 & (b >> 1))) & corr_mask;
         Self(a ^ b ^ corr)
     }
 
@@ -309,18 +351,15 @@ impl DominoSymmetry {
     #[inline(always)]
     pub const fn bitwise_then_inv_32(a: u128, b: u128) -> u128 {
         let corr_mask = 0x44444444444444444444444444444444;
-        let as1 = a << 1;             // a1 at bit 2
-        let corr = (((b << 1) & !(as1 ^ (a << 2) ^ (b << 2) ^ (b >> 1)))
-                ^ (as1 & (b >> 1))) & corr_mask;
+        let as1 = a << 1; // a1 at bit 2
+        let corr =
+            (((b << 1) & !(as1 ^ (a << 2) ^ (b << 2) ^ (b >> 1))) ^ (as1 & (b >> 1))) & corr_mask;
         a ^ b ^ corr
     }
 
     #[must_use]
     #[inline(always)]
-    pub fn conjugate_corner_orient(
-        self,
-        dense: u16,
-    ) -> u16 {
+    pub fn conjugate_corner_orient(self, dense: u16) -> u16 {
         let t = TBL[self.0 as usize];
         let mut coord = dense;
 
@@ -351,12 +390,10 @@ impl DominoSymmetry {
         let coord = coord & 0x3FFF; // omit the highest two_bits
 
         // pairs of 2-bit digits -> one 4-bit group, value = hi*3 + lo (0..=8)
-        let coord = ((coord >> 2) & 0x3333) * 3
-            + (coord & 0x3333);
+        let coord = ((coord >> 2) & 0x3333) * 3 + (coord & 0x3333);
 
         // pairs of 4-bit groups -> 8-bit group, value = hi*9 + lo (0..=80)
-        let coord = ((coord >> 4) & 0x0F0F) * 9
-            + (coord & 0x0F0F);
+        let coord = ((coord >> 4) & 0x0F0F) * 9 + (coord & 0x0F0F);
 
         // two 8-bit groups -> final, hi*81 + lo (0..=6560)
         let coord = (coord >> 8) * 81 + (coord & 0x00FF);
@@ -366,13 +403,10 @@ impl DominoSymmetry {
 
     #[must_use]
     #[inline(always)]
-    pub fn conjugate_corner_orient_16(
-        syms: [u8; 16],
-        dense_coords: [u16; 16],
-    ) -> [u16; 16] {
-        type U8  = Simd<u8, 16>;
+    pub fn conjugate_corner_orient_16(syms: [u8; 16], dense_coords: [u16; 16]) -> [u16; 16] {
+        type U8 = Simd<u8, 16>;
         type U16 = Simd<u16, 16>;
-        
+
         let t = U16::from_array(lut_u16x16x3(&TBL, &syms));
         let mut coord = U16::from_array(dense_coords);
 
@@ -384,7 +418,9 @@ impl DominoSymmetry {
         let m3 = ((t >> 3) & U16::splat(1)).wrapping_neg();
 
         // 1. L: swap fields 1<->2 and 5<->6 (bit0<->bit1 of indices)
-        let s = (coord & U16::splat(0xC3C3)) | ((coord & U16::splat(0x0C0C)) << 2) | ((coord >> 2) & U16::splat(0x0C0C));
+        let s = (coord & U16::splat(0xC3C3))
+            | ((coord & U16::splat(0x0C0C)) << 2)
+            | ((coord >> 2) & U16::splat(0x0C0C));
         coord ^= (coord ^ s) & m3;
 
         // 2. c' bit 0: XOR index with 1
@@ -408,12 +444,10 @@ impl DominoSymmetry {
         let v = coord & Simd::splat(0x3FFF); // omit the highest two_bits
 
         // pairs of 2-bit digits -> one 4-bit group, value = hi*3 + lo (0..=8)
-        let v = ((v >> 2) & Simd::splat(0x3333)) * Simd::splat(3)
-            + (v & Simd::splat(0x3333));
+        let v = ((v >> 2) & Simd::splat(0x3333)) * Simd::splat(3) + (v & Simd::splat(0x3333));
 
         // pairs of 4-bit groups -> 8-bit group, value = hi*9 + lo (0..=80)
-        let v = ((v >> 4) & Simd::splat(0x0F0F)) * Simd::splat(9)
-            + (v & Simd::splat(0x0F0F));
+        let v = ((v >> 4) & Simd::splat(0x0F0F)) * Simd::splat(9) + (v & Simd::splat(0x0F0F));
 
         // two 8-bit groups -> final, hi*81 + lo (0..=6560)
         let v = (v >> 8) * Simd::splat(81) + (v & Simd::splat(0x00FF));
@@ -550,65 +584,56 @@ impl ReprCube {
 }
 
 impl CubeMove {
-    pub const fn conjugate(self, _sym: CubeSymmetry) -> Self {
-        unimplemented!()
+    const SYM_TABLE: [CubeMove; 18 * 48] = const {
+        let base = ReprCube::SOLVED;
+        let mut move_reference = [ReprCube::SOLVED; 18];
+
+        let mut i = 0;
+        while i < 18 {
+            let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
+            move_reference[i] = base.apply_cube_move(mv);
+            i += 1;
+        }
+
+        let mut val = [CubeMove::U1; 18 * 48];
+        let mut i = 0;
+        while i < 18 {
+            let mut j = 0;
+            let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
+            let moved = base.apply_cube_move(mv);
+            while j < 48 {
+                let sym: CubeSymmetry = unsafe { core::mem::transmute(j as u8) };
+                val[i * 48 + j] = {
+                    let cube = moved.conjugate(sym);
+                    let mut k = 0;
+                    'k: while k < 18 {
+                        if move_reference[k].const_eq(cube) {
+                            break 'k;
+                        }
+
+                        k += 1;
+                    }
+
+                    unsafe { core::mem::transmute::<u8, CubeMove>(k as u8) }
+                };
+                j += 1;
+            }
+            i += 1;
+        }
+
+        val
+    };
+    pub const fn conjugate(self, sym: CubeSymmetry) -> Self {
+        Self::SYM_TABLE[self.into_index() * 48 + (sym.0 as usize)]
     }
 
     pub const fn domino_conjugate(self, sym: DominoSymmetry) -> Self {
-        const TABLE: [CubeMove; 18 * 16] = const {
-            let mut move_reference = [CornerPerm::SOLVED; 18];
-
-            let mut i = 0;
-            while i < 18 {
-                let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
-                move_reference[i] = mv.into_corner_perm();
-                i += 1;
-            }
-
-            let mut val = [CubeMove::U1; 18 * 16];
-            let mut i = 0;
-            while i < 18 {
-                let mut j = 0;
-                let mv: CubeMove = unsafe { core::mem::transmute(i as u8) };
-                while j < 16 {
-                    let sym: DominoSymmetry = unsafe { core::mem::transmute(j as u8) };
-                    val[i * 16 + j] = {
-                        let perm = mv.into_corner_perm().domino_conjugate(sym);
-                        let mut k = 0;
-                        'k: while k < 18 {
-                            let mut l = 0;
-                            let mut equal = true;
-                            'l: while l < 8 {
-                                if move_reference[k].0.0[l] != perm.0.0[l] {
-                                    equal = false;
-                                    break 'l;
-                                }
-                                l += 1;
-                            }
-                            if equal {
-                                break 'k;
-                            }
-
-                            k += 1;
-                        }
-
-                        unsafe { core::mem::transmute::<u8, CubeMove>(k as u8) }
-                    };
-                    j += 1;
-                }
-                i += 1;
-            }
-
-            val
-        };
-        TABLE[self.into_index() * 16 + (sym.0 as usize)]
+        Self::SYM_TABLE[self.into_index() * 48 + (sym.0 as usize)]
     }
 }
 /// TBL encodes (swap_flag << 3) | c' where c' = L(c) for the GATHER convention.
 const TBL: [u16; 24] = [
-    0,  1,  9,  8,  3,  2, 10, 11,
-    5,  4, 15, 14,  6,  7, 12, 13,
-    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 1, 9, 8, 3, 2, 10, 11, 5, 4, 15, 14, 6, 7, 12, 13, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
 // /// Branchless permutation of 2-bit orientation fields according to symmetry `sym` (0..15).
@@ -638,8 +663,6 @@ const TBL: [u16; 24] = [
 
 //     coord
 // }
-
-
 
 #[test]
 fn check_no_duplicates_for_corner_perm_repr() {
@@ -737,19 +760,30 @@ fn nolookup_conjugate_matches_16() {
 }
 
 #[test]
-fn basic_sequence() {
+fn move_composition_domino() {
     let cube = cube![R U D2 U L F B L];
 
-    for sym in DominoSymmetry::all_iter() {
-        cube.domino_conjugate(sym).pretty_print();
-        println!()
+    for mv in CubeMove::all_iter() {
+        for sym in DominoSymmetry::all_iter() {
+            let a = cube
+                .domino_conjugate(sym)
+                .apply_cube_move(mv.domino_conjugate(sym));
+            let b = cube.apply_cube_move(mv).domino_conjugate(sym);
+            assert_eq!(a, b)
+        }
     }
 }
 
 #[test]
-fn print_corner_sym() {
-    for i in DominoSymmetry::all_iter() {
-        println!("{:?}", CORNER_PERM_LOOKUP[i.0 as usize]);
+fn sym_composition_domino() {
+    let cube = cube![R U D2 U L F B L];
+
+    for sym_a in DominoSymmetry::all_iter() {
+        for sym_b in DominoSymmetry::all_iter() {
+            let a = cube.domino_conjugate(sym_a).domino_conjugate(sym_b);
+            let b = cube.domino_conjugate(sym_a.then(sym_b));
+            assert_eq!(a, b)
+        }
     }
 }
 
@@ -758,9 +792,9 @@ fn move_composition() {
     let cube = cube![R U D2 U L F B L];
 
     for mv in CubeMove::all_iter() {
-        for sym in DominoSymmetry::all_iter() {
-            let a = cube.domino_conjugate(sym).apply_cube_move(mv.domino_conjugate(sym));
-            let b = cube.apply_cube_move(mv).domino_conjugate(sym);
+        for sym in CubeSymmetry::all_iter() {
+            let a = cube.conjugate(sym).apply_cube_move(mv.conjugate(sym));
+            let b = cube.apply_cube_move(mv).conjugate(sym);
             assert_eq!(a, b)
         }
     }
@@ -770,10 +804,10 @@ fn move_composition() {
 fn sym_composition() {
     let cube = cube![R U D2 U L F B L];
 
-    for sym_a in DominoSymmetry::all_iter() {
-        for sym_b in DominoSymmetry::all_iter() {
-            let a = cube.domino_conjugate(sym_a).domino_conjugate(sym_b);
-            let b = cube.domino_conjugate(sym_a.then(sym_b));
+    for sym_a in CubeSymmetry::all_iter() {
+        for sym_b in CubeSymmetry::all_iter() {
+            let a = cube.conjugate(sym_a).conjugate(sym_b);
+            let b = cube.conjugate(sym_a.then(sym_b));
             assert_eq!(a, b)
         }
     }
