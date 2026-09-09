@@ -112,6 +112,11 @@ impl CubeMove {
         (0u8..18u8).map(|x| unsafe { core::mem::transmute(x) })
     }
 
+    pub const unsafe fn from_u8(inner: u8) -> Self {
+        debug_assert!(inner < 18);
+        unsafe { core::mem::transmute(inner) }
+    }
+
     pub fn new_axis_iter(
         prev_axis: CubePreviousAxis,
         end_phase_1: bool,
@@ -197,6 +202,65 @@ impl CubeMove {
                 9,
             ),
         }
+    }
+
+    #[inline(always)]
+    pub fn new_axis_move_array_raw_new(self) -> (&'static [u8; 16], usize) {
+        use CubeMove::*;
+
+        let (a, b) = match self {
+            U1 | U2 | U3 => (
+                &const {
+                    [
+                        D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, D1
+                    ]
+                },
+                15,
+            ),
+            D1 | D2 | D3 => (
+                &const {
+                    [
+                        F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, F1, F1, F1, F1
+                    ]
+                },
+                12,
+            ),
+            F1 | F2 | F3 => (
+                &const {
+                    [
+                        U1, U2, U3, D1, D2, D3, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1
+                    ]
+                },
+                15,
+            ),
+            B1 | B2 | B3 => (
+                &const {
+                    [
+                        U1, U2, U3, D1, D2, D3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1
+                    ]
+                },
+                12,
+            ),
+            R1 | R2 | R3 => (
+                &const {
+                    [
+                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, L1, L2, L3, U1
+                    ]
+                },
+                15,
+            ),
+            L1 | L2 | L3 => (
+                &const {
+                    [
+                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, U1, U1, U1, U1
+                    ]
+                },
+                12,
+            ),
+        };
+
+        let a = unsafe { core::mem::transmute::<&[CubeMove; 16], &[u8; 16]>(a) };
+        (a, b)
     }
 
     #[inline(always)]

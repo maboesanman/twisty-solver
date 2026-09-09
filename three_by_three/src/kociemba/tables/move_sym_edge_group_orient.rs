@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::Result;
+use fearless_simd::{Bytes, SimdFrom};
 use memmap2::Mmap;
 use rayon::prelude::*;
 
@@ -36,6 +37,11 @@ impl MoveSymEdgeGroupOrientRow {
 
     pub fn as_u8_arrays(&self) -> &[[u8; 32]; 2] {
         unsafe { core::mem::transmute::<_, &[[u8; 32]; 2]>(self) }
+    }
+
+    pub fn as_fearless_simd<S: fearless_simd::Simd>(&self, simd: S) -> fearless_simd::u8x64<S> {
+        let bytes = unsafe { core::mem::transmute::<_, &[u8; 64]>(self) };
+        fearless_simd::u8x64::simd_from(simd, *bytes)
     }
 }
 

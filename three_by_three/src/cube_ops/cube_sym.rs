@@ -312,6 +312,19 @@ impl DominoSymmetry {
 
     #[must_use]
     #[inline(always)]
+    pub fn bitwise_then_fearless_simd<S: fearless_simd::Simd>(
+        a: fearless_simd::u8x16<S>,
+        b: fearless_simd::u8x16<S>,
+        simd: S,
+    ) -> fearless_simd::u8x16<S> {
+        let as1 = a << 1;
+        let corr_mask = fearless_simd::u8x16::<S>::splat(simd, 0x44);
+        let corr = (((b << 1) & (as1 ^ (a << 2))) ^ ((b >> 1) & as1)) & corr_mask;
+        a ^ b ^ corr
+    }
+
+    #[must_use]
+    #[inline(always)]
     pub const fn bitwise_invert(self) -> Self {
         let a = self.0;
         let corr_mask = 0x4;
@@ -331,6 +344,17 @@ impl DominoSymmetry {
     #[inline(always)]
     pub fn bitwise_invert_simd<const N: usize>(a: Simd<u8, N>) -> Simd<u8, N> {
         let corr_mask = Simd::splat(0x44);
+        let corr = ((a << 1) & !((a << 2) ^ (a >> 1))) & corr_mask;
+        a ^ corr
+    }
+
+    #[must_use]
+    #[inline(always)]
+    pub fn bitwise_invert_fearless_simd<S: fearless_simd::Simd>(
+        a: fearless_simd::u8x16<S>,
+        simd: S,
+    ) -> fearless_simd::u8x16<S> {
+        let corr_mask = fearless_simd::u8x16::<S>::splat(simd, 0x44);
         let corr = ((a << 1) & !((a << 2) ^ (a >> 1))) & corr_mask;
         a ^ corr
     }
@@ -811,4 +835,11 @@ fn sym_composition() {
             assert_eq!(a, b)
         }
     }
+}
+
+#[test]
+fn ssss() {
+    let mv = CubeMove::U1;
+    
+    println!("{}", mv.conjugate(CubeSymmetry(32)));
 }
