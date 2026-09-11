@@ -1,20 +1,27 @@
 use fearless_simd::{Bytes, SimdBase, SimdFrom, SimdWiden, kernel};
 use itertools::Itertools;
+use pathfinding::utils;
 
 use crate::{
-    CubeMove, ReprCube, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
+    CubeMove, ReprCube, Tables,
+    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
+    kociemba::{
         coords::{
             CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupOrientRawCoord,
             EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
-        }, partial_reprs::{
+        },
+        partial_reprs::{
             edge_positions::{
                 DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions, split_edge_positions,
             },
             ud_edge_perm::UDEdgePerm,
-        }, search::{
-            phase_2_node::Phase2Node, stack_new::utils::{get_entry, get_entry_mut, get_entry_slice_mut},
-        }, tables::{
+        },
+        search::{
+            phase_2_node::Phase2Node,
+            stack_new::utils::{get_entry, get_entry_mut, get_entry_slice_mut},
+        },
+        tables::{
             lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord},
             move_edge_positions::MoveEdgePositionsTable,
             move_sym_corner_orient::MoveSymCornerOrientTable,
@@ -94,21 +101,26 @@ impl<const N: usize> PartialStack<N> {
             let new_phase_1 = phase_1.apply_cube_move(cube_move, tables);
             let d_mod_3 = new_phase_1.dist_mod_3(tables);
             let new_dist = dist_lookup[d_mod_3 as usize];
-            (
-                new_phase_1,
-                new_dist,
-            )
+            (new_phase_1, new_dist)
         })
     }
 
-    pub fn end_initial_node_expansion(
-        &mut self,
-        results: impl IntoIterator<Item = (Phase1, u8)>,
-    ) {
+    pub fn end_initial_node_expansion(&mut self, results: impl IntoIterator<Item = (Phase1, u8)>) {
         for (i, (phase_1, dist)) in results.into_iter().enumerate() {
             *get_entry_mut(i, &mut self.phase_1_coords) = phase_1;
             *get_entry_mut(i, &mut self.phase_1_dists) = dist;
         }
+    }
+
+    pub(crate) fn initial_node(&self, index: usize) -> (Phase1, u8) {
+        (
+            *get_entry(index, &self.phase_1_coords),
+            *get_entry(index, &self.phase_1_dists),
+        )
+    }
+
+    pub(crate) fn base_node(&self) -> (Phase1, u8) {
+        (self.base_phase_1_coords, self.base_phase_1_dist)
     }
 
     ///
@@ -344,7 +356,7 @@ impl<S: fearless_simd::Simd> PartialExpansionResult<S> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct Phase1 {
     ego_c: EdgeGroupOrientSymCoord,
@@ -387,11 +399,94 @@ impl Phase1 {
         }
     }
 
+    /// Reduce a full `ReprCube` down to its phase-1 representation (the
+    /// symmetrized edge-group orientation, corner orientation and their domino
+    /// conjugations). This projection is destructive: information about the
+    /// exact cube that isn't needed for phase 1 (corner permutation, E-slice
+    /// details folded into symmetry reduction) is discarded.
+    pub(crate) fn from_cube(
+        cube: ReprCube,
+        tables: &Tables,
+    ) -> Self {
+        let ReprCube {
+            corner_orient,
+            edge_perm,
+            edge_orient,
+            ..
+        } = cube;
+
+        let (_, _, e_edge_positions) = split_edge_positions(edge_perm);
+
+        let edge_group_raw_coord = e_edge_positions.into_edge_group_raw();
+        let edge_orient_raw = edge_orient.into_coord();
+        let edge_group_orient_raw_coord =
+            EdgeGroupOrientRawCoord::join(edge_group_raw_coord, edge_orient_raw);
+
+        let edge_group_orient_combo =
+            EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
+        let corner_orient_combo = CornerOrientComboCoord::from_raw(&tables, corner_orient.into_coord());
+
+        Self {
+            ego_c: edge_group_orient_combo.sym_coord,
+            co_c: corner_orient_combo.sym_coord,
+            combo_s: (edge_group_orient_combo.domino_conjugation.0 << 4)
+                | (corner_orient_combo.domino_conjugation.0 & 0xF),
+        }
+    }
+
+    /// Normalize the stored domino conjugations so that two `Phase1` values which
+    /// describe the same physical state compare as equal, regardless of which
+    /// (valid) symmetry representative was picked.
+    ///
+    /// For each of the edge-group-orientation and corner-orientation halves we fix
+    /// the current sym coordinate and try every DominoSymmetry; any conjugation
+    /// that decodes to the same raw value is a valid representative. We keep the
+    /// lowest-valued such symmetry, so both derivations reduce to one canonical form.
+    pub(crate) fn canonicalize(&self, tables: &Tables) -> Self {
+        let ego_lookup: &crate::kociemba::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable =
+            tables.as_ref();
+        let co_lookup: &crate::kociemba::tables::lookup_sym_corner_orient::LookupSymCornerOrientTable =
+            tables.as_ref();
+
+        let ego_raw = ego_lookup.get_raw_from_combo(self.ego_combo());
+        let co_raw = co_lookup.get_raw_from_combo(self.co_combo());
+
+        let best_ego_domino = DominoSymmetry::all_iter()
+            .filter(|&d| {
+                ego_lookup
+                    .get_raw_from_combo(EdgeGroupOrientComboCoord {
+                        sym_coord: self.ego_c,
+                        domino_conjugation: d,
+                    })
+                    == ego_raw
+            })
+            .min_by_key(|d| d.0)
+            .expect("the current conjugation always preserves the raw value");
+
+        let best_co_domino = DominoSymmetry::all_iter()
+            .filter(|&d| {
+                co_lookup
+                    .get_raw_from_combo(CornerOrientComboCoord {
+                        sym_coord: self.co_c,
+                        domino_conjugation: d,
+                    })
+                    == co_raw
+            })
+            .min_by_key(|d| d.0)
+            .expect("the current conjugation always preserves the raw value");
+
+        Self {
+            ego_c: self.ego_c,
+            co_c: self.co_c,
+            combo_s: (best_ego_domino.0 << 4) | (best_co_domino.0 & 0xF),
+        }
+    }
+
     /// Compute the residue modulo 3 (dist % 3) of HTM distance from this phase 1 representation to phase 1 solved.
     ///
     /// This distance variant uses the mod 3 table, performing a descent to compute, and therefore should
     /// not be called anywhere hot, since it's quite loopy.
-    fn dist_mod_3(&self, tables: &Tables) -> u8 {
+    pub(crate) fn dist_mod_3(&self, tables: &Tables) -> u8 {
         let prune_table: &PrunePhase1DoubleSymMod3Table = tables.as_ref();
 
         let co_combo = CornerOrientComboCoord {
@@ -406,7 +501,7 @@ impl Phase1 {
     ///
     /// This distance variant uses the mod 3 table, performing a descent to compute, and therefore should
     /// not be called anywhere hot, since it's quite loopy.
-    fn dist_recurse(&self, tables: &Tables) -> u8 {
+    pub(crate) fn dist_recurse(&self, tables: &Tables) -> u8 {
         let mut n = 0;
         let mut probe = *self;
 
@@ -449,7 +544,7 @@ impl Phase1 {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Phase2 {
+pub struct Phase2 {
     cp_c: CornerPermComboCoord,
     u_edge_c: UEdgePositions,
     d_edge_c: DEdgePositions,
@@ -489,36 +584,18 @@ impl Phase2 {
     }
 }
 
-fn produce_phase_1_phase_2(base_cube: ReprCube, tables: &Tables) -> (Phase1, Phase2) {
+pub(crate) fn produce_phase_1_phase_2(base_cube: ReprCube, tables: &Tables) -> (Phase1, Phase2) {
     let ReprCube {
         corner_perm,
-        corner_orient,
         edge_perm,
-        edge_orient,
+        ..
     } = base_cube;
 
     let (u_edge_positions, d_edge_positions, e_edge_positions) = split_edge_positions(edge_perm);
 
-    let edge_group_raw_coord = e_edge_positions.into_edge_group_raw();
-    let edge_orient_raw = edge_orient.into_coord();
-    let edge_group_orient_raw_coord =
-        EdgeGroupOrientRawCoord::join(edge_group_raw_coord, edge_orient_raw);
-
-    let edge_group_orient_combo =
-        EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
     let corner_perm_combo = CornerPermComboCoord::from_raw(&tables, corner_perm.into_coord());
-    let corner_orient_combo = CornerOrientComboCoord::from_raw(&tables, corner_orient.into_coord());
 
-    let ego_c = edge_group_orient_combo.sym_coord;
-    let co_c = corner_orient_combo.sym_coord;
-    let combo_s = (edge_group_orient_combo.domino_conjugation.0 << 4)
-        | (corner_orient_combo.domino_conjugation.0 & 0xF);
-
-    let phase_1 = Phase1 {
-        ego_c,
-        co_c,
-        combo_s,
-    };
+    let phase_1 = Phase1::from_cube(base_cube, tables);
 
     let phase_2 = Phase2 {
         cp_c: corner_perm_combo,
@@ -618,7 +695,6 @@ mod test {
         for _ in 0..100 {
             let cube: ReprCube = Distribution::sample(&StandardUniform, &mut rng);
             let stack = PartialStack::<10>::new(cube, &tables);
-
         }
 
         Ok(())

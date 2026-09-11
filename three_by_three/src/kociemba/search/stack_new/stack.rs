@@ -27,9 +27,9 @@ pub struct Stack<'t, const N: usize, M> {
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 struct Shared {
-    next_pointer: u16,
-    previous_move: u8,
-    remaining_moves: u8,
+    next_pointer: u16, // 9 bits used
+    previous_move: u8, // 5 bits used
+    remaining_moves: u8, // 5 bits used
 }
 
 impl<'t, const N: usize, M: MaxThreshold> Stack<'t, N, M> {
@@ -229,3 +229,193 @@ const ROTATE_ARRAY: [[u8; 32]; 2] = {
 
     output
 };
+
+#[cfg(test)]
+mod tests {
+    use rand::{
+        SeedableRng,
+        distr::{Distribution, StandardUniform},
+    };
+    use rand_chacha::ChaCha8Rng;
+
+    use crate::cube_ops::cube_sym::CubeSymmetry;
+    use crate::kociemba::search::stack_new::{max_threshold::LocalMaxThreshold, partial_stack};
+
+    use super::*;
+
+
+    #[inline(always)]
+    fn test_simd() -> fearless_simd::Neon {
+        // SAFETY: Neon is a baseline feature on aarch64.
+        unsafe { fearless_simd::Neon::assume_supported() }
+    }
+
+    const N: usize = 19;
+    const MAX_D: u8 = 20;
+
+    fn make_stack(cube: ReprCube, tables: &Tables) -> Stack<'_, N, LocalMaxThreshold> {
+        let simd = test_simd();
+        let stack = Stack::new(cube, LocalMaxThreshold(MAX_D), simd, tables);
+        println!("constructed stack with {} initial nodes", stack.current_position);
+        stack
+    }
+
+    #[test]
+    fn explore_new() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let mut rng = ChaCha8Rng::seed_from_u64(12345);
+
+        for _ in 0..10 {
+            let cube: ReprCube = Distribution::sample(&StandardUniform, &mut rng);
+            make_stack(cube, &tables);
+        }
+
+        Ok(())
+    }
+
+    /// The distance estimate `Stack` stores for a child whose base cube sits at
+    /// true phase-1 distance `base_d` and whose residue mod 3 is `residue`.
+    ///
+    /// Mirrors DISTANCE_OPTIONS_LOOKUP in partial_stack.rs: among {d-1, d,
+    /// d+1} (clamped to [0,12]) the value congruent to `residue` mod 3 wins.
+    fn expected_dist(base_d: u8, residue: u8) -> u8 {
+        for delta in [-1i16, 0, 1] {
+            let new_d = ((base_d as i16 + delta).clamp(0, 12)) as u8;
+            if new_d % 3 == residue {
+                return new_d;
+            }
+        }
+        unreachable!()
+    }
+
+    /// Verify that the initial nodes produced by `Stack::new` match, in the phase-1
+    /// domain, what we get from manually applying all 18 moves to a random cube.
+    ///
+    /// Each of the three frames (e, s, m) sees a partially-conjugated view of the
+    /// cube and conjugates its moves by the same symmetry, so all three describe
+    /// the very same physical move sequence. We compare `Phase1` structs directly:
+    /// both sides are produced in the forward (cube -> Phase1) direction.
+    fn verify_stack_initial_nodes(
+        rng: &mut ChaCha8Rng,
+        tables: &Tables,
+    ) -> anyhow::Result<bool> {
+        let sym_s = CubeSymmetry(1 << 4);
+        let sym_m = CubeSymmetry(2 << 4);
+
+        for _ in 0..10 {
+            let cube: ReprCube = Distribution::sample(&StandardUniform, rng);
+            let stack = make_stack(cube, tables);
+
+            let e_cube = cube;
+            let s_cube = cube.conjugate(sym_s);
+            let m_cube = cube.conjugate(sym_m);
+
+            // Base (pre-move) phase-1 coordinates + true distances for each frame.
+            let e_base_p1 = partial_stack::Phase1::from_cube(e_cube, tables);
+            let s_base_p1 = partial_stack::Phase1::from_cube(s_cube, tables);
+            let m_base_p1 = partial_stack::Phase1::from_cube(m_cube, tables);
+
+            let e_base_d = e_base_p1.dist_recurse(tables);
+            let s_base_d = s_base_p1.dist_recurse(tables);
+            let m_base_d = m_base_p1.dist_recurse(tables);
+
+            // Sanity: the stored base nodes match these manually produced ones.
+            assert_eq!(e_base_p1, stack.e_stack.base_node().0);
+            assert_eq!(s_base_p1, stack.s_stack.base_node().0);
+            assert_eq!(m_base_p1, stack.m_stack.base_node().0);
+
+            for (i, mv) in CubeMove::all_iter().enumerate() {
+                // --- e frame: base cube is `cube`, move is the canonical one. ---
+                let e_child_cube = e_cube.apply_cube_move(mv);
+                let e_expected_p1 = partial_stack::Phase1::from_cube(e_child_cube, tables);
+                let e_residue = e_expected_p1.dist_mod_3(tables);
+                let e_expected_d = expected_dist(e_base_d, e_residue);
+
+                // --- s frame: base cube conjugated by sym_s; move too. ---
+                let s_child_cube = s_cube.apply_cube_move(mv.conjugate(sym_s));
+                let s_expected_p1 = partial_stack::Phase1::from_cube(s_child_cube, tables);
+                let s_residue = s_expected_p1.dist_mod_3(tables);
+                let s_expected_d = expected_dist(s_base_d, s_residue);
+
+                // --- m frame: base cube conjugated by sym_m; move too. ---
+                let m_child_cube = m_cube.apply_cube_move(mv.conjugate(sym_m));
+                let m_expected_p1 = partial_stack::Phase1::from_cube(m_child_cube, tables);
+                let m_residue = m_expected_p1.dist_mod_3(tables);
+                let m_expected_d = expected_dist(m_base_d, m_residue);
+
+                // Compare against what each axis actually stored in `Stack::new`.
+                let (e_actual_p1, e_actual_d) = stack.e_stack.initial_node(i);
+                let (s_actual_p1, s_actual_d) = stack.s_stack.initial_node(i);
+                let (m_actual_p1, m_actual_d) = stack.m_stack.initial_node(i);
+
+                // Compare in a canonical phase-1 form so equivalent symmetry
+                // representatives compare equal (see `Phase1::canonicalize`).
+                for (expected, actual) in [
+                    (&e_expected_p1.canonicalize(tables), &e_actual_p1),
+                    (&s_expected_p1.canonicalize(tables), &s_actual_p1),
+                    (&m_expected_p1.canonicalize(tables), &m_actual_p1),
+                ] {
+                    if *expected != actual.canonicalize(tables) {
+                        return Ok(false);
+                    }
+                }
+
+                // Distance estimates are exact.
+                if e_expected_d != e_actual_d
+                    || s_expected_d != s_actual_d
+                    || m_expected_d != m_actual_d
+                {
+                    return Ok(false);
+                }
+            }
+        }
+
+        Ok(true)
+    }
+
+    /// Compare the initial nodes produced by `Stack::new` for each of the three
+    /// frames (e, s, m) against the phase-1 coordinates and distance estimates we
+    /// would expect from manually applying all 18 moves to a random cube.
+    #[test]
+    fn initial_nodes_match_manual_moves() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let mut rng = ChaCha8Rng::seed_from_u64(12345);
+
+        assert!(
+            verify_stack_initial_nodes(&mut rng, &tables)?,
+            "stored initial nodes did not match manually-constructed phase-1 coords"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn explore_node_expansion() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let simd = test_simd();
+
+        // SOLVED has all distances zero so the root should have many
+        // admissible children to expand. If this still yields 0 initial nodes,
+        // that's a strong signal something is off in `Stack::new`.
+        for _ in 0..10 {
+            let cube: ReprCube = ReprCube::SOLVED;
+            let mut stack = make_stack(cube, &tables);
+
+            // Walk a bounded number of expansions from the current position,
+            // printing the return value (admissible child count or negative
+            // back-pointer) for inspection.
+            for step in 0..(15 * N) {
+                if stack.current_position >= 15 * N as u16 {
+                    break;
+                }
+                let ret = stack.node_expansion(simd);
+                println!(
+                    "step {step}: pos={} node_expansion -> {ret}",
+                    stack.current_position
+                );
+            }
+        }
+
+        Ok(())
+    }
+}
