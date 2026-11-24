@@ -56,9 +56,8 @@ pub fn produce_solutions_par<'a, const N: usize>(
     target: u8,
     tables: &'a Tables,
 ) -> impl 'a + ParallelIterator<Item = Vec<CubeMove>> {
-    let domino_reductions = super::domino_reduction_iter::all_domino_reductions_par::<N>(
-        cube, tables, best, target,
-    );
+    let domino_reductions =
+        super::domino_reduction_iter::all_domino_reductions_par::<N>(cube, tables, best, target);
 
     domino_reductions
         .filter_map(|(phase_1, phase_2_start)| {

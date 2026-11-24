@@ -81,6 +81,29 @@ pub enum CubeMove {
     L3,
 }
 
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CubeMoveExpanded {
+    U1 = 0b001_00000,
+    U2 = 0b111_00001,
+    U3 = 0b001_00010,
+    D1 = 0b001_00011,
+    D2 = 0b111_00100,
+    D3 = 0b001_00101,
+    F1 = 0b010_00110,
+    F2 = 0b111_00111,
+    F3 = 0b010_01000,
+    B1 = 0b010_01001,
+    B2 = 0b111_01010,
+    B3 = 0b010_01011,
+    R1 = 0b100_01100,
+    R2 = 0b111_01101,
+    R3 = 0b100_01110,
+    L1 = 0b100_01111,
+    L2 = 0b111_10000,
+    L3 = 0b100_10001,
+}
+
 impl std::fmt::Display for CubeMove {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let string = match self {
@@ -104,6 +127,31 @@ impl std::fmt::Display for CubeMove {
             CubeMove::L3 => "L'",
         };
         f.write_str(string)
+    }
+}
+
+impl Into<CubeMoveExpanded> for CubeMove {
+    fn into(self) -> CubeMoveExpanded {
+        match self {
+            CubeMove::U1 => CubeMoveExpanded::U1,
+            CubeMove::U2 => CubeMoveExpanded::U2,
+            CubeMove::U3 => CubeMoveExpanded::U3,
+            CubeMove::D1 => CubeMoveExpanded::D1,
+            CubeMove::D2 => CubeMoveExpanded::D2,
+            CubeMove::D3 => CubeMoveExpanded::D3,
+            CubeMove::F1 => CubeMoveExpanded::F1,
+            CubeMove::F2 => CubeMoveExpanded::F2,
+            CubeMove::F3 => CubeMoveExpanded::F3,
+            CubeMove::B1 => CubeMoveExpanded::B1,
+            CubeMove::B2 => CubeMoveExpanded::B2,
+            CubeMove::B3 => CubeMoveExpanded::B3,
+            CubeMove::R1 => CubeMoveExpanded::R1,
+            CubeMove::R2 => CubeMoveExpanded::R2,
+            CubeMove::R3 => CubeMoveExpanded::R3,
+            CubeMove::L1 => CubeMoveExpanded::L1,
+            CubeMove::L2 => CubeMoveExpanded::L2,
+            CubeMove::L3 => CubeMoveExpanded::L3,
+        }
     }
 }
 
@@ -206,60 +254,60 @@ impl CubeMove {
 
     #[inline(always)]
     pub fn new_axis_move_array_raw_new(self) -> (&'static [u8; 16], usize) {
-        use CubeMove::*;
+        use CubeMoveExpanded::*;
 
         let (a, b) = match self {
-            U1 | U2 | U3 => (
+            CubeMove::U1 | CubeMove::U2 | CubeMove::U3 => (
                 &const {
                     [
-                        D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, D1
+                        D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, D1,
                     ]
                 },
                 15,
             ),
-            D1 | D2 | D3 => (
+            CubeMove::D1 | CubeMove::D2 | CubeMove::D3 => (
                 &const {
                     [
-                        F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, F1, F1, F1, F1
+                        F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, F1, F1, F1, F1,
                     ]
                 },
                 12,
             ),
-            F1 | F2 | F3 => (
+            CubeMove::F1 | CubeMove::F2 | CubeMove::F3 => (
                 &const {
                     [
-                        U1, U2, U3, D1, D2, D3, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1
+                        U1, U2, U3, D1, D2, D3, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1,
                     ]
                 },
                 15,
             ),
-            B1 | B2 | B3 => (
+            CubeMove::B1 | CubeMove::B2 | CubeMove::B3 => (
                 &const {
                     [
-                        U1, U2, U3, D1, D2, D3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1
+                        U1, U2, U3, D1, D2, D3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1,
                     ]
                 },
                 12,
             ),
-            R1 | R2 | R3 => (
+            CubeMove::R1 | CubeMove::R2 | CubeMove::R3 => (
                 &const {
                     [
-                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, L1, L2, L3, U1
+                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, L1, L2, L3, U1,
                     ]
                 },
                 15,
             ),
-            L1 | L2 | L3 => (
+            CubeMove::L1 | CubeMove::L2 | CubeMove::L3 => (
                 &const {
                     [
-                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, U1, U1, U1, U1
+                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, U1, U1, U1, U1,
                     ]
                 },
                 12,
             ),
         };
 
-        let a = unsafe { core::mem::transmute::<&[CubeMove; 16], &[u8; 16]>(a) };
+        let a = unsafe { core::mem::transmute::<&[CubeMoveExpanded; 16], &[u8; 16]>(a) };
         (a, b)
     }
 
@@ -271,7 +319,7 @@ impl CubeMove {
             CubePreviousAxis::U => (
                 &const {
                     [
-                        D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, D1
+                        D1, D2, D3, F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, D1,
                     ]
                 },
                 15,
@@ -279,7 +327,7 @@ impl CubeMove {
             CubePreviousAxis::D | CubePreviousAxis::UD => (
                 &const {
                     [
-                        F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, F1, F1, F1, F1
+                        F1, F2, F3, B1, B2, B3, R1, R2, R3, L1, L2, L3, F1, F1, F1, F1,
                     ]
                 },
                 12,
@@ -287,7 +335,7 @@ impl CubeMove {
             CubePreviousAxis::F => (
                 &const {
                     [
-                        U1, U2, U3, D1, D2, D3, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1
+                        U1, U2, U3, D1, D2, D3, B1, B2, B3, R1, R2, R3, L1, L2, L3, U1,
                     ]
                 },
                 15,
@@ -295,7 +343,7 @@ impl CubeMove {
             CubePreviousAxis::B | CubePreviousAxis::FB => (
                 &const {
                     [
-                        U1, U2, U3, D1, D2, D3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1
+                        U1, U2, U3, D1, D2, D3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1,
                     ]
                 },
                 12,
@@ -303,7 +351,7 @@ impl CubeMove {
             CubePreviousAxis::R => (
                 &const {
                     [
-                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, L1, L2, L3, U1
+                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, L1, L2, L3, U1,
                     ]
                 },
                 15,
@@ -311,7 +359,7 @@ impl CubeMove {
             CubePreviousAxis::L | CubePreviousAxis::RL => (
                 &const {
                     [
-                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, U1, U1, U1, U1
+                        U1, U2, U3, D1, D2, D3, F1, F2, F3, B1, B2, B3, U1, U1, U1, U1,
                     ]
                 },
                 12,
@@ -319,7 +367,7 @@ impl CubeMove {
             CubePreviousAxis::None => (
                 &const {
                     [
-                        U1, U2, U3, D1, D2, D3, F1, F2, F3, U1, U1, U1, U1, U1, U1, U1
+                        U1, U2, U3, D1, D2, D3, F1, F2, F3, U1, U1, U1, U1, U1, U1, U1,
                     ]
                 },
                 9,
@@ -327,7 +375,7 @@ impl CubeMove {
             CubePreviousAxis::NoneAlt => (
                 &const {
                     [
-                        B1, B2, B3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1, U1, U1, U1
+                        B1, B2, B3, R1, R2, R3, L1, L2, L3, U1, U1, U1, U1, U1, U1, U1,
                     ]
                 },
                 9,

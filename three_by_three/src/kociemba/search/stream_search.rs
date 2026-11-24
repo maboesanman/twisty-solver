@@ -415,110 +415,51 @@ pub fn solve_direct(cube: ReprCube, tables: &Tables) -> Vec<CubeMove> {
     let domino_dist = phase_1.distance_heuristic(tables);
 
     match domino_dist {
-        0 => super::solve_with_fixed_len_phase_1::produce_solutions::<0>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        1 => super::solve_with_fixed_len_phase_1::produce_solutions::<1>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        2 => super::solve_with_fixed_len_phase_1::produce_solutions::<2>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        3 => super::solve_with_fixed_len_phase_1::produce_solutions::<3>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        4 => super::solve_with_fixed_len_phase_1::produce_solutions::<4>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        5 => super::solve_with_fixed_len_phase_1::produce_solutions::<5>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        6 => super::solve_with_fixed_len_phase_1::produce_solutions::<6>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        7 => super::solve_with_fixed_len_phase_1::produce_solutions::<7>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        8 => super::solve_with_fixed_len_phase_1::produce_solutions::<8>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        9 => super::solve_with_fixed_len_phase_1::produce_solutions::<9>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        10 => super::solve_with_fixed_len_phase_1::produce_solutions::<10>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        11 => super::solve_with_fixed_len_phase_1::produce_solutions::<11>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
-        12 => super::solve_with_fixed_len_phase_1::produce_solutions::<12>(
-            cube,
-            &mut 255,
-            0,
-            tables,
-        )
-        .next()
-        .unwrap(),
+        0 => super::solve_with_fixed_len_phase_1::produce_solutions::<0>(cube, &mut 255, 0, tables)
+            .next()
+            .unwrap(),
+        1 => super::solve_with_fixed_len_phase_1::produce_solutions::<1>(cube, &mut 255, 0, tables)
+            .next()
+            .unwrap(),
+        2 => super::solve_with_fixed_len_phase_1::produce_solutions::<2>(cube, &mut 255, 0, tables)
+            .next()
+            .unwrap(),
+        3 => super::solve_with_fixed_len_phase_1::produce_solutions::<3>(cube, &mut 255, 0, tables)
+            .next()
+            .unwrap(),
+        4 => super::solve_with_fixed_len_phase_1::produce_solutions::<4>(cube, &mut 255, 0, tables)
+            .next()
+            .unwrap(),
+        5 => super::solve_with_fixed_len_phase_1::produce_solutions::<5>(cube, &mut 255, 0, tables)
+            .next()
+            .unwrap(),
+        6 => super::solve_with_fixed_len_phase_1::produce_solutions::<6>(cube, &mut 255, 0, tables)
+            .next()
+            .unwrap(),
+        7 => super::solve_with_fixed_len_phase_1::produce_solutions::<7>(cube, &mut 255, 0, tables)
+            .next()
+            .unwrap(),
+        8 => super::solve_with_fixed_len_phase_1::produce_solutions::<8>(cube, &mut 255, 0, tables)
+            .next()
+            .unwrap(),
+        9 => super::solve_with_fixed_len_phase_1::produce_solutions::<9>(cube, &mut 255, 0, tables)
+            .next()
+            .unwrap(),
+        10 => {
+            super::solve_with_fixed_len_phase_1::produce_solutions::<10>(cube, &mut 255, 0, tables)
+                .next()
+                .unwrap()
+        }
+        11 => {
+            super::solve_with_fixed_len_phase_1::produce_solutions::<11>(cube, &mut 255, 0, tables)
+                .next()
+                .unwrap()
+        }
+        12 => {
+            super::solve_with_fixed_len_phase_1::produce_solutions::<12>(cube, &mut 255, 0, tables)
+                .next()
+                .unwrap()
+        }
         _ => unreachable!(),
     }
 }

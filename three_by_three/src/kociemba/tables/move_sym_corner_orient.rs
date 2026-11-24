@@ -6,15 +6,18 @@ use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::{
-    CornerOrient, cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry}, kociemba::tables::lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable}
+    CornerOrient,
+    cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry},
+    kociemba::tables::lookup_sym_corner_orient::{
+        CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable,
+    },
 };
 
 use super::{
     lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, table_loader::load_table,
 };
 
-pub(crate) const TABLE_SIZE_BYTES: usize =
-    168 * core::mem::size_of::<MoveSymCornerOrientRow>();
+pub(crate) const TABLE_SIZE_BYTES: usize = 168 * core::mem::size_of::<MoveSymCornerOrientRow>();
 const FILE_CHECKSUM: u32 = 1176224547;
 
 #[repr(C)]

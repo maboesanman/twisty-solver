@@ -5,9 +5,15 @@ use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::{
-    CornerOrient, CubeMove, cube_ops::cube_sym::DominoSymmetry, kociemba::{
-        coords::CornerOrientRawCoord, tables::{move_sym_corner_orient::MoveSymCornerOrientTable, table_loader::{as_u16_slice, collect_unique_sorted_parallel}}
-    }
+    CornerOrient, CubeMove,
+    cube_ops::cube_sym::DominoSymmetry,
+    kociemba::{
+        coords::CornerOrientRawCoord,
+        tables::{
+            move_sym_corner_orient::MoveSymCornerOrientTable,
+            table_loader::{as_u16_slice, collect_unique_sorted_parallel},
+        },
+    },
 };
 
 use super::table_loader::{as_u16_slice_mut, load_table};
@@ -22,7 +28,7 @@ pub struct CornerOrientSymCoord(pub u8);
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CornerOrientComboCoord {
     pub sym_coord: CornerOrientSymCoord,
-    pub domino_conjugation: DominoSymmetry
+    pub domino_conjugation: DominoSymmetry,
 }
 
 impl CornerOrientComboCoord {
@@ -68,19 +74,13 @@ impl LookupSymCornerOrientTable {
         CornerOrientRawCoord(buffer[sym_coord.0 as usize])
     }
 
-    pub fn get_raw_from_combo(
-        &self,
-        combo_coord: CornerOrientComboCoord,
-    ) -> CornerOrientRawCoord {
+    pub fn get_raw_from_combo(&self, combo_coord: CornerOrientComboCoord) -> CornerOrientRawCoord {
         CornerOrient::from_coord(self.get_rep_from_sym(combo_coord.sym_coord))
             .domino_conjugate(combo_coord.domino_conjugation.inverse())
             .into_coord()
     }
 
-    pub fn get_combo_from_raw(
-        &self,
-        raw_coord: CornerOrientRawCoord,
-    ) -> CornerOrientComboCoord {
+    pub fn get_combo_from_raw(&self, raw_coord: CornerOrientRawCoord) -> CornerOrientComboCoord {
         let buffer = as_u16_slice(&self.0);
         let corner_orient = CornerOrient::from_coord(raw_coord);
         let (rep_coord, domino_conjugation) = DominoSymmetry::all_iter()

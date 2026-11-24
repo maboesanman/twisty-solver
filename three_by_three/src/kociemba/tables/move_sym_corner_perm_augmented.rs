@@ -117,7 +117,6 @@ impl MoveSymCornerPermAugmentedTable {
         prune_phase_2: &PrunePhase2Table,
     ) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
-            
             Self::generate(buf, move_sym_table, prune_phase_2)
         })
     }

@@ -1,19 +1,32 @@
 use std::num::NonZeroU8;
 
 use crate::{
-    CornerOrient, CornerPerm, CubeMove, EdgeOrient, EdgePerm, Permutation, ReprCube, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
+    CornerOrient, CornerPerm, CubeMove, EdgeOrient, EdgePerm, Permutation, ReprCube, Tables,
+    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
+    kociemba::{
         coords::{
             CornerOrientRawCoord, CornerPermRawCoord, CornerPermSymCoord, EdgeGroupOrientRawCoord,
             EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
-        }, partial_reprs::{
+        },
+        partial_reprs::{
             edge_group::EdgeGroup,
             edge_positions::{
                 DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions,
                 combine_edge_positions, split_edge_positions,
             },
-        }, tables::{
-            lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable}, lookup_sym_corner_perm::LookupSymCornerPermTable, lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable, move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table,
+        },
+        tables::{
+            lookup_sym_corner_orient::{
+                CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable,
+            },
+            lookup_sym_corner_perm::LookupSymCornerPermTable,
+            lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable,
+            move_edge_positions::MoveEdgePositionsTable,
+            move_raw_corner_orient::MoveRawCornerOrientTable,
+            move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable,
+            move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable,
+            prune_phase_1::PrunePhase1Table,
         },
     },
 };
@@ -51,7 +64,10 @@ impl Default for Phase1Node {
                 edge_group_orient_sym: EdgeGroupOrientSymCoord(0),
                 edge_group_orient_correct: DominoSymmetry::IDENTITY,
                 corner_perm_sym: CornerPermSymCoord(0),
-                corner_orient_combo: CornerOrientComboCoord { sym_coord: CornerOrientSymCoord(0), domino_conjugation: DominoSymmetry::IDENTITY },
+                corner_orient_combo: CornerOrientComboCoord {
+                    sym_coord: CornerOrientSymCoord(0),
+                    domino_conjugation: DominoSymmetry::IDENTITY,
+                },
                 u_edge_positions,
                 d_edge_positions,
                 e_edge_positions,
@@ -63,11 +79,12 @@ impl Default for Phase1Node {
 }
 
 impl Phase1Node {
-
     pub(crate) fn from_phase_1_coords(
         edge_group_orient_sym: EdgeGroupOrientSymCoord,
         corner_orient_raw: CornerOrientRawCoord,
-        tables: impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<LookupSymCornerPermTable> + AsRef<LookupSymCornerOrientTable>,
+        tables: impl AsRef<LookupSymEdgeGroupOrientTable>
+        + AsRef<LookupSymCornerPermTable>
+        + AsRef<LookupSymCornerOrientTable>,
     ) -> Self {
         let edge_table: &LookupSymEdgeGroupOrientTable = tables.as_ref();
         let edge_group_orient_raw = edge_table.get_rep_from_sym(edge_group_orient_sym);
@@ -100,7 +117,9 @@ impl Phase1Node {
 
     pub fn from_cube(
         cube: ReprCube,
-        tables: impl AsRef<LookupSymEdgeGroupOrientTable> + AsRef<LookupSymCornerPermTable> + AsRef<LookupSymCornerOrientTable>,
+        tables: impl AsRef<LookupSymEdgeGroupOrientTable>
+        + AsRef<LookupSymCornerPermTable>
+        + AsRef<LookupSymCornerOrientTable>,
     ) -> Self {
         let ReprCube {
             corner_perm,
@@ -120,7 +139,8 @@ impl Phase1Node {
         let edge_group_orient_combo =
             EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
         let corner_perm_combo = CornerPermComboCoord::from_raw(&tables, corner_perm.into_coord());
-        let corner_orient_combo = CornerOrientComboCoord::from_raw(&tables, corner_orient.into_coord());
+        let corner_orient_combo =
+            CornerOrientComboCoord::from_raw(&tables, corner_orient.into_coord());
 
         Self {
             corner_orient_combo,
@@ -173,7 +193,9 @@ impl Phase1Node {
     #[inline(always)]
     pub fn distance_heuristic(
         self,
-        tables: impl AsRef<MoveRawCornerOrientTable> + AsRef<PrunePhase1Table> + AsRef<LookupSymCornerOrientTable>,
+        tables: impl AsRef<MoveRawCornerOrientTable>
+        + AsRef<PrunePhase1Table>
+        + AsRef<LookupSymCornerOrientTable>,
     ) -> u8 {
         let move_table: &MoveRawCornerOrientTable = tables.as_ref();
         let prune_table: &PrunePhase1Table = tables.as_ref();

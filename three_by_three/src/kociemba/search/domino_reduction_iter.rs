@@ -7,10 +7,16 @@ use rayon::iter::{
 };
 
 use crate::{
-    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube}, kociemba::{
+    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::CubeSymmetry, repr_cube::ReprCube},
+    kociemba::{
         search::{
-            phase_1_node::Phase1Node, phase_2_node::Phase2Node, split_phase_1_node::{SplitPhase1NodeA, SplitPhase1NodeAStackStruct, SplitPhase1NodeB, merge, split},
-        }, tables::Tables,
+            phase_1_node::Phase1Node,
+            phase_2_node::Phase2Node,
+            split_phase_1_node::{
+                SplitPhase1NodeA, SplitPhase1NodeAStackStruct, SplitPhase1NodeB, merge, split,
+            },
+        },
+        tables::Tables,
     },
 };
 
@@ -87,12 +93,7 @@ impl BestTrait for &u8 {
 }
 
 impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
-    pub fn new(
-        cube: ReprCube,
-        tables: &'t Tables,
-        best: Best,
-        target: u8,
-    ) -> Self {
+    pub fn new(cube: ReprCube, tables: &'t Tables, best: Best, target: u8) -> Self {
         todo!()
         // let [base, r1, r2] = [0, 1, 2]
         //     .map(|x| Phase1Node::from_cube(cube.conjugate(CubeSymmetry(x << 4)), tables));
@@ -181,7 +182,9 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
             };
 
             let moves_remaining = unsafe { NonZeroU8::new_unchecked((N - i) as u8) };
-            let added = self.frame_data.soa_produce_next_nodes(moves_remaining, self.tables);
+            let added = self
+                .frame_data
+                .soa_produce_next_nodes(moves_remaining, self.tables);
             self.frame_data.len += added;
 
             i += 1;
@@ -216,7 +219,8 @@ impl<'t, const N: usize, Best: Clone> Stack<'t, N, Best> {
                 out = out.produce_next_node_b(moves_remaining, self.tables, j);
                 if i + 1 < N {
                     head_out[i + 1] = merge(
-                        self.frame_data.get_aaa(self.frame_metadata[i + 1].start - 1),
+                        self.frame_data
+                            .get_aaa(self.frame_metadata[i + 1].start - 1),
                         out,
                         self.tables,
                     );
@@ -287,7 +291,7 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
 
         //         let start = unsafe { *self.frame_metadata.get_unchecked(i - 1) }.start;
         //         let end = self.frame_metadata[i].start - 1;
-                
+
         //         if start == end {
         //             i += 1;
         //             continue;
@@ -295,7 +299,6 @@ impl<'t, const N: usize, Best: Clone + Send + BestTrait> UnindexedProducer for S
         //         let end_frame = unsafe { self.frame_data.get_unchecked_mut(end as usize) };
         //         let penultimate = end - (end_frame.back_pointer() as u16);
 
-                
         //         if penultimate != start - 1 {
         //             let mut i = penultimate;
         //             let mut j = end;
@@ -516,7 +519,6 @@ mod test {
         let stack = all_domino_reductions::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
-            
             best,
             0,
         );
@@ -535,7 +537,6 @@ mod test {
         let stack = all_domino_reductions_par::<11>(
             cube![U R2 F B R B2 R U2 L B2 R Up Dp R2 F Rp L B2 U2 F2],
             &tables,
-            
             &cancel,
             0,
         );
@@ -545,21 +546,13 @@ mod test {
         Ok(())
     }
 
-    fn check_par_seq_identical<const N: usize>(
-        cube: ReprCube,
-        tables: &Tables,
-    ) -> usize {
+    fn check_par_seq_identical<const N: usize>(cube: ReprCube, tables: &Tables) -> usize {
         let best: u8 = 255;
         let seq_results: Vec<_> =
             all_domino_reductions::<N>(cube, tables, &best as *const _, 0).collect();
 
-        let par_results: Vec<_> = all_domino_reductions_par::<N>(
-            cube,
-            tables,
-            &AtomicU8::new(255),
-            0,
-        )
-        .collect();
+        let par_results: Vec<_> =
+            all_domino_reductions_par::<N>(cube, tables, &AtomicU8::new(255), 0).collect();
 
         assert_eq!(
             seq_results.len(),

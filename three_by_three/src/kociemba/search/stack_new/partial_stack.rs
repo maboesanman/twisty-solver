@@ -1,27 +1,20 @@
 use fearless_simd::{Bytes, SimdBase, SimdFrom, SimdWiden, kernel};
 use itertools::Itertools;
-use pathfinding::utils;
 
 use crate::{
-    CubeMove, ReprCube, Tables,
-    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
-    kociemba::{
+    CubeMove, ReprCube, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
         coords::{
             CornerPermSymCoord, EEdgePermRawCoord, EdgeGroupOrientRawCoord,
             EdgeGroupOrientSymCoord, corner_perm_combo_coord::CornerPermComboCoord,
             edge_group_orient_combo_coord::EdgeGroupOrientComboCoord,
-        },
-        partial_reprs::{
+        }, partial_reprs::{
             edge_positions::{
                 DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions, split_edge_positions,
             },
             ud_edge_perm::UDEdgePerm,
-        },
-        search::{
-            phase_2_node::Phase2Node,
-            stack_new::utils::{get_entry, get_entry_mut, get_entry_slice_mut},
-        },
-        tables::{
+        }, search::{
+            phase_2_node::Phase2Node, stack_new::utils::ConstGenericWorkaround,
+        }, tables::{
             lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord},
             move_edge_positions::MoveEdgePositionsTable,
             move_sym_corner_orient::MoveSymCornerOrientTable,
@@ -36,28 +29,20 @@ use crate::{
 pub struct PartialStack<const N: usize> {
     base_cube: ReprCube,
     base_phase_1_coords: Phase1,
-    base_phase_1_dist: u8,
-    base_phase_2_coords: Phase2,
+    pub base_phase_2_coords: Phase2,
 
-    phase_1_coords: [[Phase1; 15]; N],
-    phase_1_dists: [[u8; 15]; N],
+    phase_1_coords: ConstGenericWorkaround<N, Phase1>,
 
     phase_2_len: u8,
     phase_2_coords: [Phase2; N],
 }
 
 impl<const N: usize> PartialStack<N> {
-    pub fn new(base_cube: ReprCube, tables: &Tables) -> Self {
+    pub fn new(base_cube: ReprCube, tables: &Tables) -> (Self, u8) {
         let (base_phase_1_coords, base_phase_2_coords) = produce_phase_1_phase_2(base_cube, tables);
         let base_phase_1_dist = base_phase_1_coords.dist_recurse(tables);
 
-        let phase_1_coords = [[Phase1 {
-            ego_c: EdgeGroupOrientSymCoord(0),
-            co_c: CornerOrientSymCoord(0),
-            combo_s: 0,
-        }; 15]; N];
-
-        let phase_1_dists = [[0; 15]; N];
+        let phase_1_coords = ConstGenericWorkaround::new();
 
         let phase_2_coords = [Phase2 {
             cp_c: CornerPermComboCoord {
@@ -69,61 +54,50 @@ impl<const N: usize> PartialStack<N> {
             e_edge_c: EEdgePositions(EdgePositions(0)),
         }; N];
 
-        Self {
-            base_cube,
-            base_phase_1_coords,
+        (
+            Self {
+                base_cube,
+                base_phase_1_coords,
+                base_phase_2_coords,
+                phase_1_coords,
+                phase_2_len: 0,
+                phase_2_coords,
+            },
             base_phase_1_dist,
-            base_phase_2_coords,
-            phase_1_coords,
-            phase_1_dists,
-            phase_2_len: 0,
-            phase_2_coords,
-        }
+        )
     }
 
-    fn phase_1_dist_lookup<S: fearless_simd::Simd>(simd: S, dist: u8) -> fearless_simd::u8x16<S> {
-        debug_assert!((dist as usize) < DISTANCE_OPTIONS_LOOKUP.len());
-        let dist_lookup = unsafe { DISTANCE_OPTIONS_LOOKUP.get_unchecked(dist as usize) };
-        fearless_simd::u8x16::simd_from(simd, *dist_lookup)
-    }
-
-    pub fn begin_initial_node_expansion<S: fearless_simd::Simd>(
+    pub fn begin_initial_node_expansion(
         &self,
-        simd: S,
         moves: impl IntoIterator<Item = CubeMove>,
         tables: &Tables,
     ) -> impl IntoIterator<Item = (Phase1, u8)> {
         let phase_1 = self.base_phase_1_coords;
-        let phase_1_dist = self.base_phase_1_dist;
-        let dist_lookup = Self::phase_1_dist_lookup(simd, phase_1_dist);
 
         moves.into_iter().map(move |cube_move| {
             let new_phase_1 = phase_1.apply_cube_move(cube_move, tables);
             let d_mod_3 = new_phase_1.dist_mod_3(tables);
-            let new_dist = dist_lookup[d_mod_3 as usize];
-            (new_phase_1, new_dist)
+            (new_phase_1, d_mod_3)
         })
     }
 
-    pub fn end_initial_node_expansion(&mut self, results: impl IntoIterator<Item = (Phase1, u8)>) {
-        for (i, (phase_1, dist)) in results.into_iter().enumerate() {
-            *get_entry_mut(i, &mut self.phase_1_coords) = phase_1;
-            *get_entry_mut(i, &mut self.phase_1_dists) = dist;
+    pub fn end_initial_node_expansion(&mut self, results: impl IntoIterator<Item = Phase1>) {
+        for (i, phase_1) in results.into_iter().enumerate() {
+            self.phase_1_coords[i] = phase_1;
         }
     }
 
-    pub(crate) fn initial_node(&self, index: usize) -> (Phase1, u8) {
-        (
-            *get_entry(index, &self.phase_1_coords),
-            *get_entry(index, &self.phase_1_dists),
-        )
+    pub(crate) fn initial_node(&self, index: usize) -> Phase1 {
+        self.phase_1_coords[index]
     }
 
-    pub(crate) fn base_node(&self) -> (Phase1, u8) {
-        (self.base_phase_1_coords, self.base_phase_1_dist)
+    pub(crate) fn base_node(&self) -> Phase1 {
+        self.base_phase_1_coords
     }
 
-    ///
+    /// return the SoA style registers containing the children, and the u8x16 containing those
+    /// childrens' mod-3 distance to solved. the partial nodes are not responsible for
+    /// actually storing this and tracking the true distances. that is left to the parent.
     #[inline(always)]
     pub fn begin_node_expansion<S: fearless_simd::Simd>(
         &self,
@@ -132,10 +106,10 @@ impl<const N: usize> PartialStack<N> {
         moves: fearless_simd::u8x16<S>,
         move_mask: fearless_simd::mask8x16<S>,
         tables: &Tables,
-    ) -> PartialExpansionResult<S> {
-        let phase_1 = get_entry(current_position, &self.phase_1_coords);
-        let dist = get_entry(current_position, &self.phase_1_dists);
-        let dist_lookup = Self::phase_1_dist_lookup(simd, *dist);
+    ) -> BeginNodeExpansionResult<S> {
+        let phase_1 = self.phase_1_coords[current_position];
+        let already_reduced = phase_1.co_c.0 == 0 && phase_1.ego_c.0 == 0;
+        let previous_move_mask = (already_reduced as u8).wrapping_neg() | 0b000_11111;
 
         let ego_mv_tbl: &MoveSymEdgeGroupOrientTable = tables.as_ref();
         let co_mv_tbl: &MoveSymCornerOrientTable = tables.as_ref();
@@ -193,7 +167,7 @@ impl<const N: usize> PartialStack<N> {
             DominoSymmetry::bitwise_then_fearless_simd(a, b, simd)
         };
 
-        let dist = {
+        let distances_mod_3 = {
             let mask_2 = fearless_simd::u8x16::splat(simd, 0x03);
             let mask_4 = fearless_simd::u8x16::splat(simd, 0x0F);
             let ego_s_new = combo_s >> 4;
@@ -215,15 +189,6 @@ impl<const N: usize> PartialStack<N> {
             let (ab, cd) = simd.interleave_u16x16(ab, cd);
             let abcd = fearless_simd::u32x16::from_bytes(simd.combine_u16x16(ab, cd).to_bytes());
 
-            debug_assert_eq!(
-                abcd.to_vec(),
-                ab.to_vec()
-                    .into_iter()
-                    .zip(co.to_vec())
-                    .map(|(ab, co)| ab as u32 | ((co as u32) << 16))
-                    .collect_vec(),
-            );
-
             let table = prune_tbl.as_buffer();
             let word_indices = abcd;
             let byte_indices = co_lookup_lo;
@@ -231,16 +196,19 @@ impl<const N: usize> PartialStack<N> {
             let dist_bytes = super::utils::gather(simd, table, word_indices, byte_indices);
             let dist_mod_3 = (dist_bytes >> (co_lookup_hi << 1)) & mask_2;
 
-            dist_lookup.swizzle_dyn(dist_mod_3)
+            dist_mod_3
         };
 
-        PartialExpansionResult {
-            ego_a,
-            ego_b,
-            co,
-            combo_s,
-            dist,
-            current_position,
+        BeginNodeExpansionResult {
+            partial_expansion_result: PartialExpansionResult {
+                    ego_a,
+                    ego_b,
+                    co,
+                    combo_s,
+                    current_position,
+                },
+            distances_mod_3,
+            previous_move_mask,
         }
     }
 
@@ -255,7 +223,6 @@ impl<const N: usize> PartialStack<N> {
             ego_b,
             co,
             combo_s,
-            dist,
             current_position,
         } = partial_expansion_result;
 
@@ -265,19 +232,51 @@ impl<const N: usize> PartialStack<N> {
         {
             let vectors = [ego_a, ego_b, co, combo_s];
             debug_assert_eq!(core::mem::size_of::<Phase1>(), 4);
-            let out_buf = get_entry_slice_mut(out_pos, &mut self.phase_1_coords);
+            let out_buf = self.phase_1_coords.get_array_mut(out_pos);
             let out_ptr: *mut [Phase1; 16] = out_buf;
             let out_ptr: *mut [u8; 64] = out_ptr.cast();
             let out_buf: &mut [u8; 64] = unsafe { out_ptr.as_mut_unchecked() };
 
             simd.store_four_interleaved_u8x16(vectors, out_buf);
         }
+    }
 
-        // do a regular write for the dists
-        {
-            let out_buf = get_entry_slice_mut(out_pos, &mut self.phase_1_dists);
-            dist.store_slice(out_buf);
+    /// delete potentially cached phase 2 work when main traversal loop pops values.
+    pub fn filter_phase_2_partial_work(&mut self, max_moves: u8) {
+        self.phase_2_len = self.phase_2_len.min(max_moves);
+    }
+
+    /// apply each of the moves in iterator, appending the resulting Phase2 value to the
+    /// cache, and incrementing the count. the iterator MUST NOT OVERFLOW
+    pub fn populate_phase_2_cache(
+        &mut self,
+        moves: impl ExactSizeIterator<Item = u8>,
+        tables: &Tables,
+    ) -> Phase2 {
+        let move_count = moves.len();
+        if move_count < self.phase_2_len as usize {
+            return match move_count.checked_sub(1) {
+                None => self.base_phase_2_coords,
+                Some(i) => *self.phase_2_coords.get(i as usize).unwrap(),
+            };
         }
+
+        let mut item = match self.phase_2_len.checked_sub(1) {
+            None => self.base_phase_2_coords,
+            Some(i) => *self.phase_2_coords.get(i as usize).unwrap(),
+        };
+
+        for mv in moves.skip(self.phase_2_len as usize) {
+            debug_assert!((self.phase_2_len as usize) < N);
+            item = item.apply_cube_move(unsafe { CubeMove::from_u8(mv) }, tables);
+            unsafe {
+                *self
+                    .phase_2_coords
+                    .get_unchecked_mut(self.phase_2_len as usize) = item
+            };
+            self.phase_2_len += 1;
+        }
+        item
     }
 }
 
@@ -296,34 +295,6 @@ const SYM_CONJ: [[u8; 32]; 16] = {
     t
 };
 
-const DISTANCE_OPTIONS_LOOKUP: [[u8; 16]; 13] = const {
-    let mut out = [[0; 16]; 13];
-
-    let mut d = 0usize;
-    while d < 13 {
-        let mut i = -1i8;
-        while i < 2 {
-            let mut new_d = (d as i8) + i;
-            if new_d < 0 {
-                new_d = 0;
-            }
-            if new_d > 12 {
-                new_d = 12;
-            }
-
-            let new_d = new_d as usize;
-
-            out[d][new_d % 3] = new_d as u8;
-
-            i += 1;
-        }
-
-        d += 1;
-    }
-
-    out
-};
-
 #[derive(Debug)]
 pub struct PartialExpansionResult<S: fearless_simd::Simd> {
     // the first 15 entries here are the ones that matter.
@@ -331,8 +302,16 @@ pub struct PartialExpansionResult<S: fearless_simd::Simd> {
     ego_b: fearless_simd::u8x16<S>,
     co: fearless_simd::u8x16<S>,
     combo_s: fearless_simd::u8x16<S>,
-    dist: fearless_simd::u8x16<S>,
     current_position: usize,
+}
+
+#[derive(Debug)]
+pub struct BeginNodeExpansionResult<S: fearless_simd::Simd> {
+    pub partial_expansion_result: PartialExpansionResult<S>,
+    pub distances_mod_3: fearless_simd::u8x16<S>,
+    // this is either 0b00011111 or 0b11111111, and is just "was the expanded node already
+    // reduced
+    pub previous_move_mask: u8
 }
 
 impl<S: fearless_simd::Simd> PartialExpansionResult<S> {
@@ -342,12 +321,6 @@ impl<S: fearless_simd::Simd> PartialExpansionResult<S> {
         self.ego_b.swizzle_dyn(indices);
         self.co.swizzle_dyn(indices);
         self.combo_s.swizzle_dyn(indices);
-        self.dist.swizzle_dyn(indices);
-    }
-
-    #[inline(always)]
-    pub fn get_dist(&self) -> &fearless_simd::u8x16<S> {
-        &self.dist
     }
 
     #[inline(always)]
@@ -404,10 +377,7 @@ impl Phase1 {
     /// conjugations). This projection is destructive: information about the
     /// exact cube that isn't needed for phase 1 (corner permutation, E-slice
     /// details folded into symmetry reduction) is discarded.
-    pub(crate) fn from_cube(
-        cube: ReprCube,
-        tables: &Tables,
-    ) -> Self {
+    pub(crate) fn from_cube(cube: ReprCube, tables: &Tables) -> Self {
         let ReprCube {
             corner_orient,
             edge_perm,
@@ -424,7 +394,8 @@ impl Phase1 {
 
         let edge_group_orient_combo =
             EdgeGroupOrientComboCoord::from_raw(&tables, edge_group_orient_raw_coord);
-        let corner_orient_combo = CornerOrientComboCoord::from_raw(&tables, corner_orient.into_coord());
+        let corner_orient_combo =
+            CornerOrientComboCoord::from_raw(&tables, corner_orient.into_coord());
 
         Self {
             ego_c: edge_group_orient_combo.sym_coord,
@@ -453,24 +424,20 @@ impl Phase1 {
 
         let best_ego_domino = DominoSymmetry::all_iter()
             .filter(|&d| {
-                ego_lookup
-                    .get_raw_from_combo(EdgeGroupOrientComboCoord {
-                        sym_coord: self.ego_c,
-                        domino_conjugation: d,
-                    })
-                    == ego_raw
+                ego_lookup.get_raw_from_combo(EdgeGroupOrientComboCoord {
+                    sym_coord: self.ego_c,
+                    domino_conjugation: d,
+                }) == ego_raw
             })
             .min_by_key(|d| d.0)
             .expect("the current conjugation always preserves the raw value");
 
         let best_co_domino = DominoSymmetry::all_iter()
             .filter(|&d| {
-                co_lookup
-                    .get_raw_from_combo(CornerOrientComboCoord {
-                        sym_coord: self.co_c,
-                        domino_conjugation: d,
-                    })
-                    == co_raw
+                co_lookup.get_raw_from_combo(CornerOrientComboCoord {
+                    sym_coord: self.co_c,
+                    domino_conjugation: d,
+                }) == co_raw
             })
             .min_by_key(|d| d.0)
             .expect("the current conjugation always preserves the raw value");
@@ -574,13 +541,22 @@ impl Phase2 {
         }
     }
 
-    fn resolve(self, previous_axis: CubePreviousAxis) -> Phase2Node {
+    pub fn resolve(self) -> Phase2Node {
+        debug_assert!(self.e_edge_c.0.0 < 24);
+
         Phase2Node {
             corner_perm_combo: self.cp_c,
             ud_edge_perm_raw: UDEdgePerm(self.u_edge_c, self.d_edge_c).into_coord(),
             e_edge_perm_raw: EEdgePermRawCoord(self.e_edge_c.0.0 as u8),
-            previous_axis,
+            previous_axis: CubePreviousAxis::None,
         }
+    }
+
+    pub fn eq(self, other: Self, tables: &Tables) -> bool {
+        self.u_edge_c == other.u_edge_c
+        && self.d_edge_c == other.d_edge_c
+        && self.e_edge_c == other.e_edge_c
+        && self.cp_c.into_raw(tables) == other.cp_c.into_raw(tables)
     }
 }
 
@@ -695,6 +671,40 @@ mod test {
         for _ in 0..100 {
             let cube: ReprCube = Distribution::sample(&StandardUniform, &mut rng);
             let stack = PartialStack::<10>::new(cube, &tables);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_populate_phase_2_cache() -> anyhow::Result<()> {
+        let tables = Tables::new("tables")?;
+        let mut rng = ChaCha8Rng::seed_from_u64(12345);
+
+        for _ in 0..100 {
+            let cube: ReprCube = Distribution::sample(&StandardUniform, &mut rng);
+            let (mut part_stack, _dist) = PartialStack::<20>::new(cube, &tables);
+            let x = part_stack.begin_initial_node_expansion(Some(CubeMove::L1), &tables).into_iter().map(|a| a.0).collect_vec();
+            part_stack.end_initial_node_expansion(x);
+            let top = part_stack.base_node();
+            let populated_phase_2 = part_stack.populate_phase_2_cache([CubeMove::L1.into_u8()].into_iter(), &tables);
+
+            let ref_cube = cube.apply_cube_move(CubeMove::L1);
+            let (ref_phase_1, ref_phase_2) = produce_phase_1_phase_2(ref_cube, &tables);
+
+            assert!(populated_phase_2.eq(ref_phase_2, &tables));
+
+            let populated_phase_2 = part_stack.populate_phase_2_cache([CubeMove::L1.into_u8(), CubeMove::F2.into_u8()].into_iter(), &tables);
+            let ref_cube = ref_cube.apply_cube_move(CubeMove::F2);
+            let (ref_phase_1, ref_phase_2) = produce_phase_1_phase_2(ref_cube, &tables);
+
+            assert!(populated_phase_2.eq(ref_phase_2, &tables));
+
+            let populated_phase_2 = part_stack.populate_phase_2_cache([CubeMove::L1.into_u8()].into_iter(), &tables);
+            let ref_cube = cube.apply_cube_move(CubeMove::L1);
+            let (ref_phase_1, ref_phase_2) = produce_phase_1_phase_2(ref_cube, &tables);
+
+            assert!(populated_phase_2.eq(ref_phase_2, &tables));
         }
 
         Ok(())

@@ -1,5 +1,3 @@
-
-
 pub trait MaxThreshold {
     fn get(&mut self) -> u8;
 }

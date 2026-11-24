@@ -840,6 +840,6 @@ fn sym_composition() {
 #[test]
 fn ssss() {
     let mv = CubeMove::U1;
-    
+
     println!("{}", mv.conjugate(CubeSymmetry(32)));
 }

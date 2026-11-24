@@ -12,7 +12,9 @@ use memmap2::Mmap;
 use crate::Tables;
 use crate::cube_ops::cube_sym::DominoSymmetry;
 use crate::kociemba::coords::{CornerOrientRawCoord, EdgeGroupOrientSymCoord};
-use crate::kociemba::tables::lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable};
+use crate::kociemba::tables::lookup_sym_corner_orient::{
+    CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable,
+};
 use crate::kociemba::tables::lookup_sym_edge_group_orient::LookupSymEdgeGroupOrientTable;
 use crate::kociemba::tables::move_raw_corner_orient::MoveRawCornerOrientTable;
 use crate::kociemba::tables::move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
@@ -52,12 +54,7 @@ impl PrunePhase1DoubleSymMod3Table {
 impl PrunePhase1DoubleSymMod3Table {
     fn generate(
         buffer: &mut [u8],
-        tables: &(
-             impl Send
-             + Sync
-             + AsRef<LookupSymCornerOrientTable>
-             + AsRef<PrunePhase1Table>
-         ),
+        tables: &(impl Send + Sync + AsRef<LookupSymCornerOrientTable> + AsRef<PrunePhase1Table>),
     ) {
         let co_lookup: &LookupSymCornerOrientTable = tables.as_ref();
         let prune: &PrunePhase1Table = tables.as_ref();
@@ -89,12 +86,7 @@ impl PrunePhase1DoubleSymMod3Table {
 
     pub fn load<P: AsRef<Path>>(
         path: P,
-        tables: &(
-             impl Send
-             + Sync
-             + AsRef<LookupSymCornerOrientTable>
-             + AsRef<PrunePhase1Table>
-         ),
+        tables: &(impl Send + Sync + AsRef<LookupSymCornerOrientTable> + AsRef<PrunePhase1Table>),
     ) -> Result<Mmap> {
         load_table(path, TABLE_SIZE_BYTES, FILE_CHECKSUM, |buf| {
             Self::generate(buf, tables)
@@ -135,7 +127,10 @@ fn coherence() -> anyhow::Result<()> {
         for i in 0..168 {
             let i = CornerOrientSymCoord(i);
             for j in DominoSymmetry::all_iter() {
-                let co_combo = CornerOrientComboCoord { sym_coord: i, domino_conjugation: j };
+                let co_combo = CornerOrientComboCoord {
+                    sym_coord: i,
+                    domino_conjugation: j,
+                };
                 let co_raw = lookup.get_raw_from_combo(co_combo);
                 let original_dist = original.get_value(ego, co_raw);
                 let transformed_dist = transformed.get_value(ego, co_combo);

@@ -1,14 +1,41 @@
 use core::slice;
-use std::{intrinsics::simd, mem::offset_of, num::NonZeroU8, ptr::copy_nonoverlapping, simd::{Mask, Simd, cmp::{SimdPartialEq as _, SimdPartialOrd as _}, num::{SimdInt as _, SimdUint}, ptr::{SimdConstPtr as _, SimdMutPtr}}};
+use std::{
+    intrinsics::simd,
+    mem::offset_of,
+    num::NonZeroU8,
+    ptr::copy_nonoverlapping,
+    simd::{
+        Mask, Simd,
+        cmp::{SimdPartialEq as _, SimdPartialOrd as _},
+        num::{SimdInt as _, SimdUint},
+        ptr::{SimdConstPtr as _, SimdMutPtr},
+    },
+};
 
 use crate::{
-    CornerOrient, CubeMove, Tables, cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry}, kociemba::{
-        coords::{CornerOrientRawCoord, CornerPermSymCoord, EdgeGroupOrientSymCoord}, partial_reprs::edge_positions::{
+    CornerOrient, CubeMove, Tables,
+    cube_ops::{cube_prev_axis::CubePreviousAxis, cube_sym::DominoSymmetry},
+    kociemba::{
+        coords::{CornerOrientRawCoord, CornerPermSymCoord, EdgeGroupOrientSymCoord},
+        partial_reprs::edge_positions::{
             DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions,
-        }, search::phase_1_node::Phase1Node, tables::{
-            lookup_sym_corner_orient::{CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable}, move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient::MoveRawCornerOrientTable, move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable, move_sym_corner_orient::MoveSymCornerOrientTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable, prune_phase_1::PrunePhase1Table, prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table
         },
-    }, simd_utils::{combine, gather16, lut_u8x16x2, lut_u16x16x3, mask_to_backpointers}
+        search::phase_1_node::Phase1Node,
+        tables::{
+            lookup_sym_corner_orient::{
+                CornerOrientComboCoord, CornerOrientSymCoord, LookupSymCornerOrientTable,
+            },
+            move_edge_positions::MoveEdgePositionsTable,
+            move_raw_corner_orient::MoveRawCornerOrientTable,
+            move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable,
+            move_sym_corner_orient::MoveSymCornerOrientTable,
+            move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable,
+            move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable,
+            prune_phase_1::PrunePhase1Table,
+            prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table,
+        },
+    },
+    simd_utils::{combine, gather16, lut_u8x16x2, lut_u16x16x3, mask_to_backpointers},
 };
 
 #[repr(C)]
@@ -35,7 +62,12 @@ pub struct SplitPhase1NodeAStackStruct {
 }
 
 impl SplitPhase1NodeAStackStruct {
-    pub fn new(cap: u16, start: SplitPhase1NodeA, r1: SplitPhase1NodeA, r2: SplitPhase1NodeB) -> Self {
+    pub fn new(
+        cap: u16,
+        start: SplitPhase1NodeA,
+        r1: SplitPhase1NodeA,
+        r2: SplitPhase1NodeB,
+    ) -> Self {
         let mut buffer = Box::<[SoATemplatePhase1NodeA]>::new_zeroed_slice(cap as usize);
 
         let bytes = buffer.as_mut_ptr().cast::<u8>();
@@ -49,10 +81,10 @@ impl SplitPhase1NodeAStackStruct {
             core::mem::offset_of!(SoATemplatePhase1NodeA, phase_1_dists),
             core::mem::offset_of!(SoATemplatePhase1NodeA, previous_axes),
             core::mem::offset_of!(SoATemplatePhase1NodeA, back_pointers),
-        ]).cast() * Simd::splat(cap);
-        let sizes_as_shifts = Simd::from_array([
-            1, 1, 0, 0, 0, 0, 0, 0
-        ]);
+        ])
+        .cast()
+            * Simd::splat(cap);
+        let sizes_as_shifts = Simd::from_array([1, 1, 0, 0, 0, 0, 0, 0]);
 
         let base_addresses: Simd<*mut u8, 8> = Simd::splat(bytes);
         let ptrs = base_addresses.wrapping_add(offsets.cast()).to_array();
@@ -76,35 +108,37 @@ impl SplitPhase1NodeAStackStruct {
         }
     }
 
-// #[inline(always)]
-//     pub fn get_slice_for_expansion(&mut self, index: usize) -> SplitPhase1NodeABufs<'_> {
-//         debug_assert!(index + 15 < self.buffer.len());
-//         let base_addr = self.buffer.as_mut_ptr();
+    // #[inline(always)]
+    //     pub fn get_slice_for_expansion(&mut self, index: usize) -> SplitPhase1NodeABufs<'_> {
+    //         debug_assert!(index + 15 < self.buffer.len());
+    //         let base_addr = self.buffer.as_mut_ptr();
 
-//         let base_addresses: Simd<*mut u8, 8> = Simd::splat(base_addr.cast());
-//         let ptrs = base_addresses.wrapping_add((self.offsets + (Simd::splat(index) << self.sizes_as_shifts)).cast()).to_array();
+    //         let base_addresses: Simd<*mut u8, 8> = Simd::splat(base_addr.cast());
+    //         let ptrs = base_addresses.wrapping_add((self.offsets + (Simd::splat(index) << self.sizes_as_shifts)).cast()).to_array();
 
-//         unsafe {
-//             SplitPhase1NodeABufs {
-//                 edge_group_orient_sym: &mut *(ptrs[0] as *mut [EdgeGroupOrientSymCoord; 16]),
-//                 corner_perm_sym: &mut *(ptrs[1] as *mut [CornerPermSymCoord; 16]),
-//                 combined_sym_correct: &mut *(ptrs[2] as *mut [u8; 16]),
-//                 corner_orient_sym: &mut *(ptrs[3] as *mut [CornerOrientSymCoord; 16]),
-//                 corner_orient_correct: &mut *(ptrs[4] as *mut [DominoSymmetry; 16]),
-//                 phase_1_dists: &mut *(ptrs[5] as *mut [u8; 16]),
-//                 previous_axes: &mut *(ptrs[6] as *mut [CubePreviousAxis; 16]),
-//                 back_pointers: &mut *(ptrs[7] as *mut [u8; 16]),
-//             }
-//         }
-//     }
+    //         unsafe {
+    //             SplitPhase1NodeABufs {
+    //                 edge_group_orient_sym: &mut *(ptrs[0] as *mut [EdgeGroupOrientSymCoord; 16]),
+    //                 corner_perm_sym: &mut *(ptrs[1] as *mut [CornerPermSymCoord; 16]),
+    //                 combined_sym_correct: &mut *(ptrs[2] as *mut [u8; 16]),
+    //                 corner_orient_sym: &mut *(ptrs[3] as *mut [CornerOrientSymCoord; 16]),
+    //                 corner_orient_correct: &mut *(ptrs[4] as *mut [DominoSymmetry; 16]),
+    //                 phase_1_dists: &mut *(ptrs[5] as *mut [u8; 16]),
+    //                 previous_axes: &mut *(ptrs[6] as *mut [CubePreviousAxis; 16]),
+    //                 back_pointers: &mut *(ptrs[7] as *mut [u8; 16]),
+    //             }
+    //         }
+    //     }
 
-#[inline(always)]
+    #[inline(always)]
     pub fn get_aaa(&self, i: u16) -> SplitPhase1NodeA {
         debug_assert!((i as usize) < self.buffer.len());
         let base_addr = self.buffer.as_ptr();
 
         let base_addresses: Simd<*const u8, 8> = Simd::splat(base_addr.cast());
-        let ptrs = base_addresses.wrapping_add((self.offsets + (Simd::splat(i) << self.sizes_as_shifts)).cast()).to_array();
+        let ptrs = base_addresses
+            .wrapping_add((self.offsets + (Simd::splat(i) << self.sizes_as_shifts)).cast())
+            .to_array();
 
         unsafe {
             let edge_group_orient_sym = *(ptrs[0] as *mut EdgeGroupOrientSymCoord);
@@ -131,20 +165,26 @@ impl SplitPhase1NodeAStackStruct {
     #[inline(always)]
     pub fn pop_unchecked_aaa(&mut self) {
         let back_pointer_offset = self.offsets[7] + self.len.wrapping_sub(1);
-        let back_pointer = unsafe { *self.buffer.as_ptr().cast::<u8>().add(back_pointer_offset as usize) };
+        let back_pointer = unsafe {
+            *self
+                .buffer
+                .as_ptr()
+                .cast::<u8>()
+                .add(back_pointer_offset as usize)
+        };
         self.len -= back_pointer as u16;
     }
 
     #[inline(always)]
-    pub fn soa_produce_next_nodes(
-        &mut self,
-        moves_remaining: NonZeroU8,
-        tables: &Tables
-    ) -> u16 {
+    pub fn soa_produce_next_nodes(&mut self, moves_remaining: NonZeroU8, tables: &Tables) -> u16 {
         let base_addr = self.buffer.as_mut_ptr();
 
         let base_addresses: Simd<*mut u8, 8> = Simd::splat(base_addr.cast());
-        let ptrs = base_addresses.wrapping_add((self.offsets + (Simd::splat(self.len - 1) << self.sizes_as_shifts)).cast()).to_array();
+        let ptrs = base_addresses
+            .wrapping_add(
+                (self.offsets + (Simd::splat(self.len - 1) << self.sizes_as_shifts)).cast(),
+            )
+            .to_array();
 
         let (
             edge_group_orient_sym,
@@ -204,10 +244,7 @@ impl SplitPhase1NodeAStackStruct {
         let ego_j = lut_u8x16x2(&ego_row.as_u8_arrays()[1], &ego_i.to_array());
         let cp_j = lut_u8x16x2(&cp_row.as_u8_arrays()[1], &cp_i.to_array());
         let co_j = lut_u8x16x2(&co_row.as_u8_arrays()[1], &co_i.to_array());
-        let axis_n = lut_u8x16x2(
-            axis_after_table(previous_axis, moves_remaining),
-            mv,
-        );
+        let axis_n = lut_u8x16x2(axis_after_table(previous_axis, moves_remaining), mv);
 
         let cmb_syms = {
             let a = Simd::splat(combined_sym_correct);
@@ -223,8 +260,8 @@ impl SplitPhase1NodeAStackStruct {
 
         let ego_syms = cmb_syms >> 4;
         let ego_syms_inv = DominoSymmetry::bitwise_invert_simd(ego_syms);
-        let co_lookup = (DominoSymmetry::bitwise_then_simd(ego_syms_inv, co_syms))
-            & Simd::splat(0x0F);
+        let co_lookup =
+            (DominoSymmetry::bitwise_then_simd(ego_syms_inv, co_syms)) & Simd::splat(0x0F);
         let co_lookup_lo = ego_syms ^ co_syms;
 
         let ego_c_simd = Simd::from_array(ego_c);
@@ -253,7 +290,9 @@ impl SplitPhase1NodeAStackStruct {
             let reduced_ok = (m == 1) || (m > 7);
 
             let valid = le_limit & (!reduced | Mask::splat(reduced_ok));
-            let num_moves_mask = Simd::from_array([0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]).simd_lt(Simd::splat(num_moves as u8));
+            let num_moves_mask =
+                Simd::from_array([0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+                    .simd_lt(Simd::splat(num_moves as u8));
 
             valid & num_moves_mask
         };
@@ -261,9 +300,11 @@ impl SplitPhase1NodeAStackStruct {
         let num_moves = 16 - (valid.to_bitmask() as u16).leading_zeros() as usize;
 
         unsafe {
-            let preheat_ego_row = ego_mv_tbl.row(EdgeGroupOrientSymCoord(*ego_c.get_unchecked(num_moves)));
+            let preheat_ego_row =
+                ego_mv_tbl.row(EdgeGroupOrientSymCoord(*ego_c.get_unchecked(num_moves)));
             let preheat_cp_row = cp_mv_tbl.row(CornerPermSymCoord(*cp_c.get_unchecked(num_moves)));
-            let preheat_co_row = co_mv_tbl.row(CornerOrientSymCoord(*co_c.get_unchecked(num_moves)));
+            let preheat_co_row =
+                co_mv_tbl.row(CornerOrientSymCoord(*co_c.get_unchecked(num_moves)));
             core::intrinsics::prefetch_read_data::<_, 3>(preheat_ego_row as *const _);
             core::intrinsics::prefetch_read_data::<_, 3>(preheat_cp_row as *const _);
             core::intrinsics::prefetch_read_data::<_, 3>(preheat_co_row as *const _);
@@ -273,14 +314,40 @@ impl SplitPhase1NodeAStackStruct {
         let cmb_syms_arr = cmb_syms.to_array();
 
         unsafe {
-            ptrs[0].cast::<u16>().wrapping_add(1).cast::<[u16; 16]>().write_unaligned(ego_c);
-            ptrs[1].cast::<u16>().wrapping_add(1).cast::<[u16; 16]>().write_unaligned(cp_c);
-            ptrs[2].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(cmb_syms_arr);
-            ptrs[3].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(co_c);
-            ptrs[4].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(co_syms.to_array());
-            ptrs[5].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(new_dists.to_array());
-            ptrs[6].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(new_prev_axis.to_array());
-            ptrs[7].wrapping_add(1).cast::<[u8; 16]>().write_unaligned(back_pointers.to_array());
+            ptrs[0]
+                .cast::<u16>()
+                .wrapping_add(1)
+                .cast::<[u16; 16]>()
+                .write_unaligned(ego_c);
+            ptrs[1]
+                .cast::<u16>()
+                .wrapping_add(1)
+                .cast::<[u16; 16]>()
+                .write_unaligned(cp_c);
+            ptrs[2]
+                .wrapping_add(1)
+                .cast::<[u8; 16]>()
+                .write_unaligned(cmb_syms_arr);
+            ptrs[3]
+                .wrapping_add(1)
+                .cast::<[u8; 16]>()
+                .write_unaligned(co_c);
+            ptrs[4]
+                .wrapping_add(1)
+                .cast::<[u8; 16]>()
+                .write_unaligned(co_syms.to_array());
+            ptrs[5]
+                .wrapping_add(1)
+                .cast::<[u8; 16]>()
+                .write_unaligned(new_dists.to_array());
+            ptrs[6]
+                .wrapping_add(1)
+                .cast::<[u8; 16]>()
+                .write_unaligned(new_prev_axis.to_array());
+            ptrs[7]
+                .wrapping_add(1)
+                .cast::<[u8; 16]>()
+                .write_unaligned(back_pointers.to_array());
         }
         num_moves as u16
     }
@@ -291,13 +358,13 @@ struct SoATemplatePhase1NodeA {
     edge_group_orient_sym: EdgeGroupOrientSymCoord,
     /// ego_hi, cp_lo
     combined_sym_correct: u8,
-    
+
     corner_orient_sym: CornerOrientSymCoord,
     corner_orient_correct: DominoSymmetry,
-    
+
     phase_1_dists: u8,
-    
-    // 
+
+    //
     corner_perm_sym: CornerPermSymCoord,
     previous_axes: CubePreviousAxis,
     back_pointers: u8,
@@ -311,13 +378,11 @@ struct SoATemplatePhase1NodeA {
 
 //     corner_orient_sym: &'a mut [CornerOrientSymCoord; 16],
 //     corner_orient_correct: &'a mut [DominoSymmetry; 16],
-    
+
 //     phase_1_dists: &'a mut [u8; 16],
 //     previous_axes: &'a mut [CubePreviousAxis; 16],
 //     back_pointers: &'a mut [u8; 16],
 // }
-
-
 
 const SPLIT_A_ZERO: SplitPhase1NodeA = SplitPhase1NodeA {
     edge_group_orient_sym: EdgeGroupOrientSymCoord(0),
@@ -343,7 +408,7 @@ pub struct Phase1FrameMetadata<I> {
 }
 
 #[inline(always)]
-pub fn split(node: Phase1Node ,tables: &Tables) -> (SplitPhase1NodeA, SplitPhase1NodeB) {
+pub fn split(node: Phase1Node, tables: &Tables) -> (SplitPhase1NodeA, SplitPhase1NodeB) {
     let dist = node.distance_heuristic(tables);
     let Phase1Node {
         edge_group_orient_sym,
@@ -375,7 +440,7 @@ pub fn split(node: Phase1Node ,tables: &Tables) -> (SplitPhase1NodeA, SplitPhase
 }
 
 #[inline(always)]
-pub fn merge(a: SplitPhase1NodeA, b: SplitPhase1NodeB ,tables: &Tables) -> Phase1Node {
+pub fn merge(a: SplitPhase1NodeA, b: SplitPhase1NodeB, tables: &Tables) -> Phase1Node {
     let SplitPhase1NodeA {
         edge_group_orient_sym,
         corner_perm_sym,
@@ -504,7 +569,6 @@ impl SplitPhase1NodeA {
     }
 }
 
-
 impl SplitPhase1NodeB {
     /// Places the children from the first item in the array into the remainder of the array in place.
     /// returns the number of new children (which must be placed in the front), and the children's max possible distance.
@@ -558,8 +622,6 @@ mod test {
 
     use std::num::NonZeroU8;
     extern crate test;
-
-
 
     #[bench]
     fn phase_1_next_b(bench: &mut test::Bencher) {

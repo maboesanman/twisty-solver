@@ -46,6 +46,18 @@ impl CubePreviousAxis {
         }
     }
 
+    pub const fn from_first_move(mv: CubeMove) -> Self {
+        match mv as u8 / 3 {
+            0 => Self::U,
+            1 => Self::D,
+            2 => Self::F,
+            3 => Self::B,
+            4 => Self::R,
+            5 => Self::L,
+            _ => unreachable!(),
+        }
+    }
+
     pub const fn update_with_new_domino_move(self, mv: DominoMove) -> Self {
         let x = match mv {
             DominoMove::U1 => 0,

@@ -5,7 +5,8 @@ use memmap2::Mmap;
 use rayon::prelude::*;
 
 use crate::{
-    cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry}, kociemba::{
+    cube_ops::{cube_move::CubeMove, cube_sym::DominoSymmetry},
+    kociemba::{
         partial_reprs::edge_positions::{
             DEdgePositions, EEdgePositions, EdgePositions, UEdgePositions, split_edge_positions,
         },
@@ -84,10 +85,13 @@ impl MoveEdgePositionsTable {
                     row[mv.into_index()] = new_u_coord.into_inner();
                 }
 
-                let syms: Vec<u16> = DominoSymmetry::all_iter().map(|sym| {
-                    let (new_u_coord, _, _) = split_edge_positions(edge_perm.domino_conjugate(sym));
-                    new_u_coord.0.0
-                }).collect();
+                let syms: Vec<u16> = DominoSymmetry::all_iter()
+                    .map(|sym| {
+                        let (new_u_coord, _, _) =
+                            split_edge_positions(edge_perm.domino_conjugate(sym));
+                        new_u_coord.0.0
+                    })
+                    .collect();
 
                 pack(row.as_mut_array().unwrap(), *syms.as_array().unwrap());
             });
@@ -139,15 +143,15 @@ fn pack_half(out: &mut [u16; 7], arr: [u16; 8]) {
 mod test {
     use std::io::Write;
 
-use crate::kociemba::partial_reprs::edge_positions::combine_edge_positions;
+    use crate::kociemba::partial_reprs::edge_positions::combine_edge_positions;
     use crate::kociemba::tables::Tables;
     use crate::{EdgePerm, Permutation};
 
     use super::*;
 
     use itertools::Itertools as _;
-use rand::distr::StandardUniform;
-use rand::rngs::StdRng;
+    use rand::distr::StandardUniform;
+    use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
 
     #[test]
@@ -198,13 +202,17 @@ use rand::rngs::StdRng;
             let d_row = table.row(d_coord.0);
             let e_row = table.row(e_coord.0);
 
-            let moved_by_table = DominoSymmetry::all_iter().map(|s| {
-                let u = UEdgePositions(EdgePositions(d_row.get_conj(s)));
-                let d = DEdgePositions(EdgePositions(u_row.get_conj(s)));
-                let e = EEdgePositions(EdgePositions(e_row.get_conj(s)));
-                combine_edge_positions(u, d, e)
-            }).collect_vec();
-            let moved_by_perm = DominoSymmetry::all_iter().map(|s| perm.domino_conjugate(s)).collect_vec();
+            let moved_by_table = DominoSymmetry::all_iter()
+                .map(|s| {
+                    let u = UEdgePositions(EdgePositions(d_row.get_conj(s)));
+                    let d = DEdgePositions(EdgePositions(u_row.get_conj(s)));
+                    let e = EEdgePositions(EdgePositions(e_row.get_conj(s)));
+                    combine_edge_positions(u, d, e)
+                })
+                .collect_vec();
+            let moved_by_perm = DominoSymmetry::all_iter()
+                .map(|s| perm.domino_conjugate(s))
+                .collect_vec();
 
             assert_eq!(moved_by_table, moved_by_perm);
         });
@@ -227,4 +235,3 @@ use rand::rngs::StdRng;
         }
     }
 }
-

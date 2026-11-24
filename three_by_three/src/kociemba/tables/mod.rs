@@ -6,27 +6,39 @@ use memmap2::Mmap;
 use move_raw_corner_orient::MoveRawCornerOrientTable;
 use move_sym_edge_group_orient::MoveSymEdgeGroupOrientTable;
 
-use crate::kociemba::{coords::CornerPermSymCoord, tables::{
-    lookup_sym_corner_orient::LookupSymCornerOrientTable, move_edge_positions::MoveEdgePositionsTable, move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable, move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable, move_sym_corner_orient::MoveSymCornerOrientTable, move_sym_corner_perm::MoveSymCornerPermTable, move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable, prune_phase_1::PrunePhase1Table, prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table, prune_phase_2::PrunePhase2Table
-}};
+use crate::kociemba::{
+    coords::CornerPermSymCoord,
+    tables::{
+        lookup_sym_corner_orient::LookupSymCornerOrientTable,
+        move_edge_positions::MoveEdgePositionsTable,
+        move_raw_corner_orient_trits::MoveRawCornerOrientTritsTable,
+        move_raw_e_edge_perm::MoveRawEEdgePermTable, move_raw_ud_edge_perm::MoveRawUDEdgePermTable,
+        move_sym_corner_orient::MoveSymCornerOrientTable,
+        move_sym_corner_perm::MoveSymCornerPermTable,
+        move_sym_corner_perm_augmented::MoveSymCornerPermAugmentedTable,
+        prune_phase_1::PrunePhase1Table,
+        prune_phase_1_double_sym_mod_3::PrunePhase1DoubleSymMod3Table,
+        prune_phase_2::PrunePhase2Table,
+    },
+};
 
+pub mod lookup_sym_corner_orient;
 pub mod lookup_sym_corner_perm;
 pub mod lookup_sym_edge_group_orient;
-pub mod lookup_sym_corner_orient;
 
 pub mod move_edge_positions;
 pub mod move_raw_corner_orient;
+pub mod move_raw_corner_orient_trits;
 pub mod move_raw_e_edge_perm;
 pub mod move_raw_ud_edge_perm;
-pub mod move_sym_corner_perm;
 pub mod move_sym_corner_orient;
+pub mod move_sym_corner_perm;
 pub mod move_sym_corner_perm_augmented;
 pub mod move_sym_edge_group_orient;
-pub mod move_raw_corner_orient_trits;
 
 pub mod prune_phase_1;
-pub mod prune_phase_2;
 pub mod prune_phase_1_double_sym_mod_3;
+pub mod prune_phase_2;
 
 // pub mod permuted_coordinates;
 
@@ -140,8 +152,9 @@ impl MovesPreTables {
 
         let move_raw_corner_orient =
             MoveRawCornerOrientTable::load(folder.join(MOVE_RAW_CORNER_ORIENT_TABLE_NAME))?;
-        let move_raw_corner_orient_trits =
-            MoveRawCornerOrientTritsTable::load(folder.join(MOVE_RAW_CORNER_ORIENT_TRITS_TABLE_NAME))?;
+        let move_raw_corner_orient_trits = MoveRawCornerOrientTritsTable::load(
+            folder.join(MOVE_RAW_CORNER_ORIENT_TRITS_TABLE_NAME),
+        )?;
         let lookup_sym_edge_group_orient = LookupSymEdgeGroupOrientTable::load(
             folder.join(LOOKUP_SYM_EDGE_GROUP_ORIENT_TABLE_NAME),
         )?;
@@ -156,12 +169,13 @@ impl MovesPreTables {
             MoveSymCornerPermTable::load(folder.join(MOVE_SYM_CORNER_PERM_TABLE_NAME), unsafe {
                 LookupSymCornerPermTable::from_buffer(&lookup_sym_corner_perm)
             })?;
-        
-        let lookup_sym_corner_orient = LookupSymCornerOrientTable::load(folder.join(LOOKUP_SYM_CORNER_ORIENT_TABLE_NAME))?;
-        let move_sym_corner_orient =
-            MoveSymCornerOrientTable::load(folder.join(MOVE_SYM_CORNER_ORIENT_TABLE_NAME), unsafe {
-                LookupSymCornerOrientTable::from_buffer(&lookup_sym_corner_orient)
-            })?;
+
+        let lookup_sym_corner_orient =
+            LookupSymCornerOrientTable::load(folder.join(LOOKUP_SYM_CORNER_ORIENT_TABLE_NAME))?;
+        let move_sym_corner_orient = MoveSymCornerOrientTable::load(
+            folder.join(MOVE_SYM_CORNER_ORIENT_TABLE_NAME),
+            unsafe { LookupSymCornerOrientTable::from_buffer(&lookup_sym_corner_orient) },
+        )?;
 
         let move_edge_position =
             MoveEdgePositionsTable::load(folder.join(MOVE_EDGE_POSITION_TABLE_NAME))?;
@@ -228,7 +242,10 @@ impl Tables {
             prune_pre_tables.as_ref(),
         )?;
 
-        let prune_phase_1_double_sym_mod_3 = PrunePhase1DoubleSymMod3Table::load(folder.join(PRUNE_PHASE_1_DOUBLE_SYM_MOD_3_TABLE_NAME), &prune_pre_tables)?;
+        let prune_phase_1_double_sym_mod_3 = PrunePhase1DoubleSymMod3Table::load(
+            folder.join(PRUNE_PHASE_1_DOUBLE_SYM_MOD_3_TABLE_NAME),
+            &prune_pre_tables,
+        )?;
 
         Ok(Self {
             prune_pre_tables,
